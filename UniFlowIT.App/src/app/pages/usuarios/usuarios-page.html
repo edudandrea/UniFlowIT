@@ -1,0 +1,74 @@
+<section class="tenant-panel panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Cadastro</p>
+      <h2>Usuarios por empresa</h2>
+    </div>
+    <span class="badge info">Vinculo tenant</span>
+  </div>
+
+  <div class="search-toolbar compact-toolbar">
+    <p>Gerencie os acessos vinculados as empresas contratantes.</p>
+    <button class="primary" type="button" (click)="novoUsuarioClick.emit()">Novo usuario</button>
+  </div>
+
+  <div class="result-list users-list">
+    <div class="result-header">
+      <span>Usuario</span>
+      <span>Empresa</span>
+      <span>Perfil</span>
+      <span>Status</span>
+    </div>
+    @for (usuario of usuarios; track usuario.email) {
+      <article class="result-row">
+        <span>
+          <strong>{{ usuario.nome }}</strong>
+          <small>{{ usuario.email }}</small>
+        </span>
+        <span>{{ usuario.empresaNome }}</span>
+        <span>{{ usuario.role }}</span>
+        <span class="status-pill" [class.inactive]="!usuario.ativo">{{ usuario.ativo ? 'Ativo' : 'Inativo' }}</span>
+      </article>
+    }
+  </div>
+</section>
+
+@if (usuarioModalAberto) {
+  <div class="modal-backdrop" (click)="fecharModalClick.emit()"></div>
+  <section class="modal-panel" role="dialog" aria-modal="true" aria-label="Cadastro de usuario">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Cadastro</p>
+        <h2>Novo usuario</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModalClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <form class="modal-form user-modal-form" (ngSubmit)="salvarUsuarioSubmit.emit()">
+      <label>
+        <span>Empresa contratante</span>
+        <select name="usuarioEmpresaModal" [(ngModel)]="novoUsuario.empresaId" [disabled]="travarEmpresa" required>
+          @for (empresa of empresas; track empresa.tenantSlug) {
+            <option [ngValue]="empresa.id">{{ empresa.nomeFantasia || empresa.razaoSocial }}</option>
+          }
+        </select>
+      </label>
+      <label><span>Nome</span><input name="usuarioNomeModal" [(ngModel)]="novoUsuario.nome" required /></label>
+      <label><span>E-mail</span><input name="usuarioEmailModal" type="email" [(ngModel)]="novoUsuario.email" required /></label>
+      <label>
+        <span>Perfil</span>
+        <select name="usuarioPerfilModal" [(ngModel)]="novoUsuario.role">
+          <option>Usuario</option>
+          <option>Atendente</option>
+          <option>Administrador</option>
+        </select>
+      </label>
+      <label><span>Senha inicial</span><input name="usuarioSenhaModal" type="password" [(ngModel)]="novoUsuario.senha" required /></label>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="fecharModalClick.emit()">Cancelar</button>
+        <button type="submit" class="primary">Criar usuario</button>
+      </footer>
+    </form>
+  </section>
+}

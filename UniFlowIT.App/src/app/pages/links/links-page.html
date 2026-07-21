@@ -1,0 +1,28 @@
+<section class="panel links-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Disponibilidade</p>
+      <h2>Monitoramento de links</h2>
+    </div>
+    <span class="badge info">Abre chamado urgente automaticamente</span>
+  </div>
+
+  <div class="link-grid">
+    @for (link of links; track link.nome) {
+      <article class="link-card" [class.down]="!link.disponivel">
+        <div>
+          <strong>{{ link.nome }}</strong>
+          <small>{{ link.firewall }} - {{ link.endereco }} - {{ link.intervalo }}s</small>
+        </div>
+        <span>{{ link.disponivel ? 'Disponivel' : 'Indisponivel' }}</span>
+        @if (link.chamado) {
+          <small>Chamado: {{ link.chamado }}</small>
+        }
+        <button type="button" (click)="alternarLinkClick.emit(link)">
+          {{ link.disponivel ? 'Simular queda' : 'Marcar disponivel' }}
+        </button>
+      </article>
+    }
+  </div>
+</section>
+

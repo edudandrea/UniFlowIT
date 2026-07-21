@@ -1,0 +1,82 @@
+<section class="tenant-panel panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Cadastro</p>
+      <h2>Categorias de chamados</h2>
+    </div>
+    <span class="badge info">Administrador da empresa</span>
+  </div>
+
+  <div class="search-toolbar compact-toolbar">
+    <p>Defina as categorias e subcategorias usadas na abertura de chamados da empresa.</p>
+    <button class="primary" type="button" (click)="novaCategoriaClick.emit()">Nova categoria</button>
+  </div>
+
+  <div class="result-list categories-list">
+    <div class="result-header">
+      <span>Categoria</span>
+      <span>Subcategorias</span>
+      <span>Prioridade padrao</span>
+      <span>Status</span>
+    </div>
+
+    @for (categoria of categorias; track categoria.id ?? categoria.nome) {
+      <button type="button" class="result-row" (click)="editarCategoriaClick.emit(categoria)">
+        <span><strong>{{ categoria.nome }}</strong></span>
+        <span>{{ categoria.subcategorias.join(', ') || 'Sem subcategoria' }}</span>
+        <span class="status-pill" [class.blocked]="categoria.prioridadePadrao === 'Alta' || categoria.prioridadePadrao === 'Urgente'">{{ categoria.prioridadePadrao }}</span>
+        <span class="status-pill" [class.inactive]="!categoria.ativo">{{ categoria.ativo ? 'Ativa' : 'Inativa' }}</span>
+      </button>
+    } @empty {
+      <p class="empty-state">Nenhuma categoria cadastrada para esta empresa.</p>
+    }
+  </div>
+</section>
+
+@if (categoriaModalAberto) {
+  <div class="modal-backdrop" (click)="fecharModalClick.emit()"></div>
+  <section class="modal-panel" role="dialog" aria-modal="true" aria-label="Cadastro de categoria">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Cadastro</p>
+        <h2>{{ categoriaForm.id ? 'Editar categoria' : 'Nova categoria' }}</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModalClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <form class="modal-form user-modal-form" (ngSubmit)="salvarCategoriaSubmit.emit()">
+      <label>
+        <span>Nome da categoria</span>
+        <input name="categoriaNome" [(ngModel)]="categoriaForm.nome" required />
+      </label>
+
+      <label>
+        <span>Prioridade padrao</span>
+        <select name="categoriaPrioridade" [(ngModel)]="categoriaForm.prioridadePadrao">
+          <option>Baixa</option>
+          <option>Media</option>
+          <option>Alta</option>
+          <option>Urgente</option>
+        </select>
+      </label>
+
+      <label class="full">
+        <span>Subcategorias</span>
+        <input name="categoriaSubcategorias" [(ngModel)]="categoriaForm.subcategoriasTexto" placeholder="E-mail, Sistema interno, VPN" />
+      </label>
+
+      <label>
+        <span>Status</span>
+        <select name="categoriaAtiva" [(ngModel)]="categoriaForm.ativo">
+          <option [ngValue]="true">Ativa</option>
+          <option [ngValue]="false">Inativa</option>
+        </select>
+      </label>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="fecharModalClick.emit()">Cancelar</button>
+        <button type="submit" class="primary">Salvar categoria</button>
+      </footer>
+    </form>
+  </section>
+}

@@ -1,0 +1,290 @@
+<section class="metrics" aria-label="Resumo de chamados">
+  <article>
+    <span>{{ metricas.abertos }}</span>
+    <small>Abertos</small>
+  </article>
+  <article>
+    <span>{{ metricas.atendimento }}</span>
+    <small>Em atendimento</small>
+  </article>
+  <article>
+    <span>{{ metricas.urgentes }}</span>
+    <small>Urgentes</small>
+  </article>
+  <article>
+    <span>{{ chamadosVisiveis.length }}</span>
+    <small>Visiveis para voce</small>
+  </article>
+</section>
+
+<section id="chamados" class="panel tickets-workspace">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">{{ perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
+      <h2>{{ perfil === 'Usuario' ? 'Meus chamados abertos' : 'Painel de chamados' }}</h2>
+    </div>
+    <button type="button" class="primary" (click)="abrirModalNovoChamado()">Novo chamado</button>
+  </div>
+
+  <div class="result-list tickets-list">
+    <div class="result-header">
+      <span>Chamado</span>
+      <span>Solicitante</span>
+      <span>Categoria</span>
+      <span>Prioridade</span>
+      <span>Status</span>
+      <span>Atendente</span>
+    </div>
+
+    @for (chamado of chamadosVisiveis; track chamado.id) {
+      <button type="button" class="result-row ticket-list-row" [class.selected]="chamadoSelecionado.id === chamado.id" (click)="abrirDetalheChamado(chamado)">
+        <span>
+          <strong>{{ chamado.numero }}</strong>
+          <small>{{ chamado.titulo || chamado.tipo }}</small>
+        </span>
+        <span>{{ chamado.solicitante }}</span>
+        <span>
+          <strong>{{ chamado.categoria }}</strong>
+          <small>{{ chamado.subcategoria }}</small>
+        </span>
+        <span
+          class="status-pill priority-status"
+          [class.low]="chamado.prioridade === 'Baixa'"
+          [class.medium]="chamado.prioridade === 'Media'"
+          [class.high]="chamado.prioridade === 'Alta'"
+          [class.urgent]="chamado.prioridade === 'Urgente'"
+        >
+          {{ chamado.prioridade }}
+        </span>
+        <span class="status" [class.urgent]="chamado.prioridade === 'Urgente'">{{ chamado.status }}</span>
+        <span>{{ chamado.atendente || 'Sem proprietario' }}</span>
+      </button>
+    } @empty {
+      <p class="empty-state">Nenhum chamado aberto encontrado para este perfil.</p>
+    }
+  </div>
+</section>
+
+@if (novoChamadoModalAberto) {
+  <div class="modal-backdrop" (click)="fecharModalNovoChamado()"></div>
+  <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Abertura de chamado">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Novo chamado</p>
+        <h2>Abrir chamado</h2>
+      </div>
+      <div class="modal-header-actions">
+        <button
+          type="button"
+          class="priority-pill"
+          [class.low]="novoChamado.prioridade === 'Baixa'"
+          [class.medium]="novoChamado.prioridade === 'Media'"
+          [class.high]="novoChamado.prioridade === 'Alta'"
+          [class.urgent]="novoChamado.prioridade === 'Urgente'"
+          (click)="alternarPrioridade()"
+        >
+          Prioridade: {{ novoChamado.prioridade }}
+        </button>
+        <button class="icon-button" type="button" aria-label="Fechar" (click)="fecharModalNovoChamado()">x</button>
+      </div>
+    </header>
+
+    <form (ngSubmit)="salvarNovoChamado()" class="modal-form ticket-form">
+      <label class="full">
+        <span>Titulo</span>
+        <input name="titulo" [(ngModel)]="novoChamado.titulo" required />
+      </label>
+
+      <label>
+        <span>Solicitante</span>
+        <input name="solicitante" [(ngModel)]="novoChamado.solicitante" required />
+      </label>
+
+      <label>
+        <span>Categoria</span>
+        <select name="categoria" [ngModel]="novoChamado.categoria" (ngModelChange)="definirCategoria($event)">
+          @for (categoria of categorias; track categoria.id ?? categoria.nome) {
+            <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Subcategoria</span>
+        <select name="subcategoria" [(ngModel)]="novoChamado.subcategoria" required>
+          @for (subcategoria of subcategoriasCategoriaSelecionada(); track subcategoria) {
+            <option [ngValue]="subcategoria">{{ subcategoria }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Tipo</span>
+        <select name="tipo" [(ngModel)]="novoChamado.tipo">
+          <option>Incidente</option>
+          <option>Solicitacao</option>
+          <option>Alteracao</option>
+        </select>
+      </label>
+
+      <label class="full">
+        <span>Descrição do chamado</span>
+        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" placeholder="Descreva o problema, impacto e mensagens de erro"></textarea>
+      </label>
+
+      <div class="upload-field full">
+        <span>Anexos</span>
+        <label class="upload-control">
+          <input type="file" name="anexos" multiple (change)="selecionarAnexos($event)" />
+          <span class="upload-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 16V4m0 0 5 5m-5-5-5 5M5 20h14" />
+            </svg>
+            Upload de arquivos
+          </span>
+          <small>Prints de tela, PDFs e documentos com evidencias</small>
+        </label>
+
+        <div class="upload-files">
+          @for (anexo of nomesAnexos(); track anexo) {
+            <span>{{ anexo }}</span>
+          } @empty {
+            <small>Nenhum arquivo selecionado</small>
+          }
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" (click)="fecharModalNovoChamado()">Voltar</button>
+        <button class="primary" type="submit">Abrir chamado</button>
+      </div>
+    </form>
+  </section>
+}
+
+@if (chamadoModalAberto && chamadoSelecionado) {
+  <div class="modal-backdrop" (click)="fecharDetalheChamado()"></div>
+  <section class="modal-panel large-modal ticket-detail-modal" role="dialog" aria-modal="true" aria-label="Detalhe do chamado">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">{{ chamadoSelecionado.numero }}</p>
+        <h2>{{ chamadoSelecionado.titulo || chamadoSelecionado.categoria + ' / ' + chamadoSelecionado.subcategoria }}</h2>
+      </div>
+      <button class="icon-button" type="button" aria-label="Fechar" (click)="fecharDetalheChamado()">x</button>
+    </header>
+
+    <div class="ticket-modal-body">
+      <div class="tabs ticket-tabs">
+        <button type="button" [class.active]="abaDetalhe === 'dados'" (click)="definirAbaDetalhe('dados')">Dados</button>
+        <button type="button" [class.active]="abaDetalhe === 'comunicacao'" (click)="definirAbaDetalhe('comunicacao')">Comunicacao</button>
+        <button type="button" [class.active]="abaDetalhe === 'chat'" (click)="definirAbaDetalhe('chat')">Chat</button>
+      </div>
+
+      @if (abaDetalhe === 'dados') {
+        <div class="ticket-detail-content">
+          <div class="detail-hero">
+            <div>
+              <span class="status" [class.urgent]="chamadoSelecionado.prioridade === 'Urgente'">{{ chamadoSelecionado.status }}</span>
+              <p class="description">{{ chamadoSelecionado.descricao }}</p>
+            </div>
+            <small>{{ chamadoSelecionado.prioridade }}</small>
+          </div>
+
+          <dl class="details">
+            <div>
+              <dt>Solicitante</dt>
+              <dd>{{ chamadoSelecionado.solicitante }}</dd>
+            </div>
+            <div>
+              <dt>Tipo</dt>
+              <dd>{{ chamadoSelecionado.tipo }}</dd>
+            </div>
+            <div>
+              <dt>Atendente</dt>
+              <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
+            </div>
+            <div>
+              <dt>Equipamento</dt>
+              <dd>{{ chamadoSelecionado.equipamento }}</dd>
+            </div>
+          </dl>
+
+          <div class="attachments">
+            <strong>Anexos</strong>
+            @if (chamadoSelecionado.anexos.length) {
+              @for (anexo of chamadoSelecionado.anexos; track anexo) {
+                <span>{{ anexo }}</span>
+              }
+            } @else {
+              <small>Nenhum anexo enviado</small>
+            }
+          </div>
+
+          @if (perfil !== 'Usuario') {
+            <div class="actions">
+              @if (chamadoSelecionado.status === 'Aberto') {
+                <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Capturar</button>
+              }
+              <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
+              <button type="button" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
+              <button type="button" class="remote-button">Acesso remoto</button>
+            </div>
+          }
+
+          @if (perfil === 'Usuario' && chamadoSelecionado.status === 'Encerrado') {
+            <div class="rating">
+              <label>
+                <span>Avaliacao</span>
+                <select [(ngModel)]="avaliacaoSelecionada" name="avaliacao">
+                  <option [ngValue]="5">5 - Excelente</option>
+                  <option [ngValue]="4">4 - Bom</option>
+                  <option [ngValue]="3">3 - Regular</option>
+                  <option [ngValue]="2">2 - Ruim</option>
+                  <option [ngValue]="1">1 - Critico</option>
+                </select>
+              </label>
+              <button type="button" class="primary" (click)="avaliarChamadoClick.emit({ chamado: chamadoSelecionado, avaliacao: avaliacaoSelecionada })">Avaliar</button>
+            </div>
+          }
+        </div>
+      }
+
+      @if (abaDetalhe === 'comunicacao') {
+        <div class="communication-timeline">
+          @for (mensagem of chamadoSelecionado.mensagens; track mensagem.horario + mensagem.texto) {
+            <article>
+              <div>
+                <strong>{{ mensagem.autor }}</strong>
+                <small>{{ mensagem.perfil }} - {{ mensagem.horario }}</small>
+              </div>
+              <p>{{ mensagem.texto }}</p>
+            </article>
+          } @empty {
+            <p class="empty-state">Nenhuma comunicacao registrada para este chamado.</p>
+          }
+        </div>
+      }
+
+      @if (abaDetalhe === 'chat') {
+        <div class="chat-panel ticket-chat-panel">
+          <div class="chat whatsapp-chat">
+            @for (mensagem of chamadoSelecionado.mensagens; track mensagem.horario + mensagem.texto) {
+              <div class="message" [class.mine]="mensagem.perfil === perfil">
+                <strong>{{ mensagem.autor }}</strong>
+                <p>{{ mensagem.texto }}</p>
+                <small>{{ mensagem.horario }}</small>
+              </div>
+            } @empty {
+              <p class="empty-state">Inicie a conversa com a equipe tecnica.</p>
+            }
+          </div>
+
+          <div class="composer whatsapp-composer">
+            <input [(ngModel)]="novaMensagem" name="mensagem" placeholder="Escreva uma mensagem" (keyup.enter)="enviarMensagem()" />
+            <button type="button" class="primary" (click)="enviarMensagem()">Enviar</button>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+}

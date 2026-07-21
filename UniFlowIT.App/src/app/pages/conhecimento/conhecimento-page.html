@@ -1,0 +1,20 @@
+<section class="section-grid">
+  <div class="section-heading">
+    <p class="eyebrow">Autosservico</p>
+    <h2>Base de conhecimento</h2>
+  </div>
+
+  @for (artigo of artigos; track artigo.titulo) {
+    <article class="card">
+      <span class="badge">{{ artigo.categoria }}</span>
+      <h3>{{ artigo.titulo }}</h3>
+      <p>{{ artigo.resumo }}</p>
+      <div class="tags">
+        @for (tag of artigo.tags; track tag) {
+          <small>{{ tag }}</small>
+        }
+      </div>
+    </article>
+  }
+</section>
+

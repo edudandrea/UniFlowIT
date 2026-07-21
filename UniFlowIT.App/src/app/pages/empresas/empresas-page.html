@@ -1,0 +1,130 @@
+<section class="tenant-panel panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Cadastro</p>
+      <h2>Empresas contratantes</h2>
+    </div>
+    <span class="badge info">Administrador SaaS</span>
+  </div>
+
+  <div class="tabs">
+    <button type="button" [class.active]="empresaTab === 'pesquisa'" (click)="empresaTabChange.emit('pesquisa')">Pesquisa</button>
+    <button type="button" [class.active]="empresaTab === 'detalhes'" (click)="empresaTabChange.emit('detalhes')">Dados da empresa</button>
+  </div>
+
+  @if (empresaTab === 'pesquisa') {
+    <div class="search-toolbar">
+      <label>
+        Pesquisa
+        <input
+          name="empresaFiltro"
+          [ngModel]="empresaFiltro"
+          (ngModelChange)="empresaFiltroChange.emit($event)"
+          placeholder="Nome, CNPJ, e-mail ou telefone"
+        />
+      </label>
+      <button class="primary" type="button" (click)="novaEmpresaClick.emit()">Nova empresa</button>
+    </div>
+
+    <div class="result-list companies-list">
+      <div class="result-header">
+        <span>Empresa</span>
+        <span>CNPJ</span>
+        <span>Contato</span>
+        <span>Status</span>
+      </div>
+      @for (empresa of empresasFiltradas; track empresa.tenantSlug) {
+        <button type="button" class="result-row" (click)="empresaSelecionadaChange.emit(empresa)">
+          <span>
+            <strong>{{ empresa.nomeFantasia || empresa.razaoSocial }}</strong>
+            <small>{{ empresa.razaoSocial }}</small>
+          </span>
+          <span>{{ empresa.cnpj || 'CNPJ nao informado' }}</span>
+          <span>
+            <strong>{{ empresa.email || 'E-mail nao informado' }}</strong>
+            <small>{{ empresa.telefone || 'Telefone nao informado' }}</small>
+          </span>
+          <span class="status-pill" [class.blocked]="empresa.acessoBloqueado" [class.inactive]="!empresa.ativo && !empresa.acessoBloqueado">
+            {{ empresa.acessoBloqueado ? 'Bloqueada' : empresa.ativo ? 'Ativa' : 'Inativa' }}
+          </span>
+        </button>
+      } @empty {
+        <p class="empty-state">Nenhuma empresa encontrada.</p>
+      }
+    </div>
+  } @else {
+    <div class="detail-toolbar">
+      <button type="button" (click)="empresaTabChange.emit('pesquisa')">Voltar</button>
+      <button type="button" class="primary" (click)="editarEmpresaClick.emit()">Editar</button>
+    </div>
+
+    <section class="company-detail">
+      <div class="detail-hero">
+        <div>
+          <p class="eyebrow">Empresa selecionada</p>
+          <h3>{{ empresaSelecionada.nomeFantasia || empresaSelecionada.razaoSocial }}</h3>
+          <span class="status-pill" [class.blocked]="empresaSelecionada.acessoBloqueado" [class.inactive]="!empresaSelecionada.ativo && !empresaSelecionada.acessoBloqueado">
+            {{ empresaSelecionada.acessoBloqueado ? 'Bloqueada' : empresaSelecionada.ativo ? 'Ativa' : 'Inativa' }}
+          </span>
+        </div>
+        <small>{{ empresaSelecionada.tenantSlug }}</small>
+      </div>
+
+      <dl class="detail-list">
+        <div><dt>Razao social</dt><dd>{{ empresaSelecionada.razaoSocial }}</dd></div>
+        <div><dt>Nome fantasia</dt><dd>{{ empresaSelecionada.nomeFantasia }}</dd></div>
+        <div><dt>CNPJ</dt><dd>{{ empresaSelecionada.cnpj || '-' }}</dd></div>
+        <div><dt>Telefone</dt><dd>{{ empresaSelecionada.telefone || '-' }}</dd></div>
+        <div><dt>E-mail</dt><dd>{{ empresaSelecionada.email || '-' }}</dd></div>
+        <div><dt>Endereco</dt><dd>{{ empresaSelecionada.endereco || '-' }}, {{ empresaSelecionada.numero || 's/n' }}</dd></div>
+        <div><dt>Bairro</dt><dd>{{ empresaSelecionada.bairro || '-' }}</dd></div>
+        <div><dt>Cidade/UF</dt><dd>{{ empresaSelecionada.cidade || '-' }} / {{ empresaSelecionada.estado || '-' }}</dd></div>
+        <div><dt>CEP</dt><dd>{{ empresaSelecionada.cep || '-' }}</dd></div>
+        <div><dt>Data cadastro</dt><dd>{{ empresaSelecionada.dataCadastro }}</dd></div>
+      </dl>
+    </section>
+  }
+</section>
+
+@if (empresaModalAberto) {
+  <div class="modal-backdrop" (click)="fecharModalClick.emit()"></div>
+  <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Cadastro de empresa">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Cadastro</p>
+        <h2>{{ novaEmpresa.id ? 'Editar empresa' : 'Nova empresa' }}</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModalClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <form class="company-form modal-form" (ngSubmit)="salvarEmpresaSubmit.emit()">
+      <label><span>Razao social</span><input name="razaoSocialModal" [(ngModel)]="novaEmpresa.razaoSocial" required /></label>
+      <label><span>Nome fantasia</span><input name="nomeFantasiaModal" [(ngModel)]="novaEmpresa.nomeFantasia" required /></label>
+      <label><span>Tenant slug</span><input name="tenantSlugModal" [(ngModel)]="novaEmpresa.tenantSlug" placeholder="cliente-matriz" required /></label>
+      <label><span>CNPJ</span><input name="cnpjModal" [(ngModel)]="novaEmpresa.cnpj" /></label>
+      <label><span>Telefone</span><input name="telefoneModal" [(ngModel)]="novaEmpresa.telefone" /></label>
+      <label><span>E-mail</span><input name="empresaEmailModal" type="email" [(ngModel)]="novaEmpresa.email" /></label>
+      <label class="span-2"><span>Endereco</span><input name="enderecoModal" [(ngModel)]="novaEmpresa.endereco" /></label>
+      <label><span>Numero</span><input name="numeroModal" [(ngModel)]="novaEmpresa.numero" /></label>
+      <label><span>Complemento</span><input name="complementoModal" [(ngModel)]="novaEmpresa.complemento" /></label>
+      <label><span>Bairro</span><input name="bairroModal" [(ngModel)]="novaEmpresa.bairro" /></label>
+      <label><span>Cidade</span><input name="cidadeModal" [(ngModel)]="novaEmpresa.cidade" /></label>
+      <label><span>Estado</span><input name="estadoModal" [(ngModel)]="novaEmpresa.estado" /></label>
+      <label><span>CEP</span><input name="cepModal" [(ngModel)]="novaEmpresa.cep" /></label>
+      <label><span>Inscricao municipal</span><input name="inscricaoMunicipalModal" [(ngModel)]="novaEmpresa.inscricaoMunicipal" /></label>
+      <label><span>Inscricao estadual</span><input name="inscricaoEstadualModal" [(ngModel)]="novaEmpresa.inscricaoEstadual" /></label>
+      <label class="span-2"><span>Logo URL</span><input name="logoUrlModal" [(ngModel)]="novaEmpresa.logoUrl" /></label>
+      <label><span>Ativo</span><select name="ativoModal" [(ngModel)]="novaEmpresa.ativo"><option [ngValue]="true">Sim</option><option [ngValue]="false">Nao</option></select></label>
+      <label><span>Acesso bloqueado</span><select name="acessoBloqueadoModal" [(ngModel)]="novaEmpresa.acessoBloqueado"><option [ngValue]="false">Nao</option><option [ngValue]="true">Sim</option></select></label>
+      <label class="span-2"><span>Motivo bloqueio</span><input name="motivoBloqueioModal" [(ngModel)]="novaEmpresa.motivoBloqueio" /></label>
+      <label><span>Bloqueado em</span><input name="bloqueadoEmModal" type="datetime-local" [(ngModel)]="novaEmpresa.bloqueadoEm" /></label>
+      <label><span>Data cadastro</span><input name="dataCadastroModal" type="date" [(ngModel)]="novaEmpresa.dataCadastro" /></label>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="fecharModalClick.emit()">Cancelar</button>
+        <button type="submit" class="primary">Salvar empresa</button>
+      </footer>
+    </form>
+  </section>
+}
+

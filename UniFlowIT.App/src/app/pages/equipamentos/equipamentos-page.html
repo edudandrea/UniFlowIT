@@ -1,0 +1,40 @@
+<section class="operations-grid">
+  <div class="panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Logistica</p>
+        <h2>Controle de equipamentos</h2>
+      </div>
+    </div>
+    <div class="table">
+      @for (envio of envios; track envio.patrimonio) {
+        <div class="table-row">
+          <strong>{{ envio.patrimonio }}</strong>
+          <span>{{ envio.tipo }}</span>
+          <span>{{ envio.filialDestino }}</span>
+          <span>{{ envio.status }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Leitura do parque</p>
+        <h2>Inventario</h2>
+      </div>
+    </div>
+    <div class="table">
+      @for (item of inventario; track item.patrimonio) {
+        <div class="table-row inventory">
+          <strong>{{ item.hostname }}</strong>
+          <span>{{ item.usuario }}</span>
+          <span>{{ item.filial }}</span>
+          <span>{{ item.sistema }} - {{ item.memoria }}</span>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+

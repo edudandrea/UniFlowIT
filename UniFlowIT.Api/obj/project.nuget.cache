@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "MLz+cG4el8c=",
+  "dgSpecHash": "0DGGYfQgSm8=",
   "success": true,
-  "projectFilePath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
+  "projectFilePath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Eduardo\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Eduardo\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.9\\microsoft.aspnetcore.openapi.10.0.9.nupkg.sha512",
@@ -37,10 +37,10 @@
     {
       "code": "NU1903",
       "level": "Warning",
-      "message": "O pacote 'Microsoft.OpenApi' 2.0.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
-      "projectPath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
+      "message": "Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
+      "projectPath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
       "warningLevel": 1,
-      "filePath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
+      "filePath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
       "libraryId": "Microsoft.OpenApi",
       "targetGraphs": [
         "net10.0"

@@ -1,0 +1,95 @@
+<ngx-spinner
+  name="uniflowit"
+  type="ball-scale-multiple"
+  bdColor="rgba(2, 6, 23, 0.72)"
+  color="#06B6D4"
+  size="medium"
+  [fullScreen]="true"
+>
+  <div class="spinner-content">
+    <img src="uniflowit-logo.png" alt="UniFlowIT" />
+    <strong>Processando</strong>
+    <span>Aguarde um instante</span>
+  </div>
+</ngx-spinner>
+
+<main class="auth-shell">
+  <div class="matrix-code" aria-hidden="true">
+    <span>0101 UNI FLOW IT 1010 SLA LINK AUTH TENANT API 0011</span>
+    <span>1001 CHAMADO ONLINE MONITOR USER HASH TOKEN 0110</span>
+    <span>0010 FIREWALL INVENTARIO EMPRESA ATIVO 1101</span>
+    <span>1110 LOGIN SEGURO SUPORTE CLOUD 0100</span>
+    <span>0101 UNI FLOW IT 1010 SLA LINK AUTH TENANT API 0011</span>
+    <span>1001 CHAMADO ONLINE MONITOR USER HASH TOKEN 0110</span>
+    <span>0010 FIREWALL INVENTARIO EMPRESA ATIVO 1101</span>
+    <span>1110 LOGIN SEGURO SUPORTE CLOUD 0100</span>
+  </div>
+
+  <section class="auth-brand">
+    <img src="uniflowit-logo.png" alt="UniFlowIT" />
+    <div>
+      <h1>Gestão inteligente de T.I para operações conectadas</h1>
+      <p>Centralize chamados, empresas, ativos, links e atendimento em uma única plataforma.</p>
+    </div>
+  </section>
+
+  <section class="auth-card">
+    <div class="auth-card-heading">
+      <p class="eyebrow">{{ authMode === 'login' ? 'Acesso seguro' : 'Primeiro acesso' }}</p>
+      <h2>{{ authMode === 'login' ? 'Entrar no UniFlowIT' : 'Criar Administrador' }}</h2>
+    </div>
+
+    @if (authMode === 'login') {
+      <form class="auth-form" (ngSubmit)="loginSubmit.emit()">
+        <label>
+          E-mail
+          <input name="email" type="email" [(ngModel)]="loginForm.email" autocomplete="email" required />
+        </label>
+
+        <label>
+          Senha
+          <input name="senha" type="password" [(ngModel)]="loginForm.senha" autocomplete="current-password" required />
+        </label>
+
+        <button class="primary" type="submit" [disabled]="carregandoAuth">
+          {{ carregandoAuth ? 'Entrando...' : 'Entrar' }}
+        </button>
+      </form>
+
+      @if (!existeAdministradorSaas) {
+        <button type="button" class="link-button" (click)="authModeChange.emit('bootstrap')">
+          Criar o primeiro Administrador
+        </button>
+      }
+    } @else {
+      <form class="auth-form" (ngSubmit)="adminSaasSubmit.emit()">
+        <label>
+          Nome
+          <input name="adminNome" [(ngModel)]="adminSaasForm.nome" autocomplete="name" required />
+        </label>
+
+        <label>
+          E-mail
+          <input name="adminEmail" type="email" [(ngModel)]="adminSaasForm.email" autocomplete="email" required />
+        </label>
+
+        <label>
+          Senha
+          <input name="adminSenha" type="password" [(ngModel)]="adminSaasForm.senha" autocomplete="new-password" required />
+        </label>
+
+        <button class="primary" type="submit" [disabled]="carregandoAuth">
+          {{ carregandoAuth ? 'Criando...' : 'Criar administrador' }}
+        </button>
+      </form>
+
+      <button type="button" class="link-button" (click)="authModeChange.emit('login')">
+        Voltar para login
+      </button>
+    }
+
+    @if (authFeedback) {
+      <p class="auth-feedback">{{ authFeedback }}</p>
+    }
+  </section>
+</main>

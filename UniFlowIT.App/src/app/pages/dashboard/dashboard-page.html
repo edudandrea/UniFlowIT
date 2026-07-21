@@ -1,0 +1,244 @@
+<section class="dashboard-page">
+  <div class="dashboard-header panel">
+    <div>
+      <p class="eyebrow">Dashboard da empresa contratante</p>
+      <h2>{{ empresaNome }}</h2>
+      <div class="dashboard-filters">
+        <span>Empresa: {{ empresaNome }}</span>
+        <span>Unidade: {{ unidade }}</span>
+        <span>Periodo: {{ periodo }}</span>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <button type="button" class="primary" (click)="navegarClick.emit('chamados')">Abrir chamado</button>
+      <button type="button" (click)="navegarClick.emit('equipamentos')">Cadastrar equipamento</button>
+      <button type="button" (click)="navegarClick.emit('chamados')">Solicitar acesso</button>
+      <button type="button" class="remote-button">Iniciar acesso remoto</button>
+      <button type="button" (click)="navegarClick.emit('conhecimento')">Consultar base</button>
+    </div>
+  </div>
+
+  <div class="dashboard-cards">
+    @for (card of cardsPrimarios; track card.label) {
+      <article class="dashboard-card" [class]="card.tone">
+        <span>{{ card.value }}</span>
+        <small>{{ card.label }}</small>
+      </article>
+    }
+  </div>
+
+  <div class="dashboard-cards secondary">
+    @for (card of cardsSecundarios; track card.label) {
+      <article class="dashboard-card" [class]="card.tone">
+        <span>{{ card.value }}</span>
+        <small>{{ card.label }}</small>
+      </article>
+    }
+  </div>
+
+  <div class="dashboard-grid two-columns">
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Operacao atual</p>
+          <h2>Chamados por status</h2>
+        </div>
+      </div>
+      <div class="bar-list">
+        @for (item of chamadosPorStatus(); track item.label) {
+          <button type="button" (click)="navegarClick.emit('chamados')">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </button>
+        }
+      </div>
+    </section>
+
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Risco operacional</p>
+          <h2>Chamados por prioridade</h2>
+        </div>
+      </div>
+      <div class="bar-list">
+        @for (item of chamadosPorPrioridade(); track item.label) {
+          <button type="button" [class.critical]="item.critical" (click)="navegarClick.emit('chamados')">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </button>
+        }
+      </div>
+    </section>
+  </div>
+
+  <section class="panel attention-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Fila priorizada</p>
+        <h2>Chamados que exigem atencao</h2>
+      </div>
+    </div>
+
+    <div class="dashboard-table attention-table">
+      <div class="table-head">
+        <span>Protocolo</span>
+        <span>Assunto</span>
+        <span>Setor</span>
+        <span>Tecnico</span>
+        <span>Prioridade</span>
+        <span>SLA</span>
+      </div>
+      @for (chamado of chamadosAtencao(); track chamado.id) {
+        <button type="button" class="table-line" (click)="navegarClick.emit('chamados')">
+          <span>{{ chamado.numero }}</span>
+          <strong>{{ chamado.subcategoria }}</strong>
+          <span>{{ chamado.categoria }}</span>
+          <span>{{ chamado.atendente || 'Sem tecnico' }}</span>
+          <span class="status-pill" [class.blocked]="chamado.prioridade === 'Urgente' || chamado.prioridade === 'Alta'">{{ chamado.prioridade }}</span>
+          <span>{{ chamado.prioridade === 'Urgente' ? 'Vencido' : 'Em acompanhamento' }}</span>
+        </button>
+      } @empty {
+        <p class="empty-state">Nenhum chamado exigindo atencao agora.</p>
+      }
+    </div>
+  </section>
+
+  <div class="dashboard-grid two-columns">
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SLA</p>
+          <h2>Indicadores de SLA</h2>
+        </div>
+      </div>
+      <div class="kpi-list">
+        @for (item of indicadoresSla(); track item.label) {
+          <div>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Infraestrutura</p>
+          <h2>Saude da infraestrutura</h2>
+        </div>
+      </div>
+      <div class="dashboard-table compact-table">
+        @for (servico of saudeInfraestrutura(); track servico.servico) {
+          <div class="table-line" [class.down]="servico.down">
+            <strong>{{ servico.servico }}</strong>
+            <span>{{ servico.situacao }}</span>
+            <span>{{ servico.disponibilidade }}</span>
+            <small>{{ servico.evento }}</small>
+          </div>
+        } @empty {
+          <p class="empty-state">Nenhum link cadastrado para monitoramento.</p>
+        }
+      </div>
+    </section>
+  </div>
+
+  <div class="dashboard-grid two-columns">
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Ativos</p>
+          <h2>Ativos em atencao</h2>
+        </div>
+      </div>
+      <div class="dashboard-table compact-table">
+        @for (ativo of ativosAtencao(); track ativo.ativo) {
+          <div class="table-line">
+            <strong>{{ ativo.ativo }}</strong>
+            <span>{{ ativo.usuario }}</span>
+            <span>{{ ativo.problema }}</span>
+            <span class="status-pill" [class.blocked]="ativo.risco === 'Critico'">{{ ativo.risco }}</span>
+          </div>
+        } @empty {
+          <p class="empty-state">Nenhum ativo em atencao com os dados atuais.</p>
+        }
+      </div>
+    </section>
+
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Solicitacoes</p>
+          <h2>Pendencias e vencimentos</h2>
+        </div>
+      </div>
+      <div class="kpi-list">
+        <div>
+          <span>Solicitacoes pendentes</span>
+          <strong>{{ cardsSecundarios[4].value }}</strong>
+        </div>
+        <div>
+          <span>Licencas vencendo</span>
+          <strong>{{ cardsSecundarios[5].value }}</strong>
+        </div>
+        <div>
+          <span>Contratos mapeados</span>
+          <strong>0</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="dashboard-grid two-columns">
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Equipe tecnica</p>
+          <h2>Desempenho da equipe</h2>
+        </div>
+      </div>
+      <div class="dashboard-table team-table">
+        <div class="table-head">
+          <span>Tecnico</span>
+          <span>Ativos</span>
+          <span>Resolvidos</span>
+          <span>SLA</span>
+          <span>Avaliacao</span>
+        </div>
+        @for (tecnico of desempenhoEquipe(); track tecnico.tecnico) {
+          <div class="table-line">
+            <strong>{{ tecnico.tecnico }}</strong>
+            <span>{{ tecnico.ativos }}</span>
+            <span>{{ tecnico.resolvidos }}</span>
+            <span>{{ tecnico.sla }}</span>
+            <span>{{ tecnico.avaliacao }}</span>
+          </div>
+        } @empty {
+          <p class="empty-state">Nenhum tecnico com chamados vinculados ainda.</p>
+        }
+      </div>
+    </section>
+
+    <section class="panel insight-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Recorrencia</p>
+          <h2>Problemas recorrentes</h2>
+        </div>
+      </div>
+      <div class="bar-list">
+        @for (problema of problemasRecorrentes(); track problema.label) {
+          <button type="button" (click)="navegarClick.emit('chamados')">
+            <span>{{ problema.label }}</span>
+            <strong>{{ problema.value }}</strong>
+          </button>
+        } @empty {
+          <p class="empty-state">Sem ocorrencias suficientes para recorrencia.</p>
+        }
+      </div>
+    </section>
+  </div>
+</section>
+

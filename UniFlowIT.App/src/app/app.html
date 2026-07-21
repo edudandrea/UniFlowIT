@@ -1,0 +1,238 @@
+@if (!sessao()) {
+  <app-login-page
+    [authMode]="authMode()"
+    [loginForm]="loginForm"
+    [adminSaasForm]="adminSaasForm"
+    [existeAdministradorSaas]="existeAdministradorSaas()"
+    [carregandoAuth]="carregandoAuth()"
+    [authFeedback]="authFeedback()"
+    (authModeChange)="authMode.set($event)"
+    (loginSubmit)="login()"
+    (adminSaasSubmit)="criarAdministradorSaas()"
+  />
+} @else {
+  <ngx-spinner
+    name="uniflowit"
+    type="ball-scale-multiple"
+    bdColor="rgba(2, 6, 23, 0.72)"
+    color="#06B6D4"
+    size="medium"
+    [fullScreen]="true"
+  >
+    <div class="spinner-content">
+      <img src="uniflowit-logo.png" alt="UniFlowIT" />
+      <strong>Salvando dados</strong>
+      <span>Sincronizando com o UniFlowIT</span>
+    </div>
+  </ngx-spinner>
+
+  <main class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="uniflowit-logo.png" alt="UniFlowIT" />
+        <div>
+          <strong>UniFlowIT</strong>
+          <small>{{ sessao()?.empresaNome || 'Admin SaaS' }}</small>
+        </div>
+      </div>
+
+      <nav class="nav">
+        @if (perfil() === 'AdministradorSaas' || perfil() === 'Administrador') {
+          @if (perfil() === 'Administrador') {
+            <button type="button" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')">Dashboard</button>
+            <button type="button" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">Chamados</button>
+          }
+          <div class="nav-group">
+            <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
+              <span>Cadastro</span>
+              <span class="chevron">&gt;</span>
+            </button>
+            <div class="nav-children" [class.open]="cadastroAberto()">
+              @if (perfil() === 'AdministradorSaas') {
+                <button type="button" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">Empresas</button>
+              }
+              <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
+              @if (perfil() === 'Administrador') {
+                <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
+              }
+            </div>
+          </div>
+          @if (perfil() === 'Administrador') {
+            <button type="button" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')">Base</button>
+            <button type="button" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')">Equipamentos</button>
+            <button type="button" [class.active]="paginaAtiva() === 'links'" (click)="navegar('links')">Links</button>
+          }
+        } @else {
+          <button type="button" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">Chamados</button>
+        }
+      </nav>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">{{ contextoPagina() }}</p>
+          <h1>{{ tituloPagina() }}</h1>
+        </div>
+
+        <div class="session-box account-box">
+          <button type="button" class="account-trigger" (click)="alternarMenuConta()" aria-label="Abrir menu da conta">
+            <span class="account-avatar">
+              @if (fotoPerfilUrl()) {
+                <img [src]="fotoPerfilUrl()" alt="Foto do colaborador" />
+              } @else {
+                {{ iniciaisUsuario() }}
+              }
+            </span>
+            <span class="account-summary">
+              <strong>{{ sessao()?.nome }}</strong>
+              <small>{{ sessao()?.empresaNome || 'Administrador SaaS' }}</small>
+            </span>
+            <span class="account-role">{{ perfil() }}</span>
+            <span class="account-chevron">⌄</span>
+          </button>
+
+          @if (contaMenuAberto()) {
+            <div class="account-menu">
+              <button type="button" (click)="abrirEditarPerfil()">Editar perfil</button>
+              <button type="button" (click)="abrirAlterarSenha()">Alterar senha</button>
+              <button type="button" class="danger" (click)="sair()">Sair</button>
+            </div>
+          }
+        </div>
+      </header>
+
+      @if (perfilModalAberto()) {
+        <div class="modal-backdrop" (click)="fecharEditarPerfil()"></div>
+        <section class="modal-panel" role="dialog" aria-modal="true" aria-label="Editar perfil">
+          <header class="modal-header">
+            <div>
+              <p class="eyebrow">Minha conta</p>
+              <h2>Editar perfil</h2>
+            </div>
+            <button type="button" class="icon-button" aria-label="Fechar" (click)="fecharEditarPerfil()">x</button>
+          </header>
+
+          <form class="modal-form user-modal-form" (ngSubmit)="salvarPerfil()">
+            <label><span>Nome</span><input name="perfilNome" [(ngModel)]="perfilForm.nome" required /></label>
+            <label><span>E-mail</span><input name="perfilEmail" type="email" [(ngModel)]="perfilForm.email" required /></label>
+            <label class="full"><span>Foto do colaborador</span><input name="perfilFoto" [(ngModel)]="perfilForm.fotoUrl" placeholder="URL da foto do colaborador" /></label>
+
+            <footer class="modal-actions">
+              <button type="button" (click)="fecharEditarPerfil()">Cancelar</button>
+              <button type="submit" class="primary">Salvar perfil</button>
+            </footer>
+          </form>
+        </section>
+      }
+
+      @if (senhaModalAberto()) {
+        <div class="modal-backdrop" (click)="fecharAlterarSenha()"></div>
+        <section class="modal-panel" role="dialog" aria-modal="true" aria-label="Alterar senha">
+          <header class="modal-header">
+            <div>
+              <p class="eyebrow">Minha conta</p>
+              <h2>Alterar senha</h2>
+            </div>
+            <button type="button" class="icon-button" aria-label="Fechar" (click)="fecharAlterarSenha()">x</button>
+          </header>
+
+          <form class="modal-form user-modal-form" (ngSubmit)="alterarSenha()">
+            <label><span>Senha atual</span><input name="senhaAtual" type="password" [(ngModel)]="senhaForm.atual" required /></label>
+            <label><span>Nova senha</span><input name="senhaNova" type="password" [(ngModel)]="senhaForm.nova" required /></label>
+            <label class="full"><span>Confirmar nova senha</span><input name="senhaConfirmacao" type="password" [(ngModel)]="senhaForm.confirmacao" required /></label>
+
+            <footer class="modal-actions">
+              <button type="button" (click)="fecharAlterarSenha()">Cancelar</button>
+              <button type="submit" class="primary">Alterar senha</button>
+            </footer>
+          </form>
+        </section>
+      }
+
+      @if (perfil() === 'Administrador' && paginaAtiva() === 'dashboard') {
+        <app-dashboard-page
+          [empresaNome]="empresaDashboardNome()"
+          [chamados]="chamadosVisiveis()"
+          [inventario]="inventario"
+          [links]="links()"
+          [usuarios]="usuariosVisiveisCadastro()"
+          (navegarClick)="navegar($event)"
+        />
+      }
+
+      @if (perfil() === 'AdministradorSaas' && paginaAtiva() === 'cadastro-empresas') {
+        <app-empresas-page
+          [empresasFiltradas]="empresasFiltradas()"
+          [empresaSelecionada]="empresaSelecionada()"
+          [novaEmpresa]="novaEmpresa"
+          [empresaTab]="empresaTab()"
+          [empresaFiltro]="empresaFiltro()"
+          [empresaModalAberto]="empresaModalAberto()"
+          (empresaTabChange)="empresaTab.set($event)"
+          (empresaFiltroChange)="empresaFiltro.set($event)"
+          (novaEmpresaClick)="abrirNovaEmpresa()"
+          (empresaSelecionadaChange)="selecionarEmpresa($event)"
+          (editarEmpresaClick)="editarEmpresa()"
+          (fecharModalClick)="fecharModalEmpresa()"
+          (salvarEmpresaSubmit)="criarEmpresa()"
+        />
+      }
+
+      @if ((perfil() === 'AdministradorSaas' || perfil() === 'Administrador') && paginaAtiva() === 'cadastro-usuarios') {
+        <app-usuarios-page
+          [usuarios]="usuariosVisiveisCadastro()"
+          [empresas]="empresasParaCadastroUsuario()"
+          [novoUsuario]="novoUsuario"
+          [usuarioModalAberto]="usuarioModalAberto()"
+          [travarEmpresa]="perfil() === 'Administrador'"
+          (novoUsuarioClick)="abrirNovoUsuario()"
+          (fecharModalClick)="fecharModalUsuario()"
+          (salvarUsuarioSubmit)="criarUsuario()"
+        />
+      }
+
+      @if (perfil() === 'Administrador' && paginaAtiva() === 'cadastro-categorias') {
+        <app-categorias-page
+          [categorias]="categoriasVisiveis()"
+          [categoriaForm]="categoriaForm"
+          [categoriaModalAberto]="categoriaModalAberto()"
+          (novaCategoriaClick)="abrirNovaCategoria()"
+          (editarCategoriaClick)="editarCategoria($event)"
+          (fecharModalClick)="fecharModalCategoria()"
+          (salvarCategoriaSubmit)="salvarCategoria()"
+        />
+      }
+
+      @if (paginaAtiva() === 'chamados') {
+        <app-chamados-page
+          [perfil]="perfil()"
+          [metricas]="metricas()"
+          [categorias]="categoriasAtivas()"
+          [chamadosVisiveis]="chamadosVisiveis()"
+          [chamadoSelecionado]="chamadoSelecionado()"
+          [novoChamado]="novoChamado"
+          (abrirChamadoSubmit)="abrirChamado()"
+          (selecionarChamadoClick)="selecionarChamado($event)"
+          (capturarChamadoClick)="capturarChamado($event)"
+          (encerrarChamadoClick)="encerrarChamado($event)"
+          (cancelarChamadoClick)="cancelarChamado($event)"
+          (enviarMensagemClick)="enviarMensagem($event)"
+          (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao)"
+        />
+      }
+
+      @if (paginaAtiva() === 'conhecimento') {
+        <app-conhecimento-page [artigos]="artigos" />
+      }
+
+      @if (paginaAtiva() === 'equipamentos') {
+        <app-equipamentos-page [envios]="envios" [inventario]="inventario" />
+      }
+
+      @if (paginaAtiva() === 'links') {
+        <app-links-page [links]="links()" (alternarLinkClick)="alternarLink($event)" />
+      }
+    </section>
+  </main>
+}

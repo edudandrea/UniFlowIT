@@ -1,0 +1,36 @@
+@use "ngx-toastr/toastr";
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #f1f5f9;
+}
+
+.toast-container .ngx-toastr {
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgb(15 23 42 / 0.16);
+  font-weight: 700;
+}
+
+.toast-success {
+  background-color: #0f172a;
+  border-left: 4px solid #22c55e;
+}
+
+.toast-error {
+  background-color: #0f172a;
+  border-left: 4px solid #ef4444;
+}
+
+.toast-info {
+  background-color: #0f172a;
+  border-left: 4px solid #06b6d4;
+}
