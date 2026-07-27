@@ -2211,11 +2211,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
+      "projectUniqueName": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
       "projectName": "UniFlowIT.Api",
-      "projectPath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
+      "projectPath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
       "packagesPath": "C:\\Users\\Eduardo\\.nuget\\packages\\",
-      "outputPath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\obj\\",
+      "outputPath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Eduardo\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -2707,7 +2707,7 @@
       "code": "NU1903",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
+      "message": "O pacote 'Microsoft.OpenApi' 2.0.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
       "libraryId": "Microsoft.OpenApi",
       "targetGraphs": [
         "net10.0"

@@ -16,6 +16,16 @@ namespace UniFlowIT.Api.Services
             return $"PBKDF2${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(key)}";
         }
 
+        public static bool IsStrong(string? password)
+        {
+            return !string.IsNullOrWhiteSpace(password)
+                && password.Length >= 8
+                && password.Any(char.IsUpper)
+                && password.Any(char.IsDigit)
+                && password.Any(character => char.IsLetter(character))
+                && password.Any(character => !char.IsLetterOrDigit(character));
+        }
+
         public static bool Verify(string password, string hash)
         {
             var parts = hash.Split('$');

@@ -49,6 +49,11 @@ app.MapPost("/api/auth/criar-administrador-saas", async (AppDbContext db, CriarA
         return Results.Conflict(new { message = "O Administrador SaaS inicial ja foi criado." });
     }
 
+    if (!PasswordService.IsStrong(request.Senha))
+    {
+        return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+    }
+
     var email = request.Email.Trim().ToLowerInvariant();
     var usuario = new Users
     {
@@ -208,6 +213,11 @@ app.MapGet("/api/usuarios", async (AppDbContext db, int? empresaId) =>
 
 app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request) =>
 {
+    if (!PasswordService.IsStrong(request.Senha))
+    {
+        return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+    }
+
     var empresaExiste = await db.Empresas.AnyAsync(empresa => empresa.Id == request.EmpresaId);
     if (!empresaExiste)
     {
@@ -245,6 +255,87 @@ app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request
         Role = usuario.Role,
         Ativo = usuario.Ativo
     });
+});
+
+app.MapPut("/api/usuarios/{id:int}", async (AppDbContext db, int id, AtualizarUsuarioRequest request) =>
+{
+    var usuario = await db.Users
+        .Include(user => user.Empresa)
+        .FirstOrDefaultAsync(user => user.Id == id);
+
+    if (usuario is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (usuario.Role == "AdministradorSaas")
+    {
+        usuario.EmpresaId = null;
+    }
+    else
+    {
+        var empresaExiste = await db.Empresas.AnyAsync(empresa => empresa.Id == request.EmpresaId);
+        if (!empresaExiste)
+        {
+            return Results.BadRequest(new { message = "Empresa contratante nao encontrada." });
+        }
+
+        usuario.EmpresaId = request.EmpresaId;
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Senha))
+    {
+        if (!PasswordService.IsStrong(request.Senha))
+        {
+            return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+        }
+
+        usuario.SenhaHash = PasswordService.Hash(request.Senha);
+    }
+
+    usuario.Nome = request.Nome.Trim();
+    usuario.Role = usuario.Role == "AdministradorSaas"
+        ? "AdministradorSaas"
+        : request.Role is "Administrador" or "Atendente" or "Usuario" ? request.Role : "Usuario";
+    usuario.Ativo = request.Ativo;
+
+    await db.SaveChangesAsync();
+    await db.Entry(usuario).Reference(user => user.Empresa).LoadAsync();
+
+    return Results.Ok(new UsuarioResponse
+    {
+        Id = usuario.Id,
+        EmpresaId = usuario.EmpresaId,
+        EmpresaNome = usuario.Empresa != null ? usuario.Empresa.Nome : "SaaS",
+        Nome = usuario.Nome,
+        Email = usuario.Email,
+        Role = usuario.Role,
+        Ativo = usuario.Ativo
+    });
+});
+
+app.MapPut("/api/usuarios/{id:int}/senha", async (AppDbContext db, int id, AlterarSenhaRequest request) =>
+{
+    var usuario = await db.Users.FindAsync(id);
+    if (usuario is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PasswordService.Verify(request.SenhaAtual, usuario.SenhaHash))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!PasswordService.IsStrong(request.NovaSenha))
+    {
+        return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+    }
+
+    usuario.SenhaHash = PasswordService.Hash(request.NovaSenha);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
 });
 
 app.MapGet("/api/chamados", async (AppDbContext db, string? perfil, int? empresaId, int? usuarioId, int? atendenteId, string? solicitante) =>

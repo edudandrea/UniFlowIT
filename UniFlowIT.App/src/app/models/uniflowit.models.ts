@@ -132,11 +132,14 @@ export interface AdminSaasForm {
 }
 
 export interface NovoUsuarioForm {
+  id?: number;
   empresaId: number;
   nome: string;
   email: string;
   senha: string;
+  senhaConfirmacao?: string;
   role: Perfil;
+  ativo?: boolean;
 }
 
 export interface CategoriaChamado {

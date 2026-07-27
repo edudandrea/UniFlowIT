@@ -47,6 +47,21 @@ namespace UniFlowIT.Api.Models
         public string Role { get; set; } = "Usuario";
     }
 
+    public class AtualizarUsuarioRequest
+    {
+        public int EmpresaId { get; set; }
+        public string Nome { get; set; } = string.Empty;
+        public string? Senha { get; set; }
+        public string Role { get; set; } = "Usuario";
+        public bool Ativo { get; set; } = true;
+    }
+
+    public class AlterarSenhaRequest
+    {
+        public string SenhaAtual { get; set; } = string.Empty;
+        public string NovaSenha { get; set; } = string.Empty;
+    }
+
     public class UsuarioResponse
     {
         public int Id { get; set; }

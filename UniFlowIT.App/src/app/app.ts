@@ -53,6 +53,7 @@ export class App implements OnInit {
   protected empresaEditando = signal(false);
   protected empresaModalAberto = signal(false);
   protected usuarioModalAberto = signal(false);
+  protected usuarioEditando = signal(false);
   protected categoriaModalAberto = signal(false);
   protected contaMenuAberto = signal(false);
   protected perfilModalAberto = signal(false);
@@ -114,11 +115,14 @@ export class App implements OnInit {
   };
 
   protected novoUsuario = {
+    id: undefined as number | undefined,
     empresaId: 1,
     nome: '',
     email: '',
     senha: '',
+    senhaConfirmacao: '',
     role: 'Usuario' as Perfil,
+    ativo: true,
   };
 
   protected categoriaForm: CategoriaChamadoForm = {
@@ -435,6 +439,12 @@ export class App implements OnInit {
   }
 
   protected async criarAdministradorSaas(): Promise<void> {
+    if (!this.senhaForteValida(this.adminSaasForm.senha)) {
+      this.authFeedback.set(this.mensagemSenhaForte());
+      this.toastr.warning(this.mensagemSenhaForte(), 'Senha fraca');
+      return;
+    }
+
     this.carregandoAuth.set(true);
     this.authFeedback.set('');
     this.spinner.show('uniflowit');
@@ -533,22 +543,47 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
     const empresaId = this.empresaPermitidaParaUsuario();
     this.novoUsuario.empresaId = empresaId;
+    const editando = this.usuarioEditando();
+    const id = this.novoUsuario.id;
+
+    if (!this.novoUsuario.nome.trim()) {
+      this.toastr.warning('Informe o nome do usuario.', 'Cadastro');
+      this.spinner.hide('uniflowit');
+      return;
+    }
+
+    const senhaFoiInformada = Boolean(this.novoUsuario.senha || this.novoUsuario.senhaConfirmacao);
+
+    if ((!editando || senhaFoiInformada) && this.novoUsuario.senha !== this.novoUsuario.senhaConfirmacao) {
+      this.toastr.warning('A senha e a confirmacao devem ser iguais.', 'Senha divergente');
+      this.spinner.hide('uniflowit');
+      return;
+    }
+
+    if ((!editando || senhaFoiInformada) && !this.senhaForteValida(this.novoUsuario.senha)) {
+      this.toastr.warning(this.mensagemSenhaForte(), 'Senha fraca');
+      this.spinner.hide('uniflowit');
+      return;
+    }
+
     const empresa = this.empresas().find((item) => item.id === empresaId);
     const usuario: UsuarioLista = {
-      id: Math.max(...this.usuarios().map((item) => item.id ?? 0)) + 1,
+      id: id ?? Math.max(...this.usuarios().map((item) => item.id ?? 0)) + 1,
       empresaId,
       empresaNome: empresa?.nome ?? 'Empresa nao localizada',
       nome: this.novoUsuario.nome,
       email: this.novoUsuario.email,
       role: this.novoUsuario.role,
-      ativo: true,
+      ativo: this.novoUsuario.ativo,
     };
 
-    this.usuarios.update((usuarios) => [usuario, ...usuarios]);
+    this.usuarios.update((usuarios) => editando
+      ? usuarios.map((item) => (item.id === usuario.id ? usuario : item))
+      : [usuario, ...usuarios]);
 
     try {
-      await fetch(`${this.apiUrl}/usuarios`, {
-        method: 'POST',
+      const response = await fetch(`${this.apiUrl}/usuarios${editando ? `/${id}` : ''}`, {
+        method: editando ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           empresaId,
@@ -556,18 +591,36 @@ export class App implements OnInit {
           email: this.novoUsuario.email,
           senha: this.novoUsuario.senha,
           role: this.novoUsuario.role,
+          ativo: this.novoUsuario.ativo,
         }),
       });
-      this.toastr.success('Usuario criado com sucesso.', 'Cadastro');
+
+      if (!response.ok) {
+        throw new Error('Falha ao salvar usuario');
+      }
+
+      const usuarioSalvo = (await response.json()) as Record<string, unknown>;
+      this.usuarios.update((usuarios) => usuarios.map((item) => (item.id === usuario.id ? {
+        id: Number(usuarioSalvo['id'] ?? usuario.id),
+        empresaId: usuarioSalvo['empresaId'] == null ? undefined : Number(usuarioSalvo['empresaId']),
+        empresaNome: String(usuarioSalvo['empresaNome'] ?? usuario.empresaNome),
+        nome: String(usuarioSalvo['nome'] ?? usuario.nome),
+        email: String(usuarioSalvo['email'] ?? usuario.email),
+        role: this.normalizarPerfil(usuarioSalvo['role']),
+        ativo: Boolean(usuarioSalvo['ativo']),
+      } : item)));
+
+      this.toastr.success(editando ? 'Usuario atualizado com sucesso.' : 'Usuario criado com sucesso.', 'Cadastro');
     } catch {
-      this.authFeedback.set('Usuario adicionado na tela; API indisponivel para persistir agora.');
-      this.toastr.info('Usuario salvo localmente. API indisponivel para persistir agora.', 'Modo local');
+      this.authFeedback.set('Usuario atualizado na tela; API indisponivel ou recusou a persistencia agora.');
+      this.toastr.info('Usuario salvo localmente. Verifique a API para persistir.', 'Modo local');
     } finally {
       this.usuarioModalAberto.set(false);
+      this.usuarioEditando.set(false);
       this.spinner.hide('uniflowit');
     }
 
-    this.novoUsuario = { empresaId: this.novoUsuario.empresaId, nome: '', email: '', senha: '', role: 'Usuario' };
+    this.novoUsuario = { id: undefined, empresaId: this.novoUsuario.empresaId, nome: '', email: '', senha: '', senhaConfirmacao: '', role: 'Usuario', ativo: true };
   }
 
   protected sair(): void {
@@ -626,14 +679,45 @@ export class App implements OnInit {
     this.senhaModalAberto.set(false);
   }
 
-  protected alterarSenha(): void {
+  protected async alterarSenha(): Promise<void> {
     if (!this.senhaForm.nova || this.senhaForm.nova !== this.senhaForm.confirmacao) {
       this.toastr.warning('Confirme a nova senha corretamente.', 'Minha conta');
       return;
     }
 
-    this.senhaModalAberto.set(false);
-    this.toastr.success('Senha alterada com sucesso.', 'Minha conta');
+    if (!this.senhaForteValida(this.senhaForm.nova)) {
+      this.toastr.warning(this.mensagemSenhaForte(), 'Senha fraca');
+      return;
+    }
+
+    const sessao = this.sessao();
+    if (!sessao) {
+      return;
+    }
+
+    this.spinner.show('uniflowit');
+    try {
+      const response = await fetch(`${this.apiUrl}/usuarios/${sessao.id}/senha`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senhaAtual: this.senhaForm.atual,
+          novaSenha: this.senhaForm.nova,
+        }),
+      });
+
+      if (!response.ok) {
+        this.toastr.error(response.status === 401 ? 'Senha atual incorreta.' : 'Nao foi possivel alterar a senha.', 'Minha conta');
+        return;
+      }
+
+      this.senhaModalAberto.set(false);
+      this.toastr.success('Senha alterada com sucesso.', 'Minha conta');
+    } catch {
+      this.toastr.error('Nao foi possivel conectar na API para alterar a senha.', 'Falha de conexao');
+    } finally {
+      this.spinner.hide('uniflowit');
+    }
   }
 
   protected iniciaisUsuario(): string {
@@ -696,12 +780,35 @@ export class App implements OnInit {
   }
 
   protected abrirNovoUsuario(): void {
-    this.novoUsuario = { empresaId: this.empresaPermitidaParaUsuario(), nome: '', email: '', senha: '', role: 'Usuario' };
+    this.usuarioEditando.set(false);
+    this.novoUsuario = { id: undefined, empresaId: this.empresaPermitidaParaUsuario(), nome: '', email: '', senha: '', senhaConfirmacao: '', role: 'Usuario', ativo: true };
+    this.usuarioModalAberto.set(true);
+  }
+
+  protected editarUsuario(usuario: UsuarioLista): void {
+    this.usuarioEditando.set(true);
+    this.novoUsuario = {
+      id: usuario.id,
+      empresaId: Number(usuario.empresaId ?? this.empresaPermitidaParaUsuario()),
+      nome: usuario.nome,
+      email: usuario.email,
+      senha: '',
+      senhaConfirmacao: '',
+      role: usuario.role,
+      ativo: usuario.ativo,
+    };
     this.usuarioModalAberto.set(true);
   }
 
   protected fecharModalUsuario(): void {
     this.usuarioModalAberto.set(false);
+    this.usuarioEditando.set(false);
+  }
+
+  protected gerarSenhaUsuario(): void {
+    const senha = this.gerarSenhaForte();
+    this.novoUsuario.senha = senha;
+    this.novoUsuario.senhaConfirmacao = senha;
   }
 
   protected abrirNovaCategoria(): void {
@@ -812,6 +919,44 @@ export class App implements OnInit {
 
   protected empresaDashboardNome(): string {
     return this.sessao()?.empresaNome || this.empresaSelecionada().nomeFantasia || this.empresaSelecionada().razaoSocial || 'Empresa nao identificada';
+  }
+
+  private senhaForteValida(senha: string): boolean {
+    return senha.length >= 8
+      && /[A-Z]/.test(senha)
+      && /[0-9]/.test(senha)
+      && /[A-Za-z]/.test(senha)
+      && /[^A-Za-z0-9]/.test(senha);
+  }
+
+  private mensagemSenhaForte(): string {
+    return 'A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial.';
+  }
+
+  private gerarSenhaForte(): string {
+    const maiusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const minusculas = 'abcdefghijkmnopqrstuvwxyz';
+    const numeros = '23456789';
+    const especiais = '@#$%&*!?';
+    const todos = `${maiusculas}${minusculas}${numeros}${especiais}`;
+    const senha = [
+      this.caractereAleatorio(maiusculas),
+      this.caractereAleatorio(minusculas),
+      this.caractereAleatorio(numeros),
+      this.caractereAleatorio(especiais),
+      ...Array.from({ length: 8 }, () => this.caractereAleatorio(todos)),
+    ];
+
+    return senha
+      .map((caractere) => ({ caractere, ordem: crypto.getRandomValues(new Uint32Array(1))[0] }))
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((item) => item.caractere)
+      .join('');
+  }
+
+  private caractereAleatorio(opcoes: string): string {
+    const valores = crypto.getRandomValues(new Uint32Array(1));
+    return opcoes[valores[0] % opcoes.length];
   }
 
   private empresaPermitidaParaUsuario(): number {

@@ -39,11 +39,12 @@
       <nav class="nav">
         @if (perfil() === 'AdministradorSaas' || perfil() === 'Administrador') {
           @if (perfil() === 'Administrador') {
-            <button type="button" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')">Dashboard</button>
-            <button type="button" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">Chamados</button>
+            <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Dashboard</span></button>
+            <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Chamados</span></button>
           }
           <div class="nav-group">
             <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
+              <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
               <span>Cadastro</span>
               <span class="chevron">&gt;</span>
             </button>
@@ -58,12 +59,12 @@
             </div>
           </div>
           @if (perfil() === 'Administrador') {
-            <button type="button" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')">Base</button>
-            <button type="button" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')">Equipamentos</button>
-            <button type="button" [class.active]="paginaAtiva() === 'links'" (click)="navegar('links')">Links</button>
+            <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')"><span class="nav-icon" aria-hidden="true"></span><span>Base</span></button>
+            <button type="button" class="nav-equipamentos" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')"><span class="nav-icon" aria-hidden="true"></span><span>Equipamentos</span></button>
+            <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links'" (click)="navegar('links')"><span class="nav-icon" aria-hidden="true"></span><span>Links</span></button>
           }
         } @else {
-          <button type="button" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">Chamados</button>
+          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Chamados</span></button>
         }
       </nav>
     </aside>
@@ -185,8 +186,11 @@
           [empresas]="empresasParaCadastroUsuario()"
           [novoUsuario]="novoUsuario"
           [usuarioModalAberto]="usuarioModalAberto()"
+          [usuarioEditando]="usuarioEditando()"
           [travarEmpresa]="perfil() === 'Administrador'"
           (novoUsuarioClick)="abrirNovoUsuario()"
+          (editarUsuarioClick)="editarUsuario($event)"
+          (gerarSenhaClick)="gerarSenhaUsuario()"
           (fecharModalClick)="fecharModalUsuario()"
           (salvarUsuarioSubmit)="criarUsuario()"
         />

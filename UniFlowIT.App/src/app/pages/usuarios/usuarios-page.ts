@@ -9,13 +9,31 @@ import { EmpresaLista, NovoUsuarioForm, UsuarioLista } from '../../models/uniflo
   templateUrl: './usuarios-page.html',
 })
 export class UsuariosPage {
+  protected senhaVisivel = false;
+
   @Input() usuarios: UsuarioLista[] = [];
   @Input() empresas: EmpresaLista[] = [];
   @Input({ required: true }) novoUsuario!: NovoUsuarioForm;
   @Input() usuarioModalAberto = false;
+  @Input() usuarioEditando = false;
   @Input() travarEmpresa = false;
 
   @Output() novoUsuarioClick = new EventEmitter<void>();
+  @Output() editarUsuarioClick = new EventEmitter<UsuarioLista>();
+  @Output() gerarSenhaClick = new EventEmitter<void>();
   @Output() fecharModalClick = new EventEmitter<void>();
   @Output() salvarUsuarioSubmit = new EventEmitter<void>();
+
+  protected exibirSenha(): void {
+    this.senhaVisivel = true;
+  }
+
+  protected esconderSenha(): void {
+    this.senhaVisivel = false;
+  }
+
+  protected senhasDiferentes(): boolean {
+    return Boolean(this.novoUsuario?.senha || this.novoUsuario?.senhaConfirmacao)
+      && this.novoUsuario.senha !== this.novoUsuario.senhaConfirmacao;
+  }
 }

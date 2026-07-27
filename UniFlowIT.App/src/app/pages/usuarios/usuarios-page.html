@@ -18,9 +18,10 @@
       <span>Empresa</span>
       <span>Perfil</span>
       <span>Status</span>
+      <span>Acoes</span>
     </div>
     @for (usuario of usuarios; track usuario.email) {
-      <article class="result-row">
+      <article class="result-row" role="button" tabindex="0" (click)="editarUsuarioClick.emit(usuario)" (keydown.enter)="editarUsuarioClick.emit(usuario)">
         <span>
           <strong>{{ usuario.nome }}</strong>
           <small>{{ usuario.email }}</small>
@@ -28,6 +29,7 @@
         <span>{{ usuario.empresaNome }}</span>
         <span>{{ usuario.role }}</span>
         <span class="status-pill" [class.inactive]="!usuario.ativo">{{ usuario.ativo ? 'Ativo' : 'Inativo' }}</span>
+        <span><button type="button" class="row-action" (click)="editarUsuarioClick.emit(usuario); $event.stopPropagation()">Editar</button></span>
       </article>
     }
   </div>
@@ -39,7 +41,7 @@
     <header class="modal-header">
       <div>
         <p class="eyebrow">Cadastro</p>
-        <h2>Novo usuario</h2>
+        <h2>{{ usuarioEditando ? 'Editar usuario' : 'Novo usuario' }}</h2>
       </div>
       <button type="button" class="icon-button" (click)="fecharModalClick.emit()" aria-label="Fechar">x</button>
     </header>
@@ -54,7 +56,7 @@
         </select>
       </label>
       <label><span>Nome</span><input name="usuarioNomeModal" [(ngModel)]="novoUsuario.nome" required /></label>
-      <label><span>E-mail</span><input name="usuarioEmailModal" type="email" [(ngModel)]="novoUsuario.email" required /></label>
+      <label><span>E-mail</span><input name="usuarioEmailModal" type="email" [(ngModel)]="novoUsuario.email" [disabled]="usuarioEditando" required /></label>
       <label>
         <span>Perfil</span>
         <select name="usuarioPerfilModal" [(ngModel)]="novoUsuario.role">
@@ -63,11 +65,75 @@
           <option>Administrador</option>
         </select>
       </label>
-      <label><span>Senha inicial</span><input name="usuarioSenhaModal" type="password" [(ngModel)]="novoUsuario.senha" required /></label>
+      @if (usuarioEditando) {
+        <label>
+          <span>Status</span>
+          <select name="usuarioAtivoModal" [(ngModel)]="novoUsuario.ativo">
+            <option [ngValue]="true">Ativo</option>
+            <option [ngValue]="false">Inativo</option>
+          </select>
+        </label>
+      }
+      <label class="password-field">
+        <span>{{ usuarioEditando ? 'Nova senha' : 'Senha inicial' }}</span>
+        <span class="password-control">
+          <input
+            name="usuarioSenhaModal"
+            [type]="senhaVisivel ? 'text' : 'password'"
+            [(ngModel)]="novoUsuario.senha"
+            [required]="!usuarioEditando"
+            autocomplete="new-password"
+            [class.password-mismatch]="senhasDiferentes()"
+          />
+          <button
+            type="button"
+            class="password-eye"
+            aria-label="Segure para exibir a senha"
+            (mousedown)="exibirSenha()"
+            (mouseup)="esconderSenha()"
+            (mouseleave)="esconderSenha()"
+            (touchstart)="exibirSenha()"
+            (touchend)="esconderSenha()"
+            (touchcancel)="esconderSenha()"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+        </span>
+      </label>
+      <label class="password-field">
+        <span>Confirmar senha</span>
+        <span class="password-control">
+          <input
+            name="usuarioSenhaConfirmacaoModal"
+            [type]="senhaVisivel ? 'text' : 'password'"
+            [(ngModel)]="novoUsuario.senhaConfirmacao"
+            [required]="!usuarioEditando || !!novoUsuario.senha"
+            autocomplete="new-password"
+            [class.password-mismatch]="senhasDiferentes()"
+          />
+          <button
+            type="button"
+            class="password-eye"
+            aria-label="Segure para exibir a senha"
+            (mousedown)="exibirSenha()"
+            (mouseup)="esconderSenha()"
+            (mouseleave)="esconderSenha()"
+            (touchstart)="exibirSenha()"
+            (touchend)="esconderSenha()"
+            (touchcancel)="esconderSenha()"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+        </span>
+      </label>
+      <button type="button" class="secondary password-generator" (click)="gerarSenhaClick.emit()">Gerar senha forte</button>
+      <p class="password-help" [class.password-alert]="senhasDiferentes()">
+        {{ senhasDiferentes() ? 'As senhas informadas nao conferem.' : 'Minimo de 8 caracteres, com letra maiuscula, numero e caractere especial.' }}
+      </p>
 
       <footer class="modal-actions">
         <button type="button" (click)="fecharModalClick.emit()">Cancelar</button>
-        <button type="submit" class="primary">Criar usuario</button>
+        <button type="submit" class="primary">{{ usuarioEditando ? 'Salvar usuario' : 'Criar usuario' }}</button>
       </footer>
     </form>
   </section>
