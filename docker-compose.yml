@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: uniflowit-db
+    environment:
+      POSTGRES_DB: uniflowit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: uniflowit
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d uniflowit"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: ./UniFlowIT.Api
+    container_name: uniflowit-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5151
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=uniflowit;Username=postgres;Password=uniflowit
+    ports:
+      # O frontend chama http://localhost:5151/api (hardcoded em app.ts),
+      # entao a API precisa ficar exposta nesta porta do host.
+      - "5151:5151"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./UniFlowIT.App
+    container_name: uniflowit-web
+    ports:
+      - "4200:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
