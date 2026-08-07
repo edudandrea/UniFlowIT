@@ -89,7 +89,7 @@ app.MapPost("/api/auth/login", async (AppDbContext db, LoginRequest request) =>
         return Results.Unauthorized();
     }
 
-    if (usuario.Empresa?.AcessoBloqueado == true)
+    if (usuario.Empresa is { Ativo: false } || usuario.Empresa?.AcessoBloqueado == true)
     {
         return Results.Forbid();
     }

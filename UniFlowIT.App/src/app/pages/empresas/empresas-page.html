@@ -55,7 +55,14 @@
   } @else {
     <div class="detail-toolbar">
       <button type="button" (click)="empresaTabChange.emit('pesquisa')">Voltar</button>
-      <button type="button" class="primary" (click)="editarEmpresaClick.emit()">Editar</button>
+      <button type="button" (click)="alternarEmpresaAtivaClick.emit()" [class.danger-action]="empresaSelecionada.ativo">
+        {{ empresaSelecionada.ativo ? 'Inativar empresa' : 'Ativar empresa' }}
+      </button>
+      @if (empresaEditando) {
+        <button type="button" class="primary" (click)="salvarEmpresaSubmit.emit()">Salvar dados</button>
+      } @else {
+        <button type="button" class="primary" (click)="editarEmpresaClick.emit()">Editar</button>
+      }
     </div>
 
     <section class="company-detail">
@@ -67,21 +74,82 @@
             {{ empresaSelecionada.acessoBloqueado ? 'Bloqueada' : empresaSelecionada.ativo ? 'Ativa' : 'Inativa' }}
           </span>
         </div>
-        <small>{{ empresaSelecionada.tenantSlug }}</small>
+        <small>{{ empresaSelecionada.ativo ? 'Acesso liberado' : 'Acesso bloqueado' }}</small>
       </div>
 
-      <dl class="detail-list">
-        <div><dt>Razao social</dt><dd>{{ empresaSelecionada.razaoSocial }}</dd></div>
-        <div><dt>Nome fantasia</dt><dd>{{ empresaSelecionada.nomeFantasia }}</dd></div>
-        <div><dt>CNPJ</dt><dd>{{ empresaSelecionada.cnpj || '-' }}</dd></div>
-        <div><dt>Telefone</dt><dd>{{ empresaSelecionada.telefone || '-' }}</dd></div>
-        <div><dt>E-mail</dt><dd>{{ empresaSelecionada.email || '-' }}</dd></div>
-        <div><dt>Endereco</dt><dd>{{ empresaSelecionada.endereco || '-' }}, {{ empresaSelecionada.numero || 's/n' }}</dd></div>
-        <div><dt>Bairro</dt><dd>{{ empresaSelecionada.bairro || '-' }}</dd></div>
-        <div><dt>Cidade/UF</dt><dd>{{ empresaSelecionada.cidade || '-' }} / {{ empresaSelecionada.estado || '-' }}</dd></div>
-        <div><dt>CEP</dt><dd>{{ empresaSelecionada.cep || '-' }}</dd></div>
-        <div><dt>Data cadastro</dt><dd>{{ empresaSelecionada.dataCadastro }}</dd></div>
-      </dl>
+      <form class="company-details-form modal-form">
+        <section class="company-form-section">
+          <header>
+            <span class="section-icon" aria-hidden="true"></span>
+            <div>
+              <h3>Identificacao</h3>
+              <p>Dados cadastrais da empresa contratante.</p>
+            </div>
+          </header>
+          <div class="company-fields identity-fields">
+            <label class="field-wide"><span>Razao social</span><input name="razaoSocialDetalhe" [(ngModel)]="novaEmpresa.razaoSocial" [disabled]="!empresaEditando" required /></label>
+            <label class="field-wide"><span>Nome fantasia</span><input name="nomeFantasiaDetalhe" [(ngModel)]="novaEmpresa.nomeFantasia" [disabled]="!empresaEditando" required /></label>
+            <label class="field-small"><span>CNPJ</span><input name="cnpjDetalhe" [ngModel]="novaEmpresa.cnpj" (ngModelChange)="atualizarCnpj($event)" [disabled]="!empresaEditando" inputmode="numeric" maxlength="18" /></label>
+            <label class="field-small"><span>Data cadastro</span><input name="dataCadastroDetalhe" type="date" [(ngModel)]="novaEmpresa.dataCadastro" [disabled]="!empresaEditando" /></label>
+          </div>
+        </section>
+
+        <section class="company-form-section">
+          <header>
+            <span class="section-icon location" aria-hidden="true"></span>
+            <div>
+              <h3>Contato e endereco</h3>
+              <p>Canais de atendimento e localizacao da empresa.</p>
+            </div>
+          </header>
+          <div class="company-fields contact-fields">
+            <label class="field-compact"><span>Telefone</span><input name="telefoneDetalhe" [ngModel]="novaEmpresa.telefone" (ngModelChange)="atualizarTelefone($event)" [disabled]="!empresaEditando" inputmode="tel" maxlength="15" /></label>
+            <label class="field-medium"><span>E-mail</span><input name="empresaEmailDetalhe" type="email" [(ngModel)]="novaEmpresa.email" [disabled]="!empresaEditando" /></label>
+            <label class="field-full"><span>Endereco</span><input name="enderecoDetalhe" [(ngModel)]="novaEmpresa.endereco" [disabled]="!empresaEditando" /></label>
+            <label class="field-compact"><span>Numero</span><input name="numeroDetalhe" [(ngModel)]="novaEmpresa.numero" [disabled]="!empresaEditando" /></label>
+            <label class="field-medium"><span>Complemento</span><input name="complementoDetalhe" [(ngModel)]="novaEmpresa.complemento" [disabled]="!empresaEditando" /></label>
+            <label class="field-medium"><span>Bairro</span><input name="bairroDetalhe" [(ngModel)]="novaEmpresa.bairro" [disabled]="!empresaEditando" /></label>
+            <label class="field-medium"><span>Cidade</span><input name="cidadeDetalhe" [(ngModel)]="novaEmpresa.cidade" [disabled]="!empresaEditando" /></label>
+            <label class="field-tiny"><span>UF</span><input name="estadoDetalhe" [(ngModel)]="novaEmpresa.estado" [disabled]="!empresaEditando" /></label>
+            <label class="field-small"><span>CEP</span><input name="cepDetalhe" [(ngModel)]="novaEmpresa.cep" [disabled]="!empresaEditando" /></label>
+          </div>
+        </section>
+
+        <section class="company-form-section">
+          <header>
+            <span class="section-icon fiscal" aria-hidden="true"></span>
+            <div>
+              <h3>Dados fiscais</h3>
+              <p>Informacoes usadas na emissao fiscal.</p>
+            </div>
+          </header>
+          <div class="company-fields fiscal-fields">
+            <label class="field-medium"><span>Inscricao municipal</span><input name="inscricaoMunicipalDetalhe" [(ngModel)]="novaEmpresa.inscricaoMunicipal" [disabled]="!empresaEditando" /></label>
+            <label class="field-medium"><span>Inscricao estadual</span><input name="inscricaoEstadualDetalhe" [(ngModel)]="novaEmpresa.inscricaoEstadual" [disabled]="!empresaEditando" /></label>
+          </div>
+        </section>
+
+        <section class="company-form-section">
+          <header>
+            <span class="section-icon access" aria-hidden="true"></span>
+            <div>
+              <h3>Acesso ao sistema</h3>
+              <p>Status de acesso da contratante.</p>
+            </div>
+          </header>
+          <div class="company-fields access-fields">
+            <label class="status-toggle-field">
+              <span>Status</span>
+              <input class="sr-only" name="ativoDetalhe" type="checkbox" [(ngModel)]="novaEmpresa.ativo" [disabled]="!empresaEditando" />
+              <span class="status-toggle" [class.is-active]="novaEmpresa.ativo" [class.is-inactive]="!novaEmpresa.ativo" [class.is-disabled]="!empresaEditando">
+                <span class="status-toggle-option active">Ativa</span>
+                <span class="status-toggle-option inactive">Inativa</span>
+              </span>
+            </label>
+            <label class="span-2"><span>Motivo de bloqueio</span><input name="motivoBloqueioDetalhe" [(ngModel)]="novaEmpresa.motivoBloqueio" [disabled]="!empresaEditando" /></label>
+          </div>
+        </section>
+      </form>
     </section>
   }
 </section>
@@ -98,23 +166,21 @@
     </header>
 
     <form class="company-form modal-form" (ngSubmit)="salvarEmpresaSubmit.emit()">
-      <label><span>Razao social</span><input name="razaoSocialModal" [(ngModel)]="novaEmpresa.razaoSocial" required /></label>
-      <label><span>Nome fantasia</span><input name="nomeFantasiaModal" [(ngModel)]="novaEmpresa.nomeFantasia" required /></label>
-      <label><span>Tenant slug</span><input name="tenantSlugModal" [(ngModel)]="novaEmpresa.tenantSlug" placeholder="cliente-matriz" required /></label>
-      <label><span>CNPJ</span><input name="cnpjModal" [(ngModel)]="novaEmpresa.cnpj" /></label>
-      <label><span>Telefone</span><input name="telefoneModal" [(ngModel)]="novaEmpresa.telefone" /></label>
-      <label><span>E-mail</span><input name="empresaEmailModal" type="email" [(ngModel)]="novaEmpresa.email" /></label>
-      <label class="span-2"><span>Endereco</span><input name="enderecoModal" [(ngModel)]="novaEmpresa.endereco" /></label>
-      <label><span>Numero</span><input name="numeroModal" [(ngModel)]="novaEmpresa.numero" /></label>
-      <label><span>Complemento</span><input name="complementoModal" [(ngModel)]="novaEmpresa.complemento" /></label>
-      <label><span>Bairro</span><input name="bairroModal" [(ngModel)]="novaEmpresa.bairro" /></label>
-      <label><span>Cidade</span><input name="cidadeModal" [(ngModel)]="novaEmpresa.cidade" /></label>
-      <label><span>Estado</span><input name="estadoModal" [(ngModel)]="novaEmpresa.estado" /></label>
-      <label><span>CEP</span><input name="cepModal" [(ngModel)]="novaEmpresa.cep" /></label>
-      <label><span>Inscricao municipal</span><input name="inscricaoMunicipalModal" [(ngModel)]="novaEmpresa.inscricaoMunicipal" /></label>
-      <label><span>Inscricao estadual</span><input name="inscricaoEstadualModal" [(ngModel)]="novaEmpresa.inscricaoEstadual" /></label>
-      <label class="span-2"><span>Logo URL</span><input name="logoUrlModal" [(ngModel)]="novaEmpresa.logoUrl" /></label>
-      <label><span>Ativo</span><select name="ativoModal" [(ngModel)]="novaEmpresa.ativo"><option [ngValue]="true">Sim</option><option [ngValue]="false">Nao</option></select></label>
+      <label class="field-wide"><span>Razao social</span><input name="razaoSocialModal" [(ngModel)]="novaEmpresa.razaoSocial" required /></label>
+      <label class="field-wide"><span>Nome fantasia</span><input name="nomeFantasiaModal" [(ngModel)]="novaEmpresa.nomeFantasia" required /></label>
+      <label class="field-small"><span>CNPJ</span><input name="cnpjModal" [ngModel]="novaEmpresa.cnpj" (ngModelChange)="atualizarCnpj($event)" inputmode="numeric" maxlength="18" /></label>
+      <label class="field-compact"><span>Telefone</span><input name="telefoneModal" [ngModel]="novaEmpresa.telefone" (ngModelChange)="atualizarTelefone($event)" inputmode="tel" maxlength="15" /></label>
+      <label class="field-medium"><span>E-mail</span><input name="empresaEmailModal" type="email" [(ngModel)]="novaEmpresa.email" /></label>
+      <label class="field-full"><span>Endereco</span><input name="enderecoModal" [(ngModel)]="novaEmpresa.endereco" /></label>
+      <label class="field-compact"><span>Numero</span><input name="numeroModal" [(ngModel)]="novaEmpresa.numero" /></label>
+      <label class="field-medium"><span>Complemento</span><input name="complementoModal" [(ngModel)]="novaEmpresa.complemento" /></label>
+      <label class="field-medium"><span>Bairro</span><input name="bairroModal" [(ngModel)]="novaEmpresa.bairro" /></label>
+      <label class="field-medium"><span>Cidade</span><input name="cidadeModal" [(ngModel)]="novaEmpresa.cidade" /></label>
+      <label class="field-tiny"><span>UF</span><input name="estadoModal" [(ngModel)]="novaEmpresa.estado" /></label>
+      <label class="field-small"><span>CEP</span><input name="cepModal" [(ngModel)]="novaEmpresa.cep" /></label>
+      <label class="field-medium"><span>Inscricao municipal</span><input name="inscricaoMunicipalModal" [(ngModel)]="novaEmpresa.inscricaoMunicipal" /></label>
+      <label class="field-medium"><span>Inscricao estadual</span><input name="inscricaoEstadualModal" [(ngModel)]="novaEmpresa.inscricaoEstadual" /></label>
+      <label class="status-toggle-field"><span>Status</span><input class="sr-only" name="ativoModal" type="checkbox" [(ngModel)]="novaEmpresa.ativo" /><span class="status-toggle" [class.is-active]="novaEmpresa.ativo" [class.is-inactive]="!novaEmpresa.ativo"><span class="status-toggle-option active">Ativa</span><span class="status-toggle-option inactive">Inativa</span></span></label>
       <label><span>Acesso bloqueado</span><select name="acessoBloqueadoModal" [(ngModel)]="novaEmpresa.acessoBloqueado"><option [ngValue]="false">Nao</option><option [ngValue]="true">Sim</option></select></label>
       <label class="span-2"><span>Motivo bloqueio</span><input name="motivoBloqueioModal" [(ngModel)]="novaEmpresa.motivoBloqueio" /></label>
       <label><span>Bloqueado em</span><input name="bloqueadoEmModal" type="datetime-local" [(ngModel)]="novaEmpresa.bloqueadoEm" /></label>
@@ -127,4 +193,3 @@
     </form>
   </section>
 }
-

@@ -1,6 +1,37 @@
 export type Perfil = 'Usuario' | 'Atendente' | 'Administrador' | 'AdministradorSaas';
 export type AuthMode = 'login' | 'bootstrap';
-export type Pagina = 'dashboard' | 'chamados' | 'cadastro-empresas' | 'cadastro-usuarios' | 'cadastro-categorias' | 'conhecimento' | 'equipamentos' | 'links';
+export type Pagina =
+  | 'dashboard'
+  | 'saas-dashboard'
+  | 'chamados'
+  | 'chamados-desenvolvedor'
+  | 'cadastro-empresas'
+  | 'cadastro-usuarios'
+  | 'cadastro-categorias'
+  | 'conhecimento'
+  | 'equipamentos'
+  | 'links'
+  | 'dados-empresariais'
+  | 'financeiro-assinaturas'
+  | 'financeiro-cobrancas'
+  | 'financeiro-planos'
+  | 'financeiro-pagamentos'
+  | 'financeiro-despesas'
+  | 'saas-implantacoes'
+  | 'saas-inadimplencia'
+  | 'saas-chamados-globais'
+  | 'saas-sla-plataforma'
+  | 'saas-incidentes'
+  | 'saas-monitoramento'
+  | 'saas-agentes'
+  | 'saas-integracoes'
+  | 'saas-acesso-remoto'
+  | 'saas-relatorios'
+  | 'saas-metricas-uso'
+  | 'saas-auditoria'
+  | 'saas-configuracoes'
+  | 'saas-seguranca'
+  | 'saas-administradores';
 export type EmpresaTab = 'pesquisa' | 'detalhes';
 export type StatusChamado = 'Aberto' | 'Em atendimento' | 'Encerrado' | 'Cancelado';
 export type Prioridade = 'Baixa' | 'Media' | 'Alta' | 'Urgente';
@@ -158,4 +189,74 @@ export interface CategoriaChamadoForm {
   subcategoriasTexto: string;
   prioridadePadrao: Prioridade;
   ativo: boolean;
+}
+
+export interface DadosEmpresaSaas {
+  razaoSocial: string;
+  nomeFantasia: string;
+  cnpj: string;
+  inscricaoMunicipal: string;
+  inscricaoEstadual: string;
+  regimeTributario: string;
+  emailFinanceiro: string;
+  telefone: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+}
+
+export interface PlanoSaas {
+  id: number;
+  nome: string;
+  descricao: string;
+  limiteUsuarios: number;
+  limiteEmpresas: number;
+  valorMensal: number;
+  ativo: boolean;
+}
+
+export interface AssinaturaSaas {
+  id: number;
+  empresaId: number;
+  planoId: number;
+  dataInicio: string;
+  dataFim: string;
+  status: 'Ativa' | 'Pausada' | 'Cancelada' | 'Teste';
+  valorMensal: number;
+}
+
+export interface CobrancaSaas {
+  id: number;
+  empresaId: number;
+  assinaturaId: number;
+  vencimento: string;
+  valor: number;
+  status: 'Aberta' | 'Paga' | 'Vencida' | 'Cancelada';
+  formaPagamento: string;
+}
+
+export interface FormaPagamentoSaas {
+  id: number;
+  nome: string;
+  tipo: 'Mercado Pago' | 'Pix manual' | 'Boleto' | 'Cartao';
+  chavePix: string;
+  recebedorPix: string;
+  cidadePix: string;
+  mercadoPagoPublicKey: string;
+  mercadoPagoAccessToken: string;
+  ativo: boolean;
+}
+
+export interface DespesaSaas {
+  id: number;
+  descricao: string;
+  fornecedor: string;
+  categoria: string;
+  vencimento: string;
+  valor: number;
+  status: 'Aberta' | 'Paga' | 'Atrasada';
 }

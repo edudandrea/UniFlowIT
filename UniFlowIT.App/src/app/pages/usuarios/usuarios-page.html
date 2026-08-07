@@ -60,9 +60,11 @@
       <label>
         <span>Perfil</span>
         <select name="usuarioPerfilModal" [(ngModel)]="novoUsuario.role">
-          <option>Usuario</option>
-          <option>Atendente</option>
           <option>Administrador</option>
+          @if (!somenteAdministradorEmpresa) {
+            <option>Usuario</option>
+            <option>Atendente</option>
+          }
         </select>
       </label>
       @if (usuarioEditando) {

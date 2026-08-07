@@ -11,9 +11,10 @@ import { CategoriaChamado, Chamado, Perfil, Prioridade } from '../../models/unif
 export class ChamadosPage {
   @Input({ required: true }) perfil!: Perfil;
   @Input() metricas = { abertos: 0, atendimento: 0, urgentes: 0, linksFora: 0 };
+  @Input() modoDesenvolvedor = false;
   @Input() categorias: CategoriaChamado[] = [];
   @Input() chamadosVisiveis: Chamado[] = [];
-  @Input({ required: true }) chamadoSelecionado!: Chamado;
+  @Input() chamadoSelecionado?: Chamado;
   @Input({ required: true }) novoChamado!: {
     titulo: string;
     solicitante: string;

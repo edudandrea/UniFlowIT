@@ -20,10 +20,10 @@
 <section id="chamados" class="panel tickets-workspace">
   <div class="panel-heading">
     <div>
-      <p class="eyebrow">{{ perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
-      <h2>{{ perfil === 'Usuario' ? 'Meus chamados abertos' : 'Painel de chamados' }}</h2>
+      <p class="eyebrow">{{ modoDesenvolvedor ? 'Suporte da plataforma' : perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
+      <h2>{{ modoDesenvolvedor ? 'Chamados para o desenvolvedor' : perfil === 'Usuario' ? 'Meus chamados abertos' : 'Painel de chamados' }}</h2>
     </div>
-    <button type="button" class="primary" (click)="abrirModalNovoChamado()">Novo chamado</button>
+    <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo chamado' }}</button>
   </div>
 
   <div class="result-list tickets-list">
@@ -37,7 +37,7 @@
     </div>
 
     @for (chamado of chamadosVisiveis; track chamado.id) {
-      <button type="button" class="result-row ticket-list-row" [class.selected]="chamadoSelecionado.id === chamado.id" (click)="abrirDetalheChamado(chamado)">
+      <button type="button" class="result-row ticket-list-row" [class.selected]="chamadoSelecionado?.id === chamado.id" (click)="abrirDetalheChamado(chamado)">
         <span>
           <strong>{{ chamado.numero }}</strong>
           <small>{{ chamado.titulo || chamado.tipo }}</small>
@@ -70,8 +70,8 @@
   <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Abertura de chamado">
     <header class="modal-header">
       <div>
-        <p class="eyebrow">Novo chamado</p>
-        <h2>Abrir chamado</h2>
+        <p class="eyebrow">{{ modoDesenvolvedor ? 'Desenvolvedor UniFlowIT' : 'Novo chamado' }}</p>
+        <h2>{{ modoDesenvolvedor ? 'Solicitar ajuste na plataforma' : 'Abrir chamado' }}</h2>
       </div>
       <div class="modal-header-actions">
         <button
@@ -129,7 +129,7 @@
 
       <label class="full">
         <span>Descrição do chamado</span>
-        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" placeholder="Descreva o problema, impacto e mensagens de erro"></textarea>
+        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" [placeholder]="modoDesenvolvedor ? 'Descreva o erro, tela afetada, passos para reproduzir e impacto para a empresa' : 'Descreva o problema, impacto e mensagens de erro'"></textarea>
       </label>
 
       <div class="upload-field full">
@@ -156,7 +156,7 @@
 
       <div class="modal-actions">
         <button type="button" (click)="fecharModalNovoChamado()">Voltar</button>
-        <button class="primary" type="submit">Abrir chamado</button>
+        <button class="primary" type="submit">{{ modoDesenvolvedor ? 'Enviar ao desenvolvedor' : 'Abrir chamado' }}</button>
       </div>
     </form>
   </section>

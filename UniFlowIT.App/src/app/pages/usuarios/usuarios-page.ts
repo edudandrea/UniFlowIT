@@ -17,6 +17,7 @@ export class UsuariosPage {
   @Input() usuarioModalAberto = false;
   @Input() usuarioEditando = false;
   @Input() travarEmpresa = false;
+  @Input() somenteAdministradorEmpresa = false;
 
   @Output() novoUsuarioClick = new EventEmitter<void>();
   @Output() editarUsuarioClick = new EventEmitter<UsuarioLista>();

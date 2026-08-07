@@ -32,6 +32,9 @@
             ],
             "styles": [
               "src/styles.scss"
+            ],
+            "allowedCommonJsDependencies": [
+              "qrcode"
             ]
           },
           "configurations": {
@@ -39,13 +42,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "560kB",
+                  "maximumWarning": "680kB",
                   "maximumError": "1MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "40kB",
-                  "maximumError": "42kB"
+                  "maximumWarning": "94kB",
+                  "maximumError": "98kB"
                 }
               ],
               "outputHashing": "all"

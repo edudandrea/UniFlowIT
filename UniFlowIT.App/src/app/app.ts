@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
+import { Component, HostBinding, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgxSpinnerModule, NgxSpinnerService } from 'ngx-spinner';
 import { ToastrService } from 'ngx-toastr';
@@ -11,21 +11,28 @@ import { EmpresasPage } from './pages/empresas/empresas-page';
 import { EquipamentosPage } from './pages/equipamentos/equipamentos-page';
 import { LinksPage } from './pages/links/links-page';
 import { LoginPage } from './pages/login/login-page';
+import { SaasAdminPage } from './pages/saas-admin/saas-admin-page';
 import { UsuariosPage } from './pages/usuarios/usuarios-page';
 import {
   Artigo,
   AuthMode,
+  AssinaturaSaas,
   CategoriaChamado,
   CategoriaChamadoForm,
   Chamado,
+  CobrancaSaas,
+  DadosEmpresaSaas,
+  DespesaSaas,
   EmpresaForm,
   EmpresaLista,
   EmpresaTab,
   EnvioEquipamento,
+  FormaPagamentoSaas,
   Inventario,
   LinkMonitorado,
   Pagina,
   Perfil,
+  PlanoSaas,
   Prioridade,
   Sessao,
   UsuarioLista,
@@ -33,20 +40,26 @@ import {
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, NgxSpinnerModule, LoginPage, DashboardPage, EmpresasPage, UsuariosPage, CategoriasPage, ChamadosPage, ConhecimentoPage, EquipamentosPage, LinksPage],
+  imports: [CommonModule, FormsModule, NgxSpinnerModule, LoginPage, DashboardPage, EmpresasPage, UsuariosPage, CategoriasPage, ChamadosPage, ConhecimentoPage, EquipamentosPage, LinksPage, SaasAdminPage],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   encapsulation: ViewEncapsulation.None,
 })
 export class App implements OnInit {
   private readonly apiUrl = 'http://localhost:5151/api';
+  private readonly temaStorageKey = 'uniflowit-theme';
 
   protected readonly perfis: Perfil[] = ['Usuario', 'Atendente', 'Administrador', 'AdministradorSaas'];
+  protected tema = signal<'dark' | 'light'>('dark');
   protected perfil = signal<Perfil>('Usuario');
   protected authMode = signal<AuthMode>('login');
   protected sessao = signal<Sessao | null>(null);
   protected paginaAtiva = signal<Pagina>('chamados');
   protected cadastroAberto = signal(true);
+  protected comercialAberto = signal(false);
+  protected operacaoSaasAberto = signal(false);
+  protected plataformaSaasAberto = signal(false);
+  protected administracaoSaasAberto = signal(false);
   protected empresaTab = signal<EmpresaTab>('pesquisa');
   protected empresaFiltro = signal('');
   protected empresaSelecionadaId = signal<number | null>(1);
@@ -133,6 +146,56 @@ export class App implements OnInit {
     ativo: true,
   };
 
+  protected dadosEmpresaSaas: DadosEmpresaSaas = {
+    razaoSocial: 'UniFlowIT Tecnologia LTDA',
+    nomeFantasia: 'UniFlowIT',
+    cnpj: '',
+    inscricaoMunicipal: '',
+    inscricaoEstadual: '',
+    regimeTributario: 'Simples Nacional',
+    emailFinanceiro: 'financeiro@uniflowit.com',
+    telefone: '',
+    endereco: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: 'Sao Paulo',
+    estado: 'SP',
+    cep: '',
+  };
+
+  protected planos = signal<PlanoSaas[]>([
+    { id: 1, nome: 'Starter', descricao: 'Operacao inicial de suporte e chamados.', limiteUsuarios: 25, limiteEmpresas: 1, valorMensal: 149.9, ativo: true },
+    { id: 2, nome: 'Business', descricao: 'Gestao completa de TI para clientes em crescimento.', limiteUsuarios: 100, limiteEmpresas: 1, valorMensal: 399.9, ativo: true },
+  ]);
+
+  protected planoForm: PlanoSaas = { id: 0, nome: '', descricao: '', limiteUsuarios: 10, limiteEmpresas: 1, valorMensal: 0, ativo: true };
+
+  protected assinaturas = signal<AssinaturaSaas[]>([
+    { id: 1, empresaId: 1, planoId: 2, dataInicio: '2026-08-01', dataFim: '', status: 'Ativa', valorMensal: 399.9 },
+  ]);
+
+  protected assinaturaForm: AssinaturaSaas = { id: 0, empresaId: 1, planoId: 1, dataInicio: new Date().toISOString().slice(0, 10), dataFim: '', status: 'Ativa', valorMensal: 0 };
+
+  protected cobrancas = signal<CobrancaSaas[]>([
+    { id: 1, empresaId: 1, assinaturaId: 1, vencimento: '2026-08-10', valor: 399.9, status: 'Aberta', formaPagamento: 'Pix manual' },
+  ]);
+
+  protected cobrancaForm: CobrancaSaas = { id: 0, empresaId: 1, assinaturaId: 1, vencimento: new Date().toISOString().slice(0, 10), valor: 0, status: 'Aberta', formaPagamento: 'Pix manual' };
+
+  protected formasPagamento = signal<FormaPagamentoSaas[]>([
+    { id: 1, nome: 'Pix manual', tipo: 'Pix manual', chavePix: '', recebedorPix: 'UNIFLOWIT', cidadePix: 'SAO PAULO', mercadoPagoPublicKey: '', mercadoPagoAccessToken: '', ativo: true },
+    { id: 2, nome: 'Mercado Pago', tipo: 'Mercado Pago', chavePix: '', recebedorPix: '', cidadePix: '', mercadoPagoPublicKey: '', mercadoPagoAccessToken: '', ativo: false },
+  ]);
+
+  protected formaPagamentoForm: FormaPagamentoSaas = { id: 0, nome: 'Pix manual', tipo: 'Pix manual', chavePix: '', recebedorPix: 'UNIFLOWIT', cidadePix: 'SAO PAULO', mercadoPagoPublicKey: '', mercadoPagoAccessToken: '', ativo: true };
+
+  protected despesas = signal<DespesaSaas[]>([
+    { id: 1, descricao: 'Hospedagem e infraestrutura', fornecedor: 'Cloud', categoria: 'Infraestrutura', vencimento: '2026-08-15', valor: 120, status: 'Aberta' },
+  ]);
+
+  protected despesaForm: DespesaSaas = { id: 0, descricao: '', fornecedor: '', categoria: 'Infraestrutura', vencimento: new Date().toISOString().slice(0, 10), valor: 0, status: 'Aberta' };
+
   protected empresas = signal<EmpresaLista[]>([
     {
       id: 1,
@@ -161,10 +224,7 @@ export class App implements OnInit {
     },
   ]);
 
-  protected usuarios = signal<UsuarioLista[]>([
-    { id: 1, empresaId: 1, empresaNome: 'UniFlowIT Demo', nome: 'Marina Costa', email: 'marina@demo.com', role: 'Usuario', ativo: true },
-    { id: 2, empresaId: 1, empresaNome: 'UniFlowIT Demo', nome: 'Rafael Nunes', email: 'rafael@demo.com', role: 'Atendente', ativo: true },
-  ]);
+  protected usuarios = signal<UsuarioLista[]>([]);
 
   protected categorias = signal<CategoriaChamado[]>([
     { id: 1, empresaId: 1, nome: 'Acesso', subcategorias: ['E-mail', 'Sistema interno', 'VPN'], prioridadePadrao: 'Media', ativo: true },
@@ -184,80 +244,7 @@ export class App implements OnInit {
     anexos: '',
   };
 
-  protected chamados = signal<Chamado[]>([
-    {
-      id: 1,
-      empresaId: 1,
-      solicitanteUsuarioId: 1,
-      numero: 'CH-20260720-0001',
-      solicitante: 'Marina Costa',
-      categoria: 'Acesso',
-      subcategoria: 'E-mail',
-      tipo: 'Incidente',
-      prioridade: 'Alta',
-      status: 'Aberto',
-      descricao: 'Nao consigo acessar meu e-mail corporativo.',
-      equipamento: 'NB-MARINA-014 | Windows 11 Pro | 10.10.8.42 | Edge',
-      anexos: ['erro-login.png'],
-      mensagens: [
-        {
-          autor: 'Marina Costa',
-          perfil: 'Usuario',
-          texto: 'Bom dia, preciso de ajuda para entrar no e-mail.',
-          horario: '10:15',
-        },
-      ],
-    },
-    {
-      id: 2,
-      empresaId: 1,
-      numero: 'CH-20260720-0002',
-      solicitante: 'Monitoramento de links',
-      categoria: 'Infraestrutura',
-      subcategoria: 'Link internet',
-      tipo: 'Incidente',
-      prioridade: 'Urgente',
-      status: 'Em atendimento',
-      descricao: 'Link principal da filial Campinas indisponivel.',
-      equipamento: 'Fortigate Campinas | 10.255.20.1 | leitura 60s',
-      anexos: [],
-      atendente: 'Rafael Nunes',
-      origem: 'Monitoramento automatico',
-      mensagens: [
-        {
-          autor: 'Rafael Nunes',
-          perfil: 'Atendente',
-          texto: 'Acionando operadora e validando failover.',
-          horario: '10:21',
-        },
-      ],
-    },
-    {
-      id: 3,
-      empresaId: 1,
-      solicitanteUsuarioId: 1,
-      numero: 'CH-20260719-0007',
-      solicitante: 'Eduardo Lima',
-      categoria: 'Equipamentos',
-      subcategoria: 'Notebook',
-      tipo: 'Solicitacao',
-      prioridade: 'Baixa',
-      status: 'Encerrado',
-      descricao: 'Solicito troca de notebook para colaborador novo.',
-      equipamento: 'NB-EDUARDO-002 | Windows 11 Pro | 10.10.7.90 | Chrome',
-      anexos: ['termo-colaborador.pdf'],
-      atendente: 'Rafael Nunes',
-      avaliacao: 5,
-      mensagens: [
-        {
-          autor: 'Rafael Nunes',
-          perfil: 'Atendente',
-          texto: 'Equipamento separado e termo enviado.',
-          horario: 'Ontem',
-        },
-      ],
-    },
-  ]);
+  protected chamados = signal<Chamado[]>([]);
 
   protected artigos: Artigo[] = [
     {
@@ -303,7 +290,19 @@ export class App implements OnInit {
     private readonly toastr: ToastrService,
   ) {}
 
+  @HostBinding('class.theme-dark')
+  protected get temaEscuro(): boolean {
+    return this.tema() === 'dark';
+  }
+
+  @HostBinding('class.theme-light')
+  protected get temaClaro(): boolean {
+    return this.tema() === 'light';
+  }
+
   async ngOnInit(): Promise<void> {
+    this.carregarTema();
+
     const empresaInicial = this.empresaSelecionada();
     if (empresaInicial) {
       this.novaEmpresa = { ...empresaInicial, nome: empresaInicial.nome ?? empresaInicial.nomeFantasia };
@@ -312,13 +311,26 @@ export class App implements OnInit {
     await this.verificarAdministradorSaas();
   }
 
+  protected alternarTema(): void {
+    const proximoTema = this.tema() === 'dark' ? 'light' : 'dark';
+    this.tema.set(proximoTema);
+    localStorage.setItem(this.temaStorageKey, proximoTema);
+  }
+
+  private carregarTema(): void {
+    const temaSalvo = localStorage.getItem(this.temaStorageKey);
+    this.tema.set(temaSalvo === 'light' ? 'light' : 'dark');
+  }
+
   protected chamadosVisiveis = computed(() => {
     if (this.perfil() === 'AdministradorSaas') {
       return this.chamados();
     }
 
     const empresaId = this.sessao()?.empresaId;
-    const chamadosEmpresa = this.chamados().filter((chamado) => !empresaId || chamado.empresaId === empresaId || chamado.empresaId == null);
+    const chamadosEmpresa = this.chamados()
+      .filter((chamado) => chamado.origem !== 'Desenvolvedor')
+      .filter((chamado) => !empresaId || chamado.empresaId === empresaId || chamado.empresaId == null);
 
     if (this.perfil() === 'Administrador') {
       return chamadosEmpresa;
@@ -334,6 +346,25 @@ export class App implements OnInit {
         (chamado.solicitanteUsuarioId === this.sessao()?.id || chamado.solicitante === this.sessao()?.nome),
     );
   });
+
+  protected chamadosDesenvolvedorVisiveis = computed(() => {
+    const chamados = this.chamados().filter((chamado) => chamado.origem === 'Desenvolvedor');
+    if (this.perfil() === 'AdministradorSaas') {
+      return chamados;
+    }
+
+    const empresaId = this.sessao()?.empresaId;
+    return chamados.filter((chamado) => !empresaId || chamado.empresaId === empresaId);
+  });
+
+  protected categoriasDesenvolvedor = computed<CategoriaChamado[]>(() => [
+    {
+      nome: 'Plataforma UniFlowIT',
+      subcategorias: ['Erro do sistema', 'Ajuste de funcionalidade', 'Melhoria', 'Integracao'],
+      prioridadePadrao: 'Media',
+      ativo: true,
+    },
+  ]);
 
   protected chamadoSelecionado = computed(() => {
     return this.chamados().find((chamado) => chamado.id === this.chamadoSelecionadoId()) ?? this.chamados()[0];
@@ -362,10 +393,56 @@ export class App implements OnInit {
     switch (this.paginaAtiva()) {
       case 'dashboard':
         return 'Dashboard da empresa';
+      case 'chamados-desenvolvedor':
+        return 'Chamados para o desenvolvedor';
+      case 'saas-dashboard':
+        return 'Dashboard SaaS';
       case 'cadastro-empresas':
         return 'Empresas contratantes';
       case 'cadastro-usuarios':
         return 'Usuarios por empresa';
+      case 'dados-empresariais':
+        return 'Dados empresariais';
+      case 'financeiro-assinaturas':
+        return 'Assinaturas';
+      case 'financeiro-cobrancas':
+        return 'Cobrancas';
+      case 'financeiro-planos':
+        return 'Planos';
+      case 'financeiro-pagamentos':
+        return 'Formas de pagamento';
+      case 'financeiro-despesas':
+        return 'Despesas';
+      case 'saas-implantacoes':
+        return 'Implantacoes';
+      case 'saas-inadimplencia':
+        return 'Inadimplencia';
+      case 'saas-chamados-globais':
+        return 'Chamados globais';
+      case 'saas-sla-plataforma':
+        return 'SLA da plataforma';
+      case 'saas-incidentes':
+        return 'Incidentes';
+      case 'saas-monitoramento':
+        return 'Monitoramento SaaS';
+      case 'saas-agentes':
+        return 'Agentes';
+      case 'saas-integracoes':
+        return 'Integracoes';
+      case 'saas-acesso-remoto':
+        return 'Acesso remoto';
+      case 'saas-relatorios':
+        return 'Relatorios SaaS';
+      case 'saas-metricas-uso':
+        return 'Metricas de uso';
+      case 'saas-auditoria':
+        return 'Auditoria';
+      case 'saas-configuracoes':
+        return 'Configuracoes SaaS';
+      case 'saas-seguranca':
+        return 'Seguranca';
+      case 'saas-administradores':
+        return 'Administradores SaaS';
       case 'cadastro-categorias':
         return 'Categorias de chamados';
       case 'conhecimento':
@@ -382,6 +459,11 @@ export class App implements OnInit {
   protected contextoPagina = computed(() => {
     return this.perfil() === 'AdministradorSaas' ? 'Administracao SaaS' : this.sessao()?.empresaNome || 'Fase 1';
   });
+
+  protected paginaSaasConteudo(): boolean {
+    const pagina = this.paginaAtiva();
+    return this.perfil() === 'AdministradorSaas' && pagina !== 'cadastro-empresas' && pagina !== 'cadastro-usuarios';
+  }
 
   protected empresasFiltradas = computed(() => {
     const filtro = this.empresaFiltro().trim().toLowerCase();
@@ -420,7 +502,7 @@ export class App implements OnInit {
       const data = (await response.json()) as Sessao;
       this.sessao.set(data);
       this.perfil.set(data.role);
-      this.paginaAtiva.set(data.role === 'AdministradorSaas' ? 'cadastro-empresas' : data.role === 'Administrador' ? 'dashboard' : 'chamados');
+      this.paginaAtiva.set(data.role === 'AdministradorSaas' ? 'saas-dashboard' : data.role === 'Administrador' ? 'dashboard' : 'chamados');
       this.cadastroAberto.set(data.role === 'AdministradorSaas' || data.role === 'Administrador');
       if (data.empresaId) {
         this.novoUsuario.empresaId = data.empresaId;
@@ -465,7 +547,7 @@ export class App implements OnInit {
       const data = (await response.json()) as Sessao;
       this.sessao.set(data);
       this.perfil.set('AdministradorSaas');
-      this.paginaAtiva.set('cadastro-empresas');
+      this.paginaAtiva.set('saas-dashboard');
       this.cadastroAberto.set(true);
       this.existeAdministradorSaas.set(true);
       this.loginForm.email = data.email;
@@ -483,15 +565,26 @@ export class App implements OnInit {
   protected async criarEmpresa(): Promise<void> {
     this.spinner.show('uniflowit');
     const dataCadastro = this.novaEmpresa.dataCadastro || new Date().toISOString().slice(0, 10);
+    const nomeBase = this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial || this.novaEmpresa.nome || 'empresa';
+    const tenantSlug = this.novaEmpresa.tenantSlug || this.gerarTenantSlug(nomeBase);
+    const cnpj = this.formatarCnpj(this.novaEmpresa.cnpj);
+    if (cnpj && !this.validarCnpj(cnpj)) {
+      this.toastr.warning('Informe um CNPJ valido para salvar a empresa.', 'CNPJ invalido');
+      this.spinner.hide('uniflowit');
+      return;
+    }
+
+    const telefone = this.formatarTelefone(this.novaEmpresa.telefone);
+    const ativo = this.novaEmpresa.ativo;
     const empresa: EmpresaLista = {
       id: this.novaEmpresa.id,
-      nome: this.novaEmpresa.nome,
+      nome: this.novaEmpresa.nome || this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial,
       razaoSocial: this.novaEmpresa.razaoSocial,
       nomeFantasia: this.novaEmpresa.nomeFantasia,
-      tenantSlug: this.novaEmpresa.tenantSlug,
-      cnpj: this.novaEmpresa.cnpj,
-      telefone: this.novaEmpresa.telefone,
-      email: this.novaEmpresa.email,
+      tenantSlug,
+      cnpj,
+      telefone,
+      email: this.novaEmpresa.email.trim().toLowerCase(),
       endereco: this.novaEmpresa.endereco,
       numero: this.novaEmpresa.numero,
       complemento: this.novaEmpresa.complemento,
@@ -502,10 +595,10 @@ export class App implements OnInit {
       inscricaoMunicipal: this.novaEmpresa.inscricaoMunicipal,
       inscricaoEstadual: this.novaEmpresa.inscricaoEstadual,
       logoUrl: this.novaEmpresa.logoUrl,
-      ativo: this.novaEmpresa.ativo,
-      acessoBloqueado: this.novaEmpresa.acessoBloqueado,
-      motivoBloqueio: this.novaEmpresa.motivoBloqueio,
-      bloqueadoEm: this.novaEmpresa.bloqueadoEm,
+      ativo,
+      acessoBloqueado: !ativo,
+      motivoBloqueio: ativo ? '' : this.novaEmpresa.motivoBloqueio || 'Empresa inativada pelo Administrador SaaS.',
+      bloqueadoEm: ativo ? '' : this.novaEmpresa.bloqueadoEm || new Date().toISOString(),
       dataCadastro,
     };
 
@@ -520,7 +613,6 @@ export class App implements OnInit {
     this.empresaSelecionadaId.set(id);
     this.empresaEditando.set(false);
     this.empresaTab.set('detalhes');
-    this.resetarFormularioEmpresa();
     this.novoUsuario.empresaId = id;
 
     try {
@@ -535,14 +627,20 @@ export class App implements OnInit {
       this.toastr.info('Empresa salva localmente. API indisponivel para persistir agora.', 'Modo local');
     } finally {
       this.empresaModalAberto.set(false);
+      this.empresaEditando.set(false);
       this.spinner.hide('uniflowit');
     }
+
+    this.novaEmpresa = { ...empresaComId, nome: empresaComId.nome ?? empresaComId.nomeFantasia };
   }
 
   protected async criarUsuario(): Promise<void> {
     this.spinner.show('uniflowit');
     const empresaId = this.empresaPermitidaParaUsuario();
     this.novoUsuario.empresaId = empresaId;
+    if (this.perfil() === 'AdministradorSaas') {
+      this.novoUsuario.role = 'Administrador';
+    }
     const editando = this.usuarioEditando();
     const id = this.novoUsuario.id;
 
@@ -620,7 +718,7 @@ export class App implements OnInit {
       this.spinner.hide('uniflowit');
     }
 
-    this.novoUsuario = { id: undefined, empresaId: this.novoUsuario.empresaId, nome: '', email: '', senha: '', senhaConfirmacao: '', role: 'Usuario', ativo: true };
+    this.novoUsuario = { id: undefined, empresaId: this.novoUsuario.empresaId, nome: '', email: '', senha: '', senhaConfirmacao: '', role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario', ativo: true };
   }
 
   protected sair(): void {
@@ -737,16 +835,150 @@ export class App implements OnInit {
 
   protected navegar(pagina: Pagina): void {
     if (this.perfil() === 'Usuario' || this.perfil() === 'Atendente') {
-      this.paginaAtiva.set('chamados');
+      this.paginaAtiva.set(pagina === 'chamados-desenvolvedor' ? 'chamados-desenvolvedor' : 'chamados');
       return;
     }
 
-    if (this.perfil() === 'AdministradorSaas' && pagina !== 'cadastro-empresas' && pagina !== 'cadastro-usuarios') {
-      this.paginaAtiva.set('cadastro-empresas');
+    const paginasSaas: Pagina[] = [
+      'cadastro-empresas',
+      'saas-dashboard',
+      'chamados-desenvolvedor',
+      'cadastro-usuarios',
+      'dados-empresariais',
+      'financeiro-assinaturas',
+      'financeiro-cobrancas',
+      'financeiro-planos',
+      'financeiro-pagamentos',
+      'financeiro-despesas',
+      'saas-implantacoes',
+      'saas-inadimplencia',
+      'saas-chamados-globais',
+      'saas-sla-plataforma',
+      'saas-incidentes',
+      'saas-monitoramento',
+      'saas-agentes',
+      'saas-integracoes',
+      'saas-acesso-remoto',
+      'saas-relatorios',
+      'saas-metricas-uso',
+      'saas-auditoria',
+      'saas-configuracoes',
+      'saas-seguranca',
+      'saas-administradores',
+    ];
+
+    if (this.perfil() === 'AdministradorSaas' && !paginasSaas.includes(pagina)) {
+      this.paginaAtiva.set('saas-dashboard');
       return;
     }
 
     this.paginaAtiva.set(pagina);
+  }
+
+  protected salvarDadosEmpresaSaas(): void {
+    this.toastr.success('Dados empresariais salvos para emissao fiscal.', 'Administrador SaaS');
+  }
+
+  protected salvarPlanoSaas(): void {
+    const id = this.planoForm.id || this.proximoId(this.planos());
+    const plano = { ...this.planoForm, id };
+    this.planos.update((planos) => this.salvarNaLista(planos, plano));
+    this.planoForm = { id: 0, nome: '', descricao: '', limiteUsuarios: 10, limiteEmpresas: 1, valorMensal: 0, ativo: true };
+    this.toastr.success('Plano salvo com sucesso.', 'Financeiro');
+  }
+
+  protected salvarAssinaturaSaas(): void {
+    const id = this.assinaturaForm.id || this.proximoId(this.assinaturas());
+    const assinatura = { ...this.assinaturaForm, id };
+    this.assinaturas.update((assinaturas) => this.salvarNaLista(assinaturas, assinatura));
+    this.assinaturaForm = { id: 0, empresaId: this.empresas()[0]?.id ?? 1, planoId: this.planos()[0]?.id ?? 1, dataInicio: new Date().toISOString().slice(0, 10), dataFim: '', status: 'Ativa', valorMensal: 0 };
+    this.toastr.success('Assinatura salva com sucesso.', 'Financeiro');
+  }
+
+  protected salvarCobrancaSaas(): void {
+    const id = this.cobrancaForm.id || this.proximoId(this.cobrancas());
+    const cobranca = { ...this.cobrancaForm, id };
+    this.cobrancas.update((cobrancas) => this.salvarNaLista(cobrancas, cobranca));
+    this.cobrancaForm = { id: 0, empresaId: this.empresas()[0]?.id ?? 1, assinaturaId: this.assinaturas()[0]?.id ?? 1, vencimento: new Date().toISOString().slice(0, 10), valor: 0, status: 'Aberta', formaPagamento: this.formasPagamento()[0]?.nome ?? 'Pix manual' };
+    this.toastr.success('Cobranca salva com sucesso.', 'Financeiro');
+  }
+
+  protected salvarFormaPagamentoSaas(): void {
+    const id = this.formaPagamentoForm.id || this.proximoId(this.formasPagamento());
+    const forma = { ...this.formaPagamentoForm, id };
+    this.formasPagamento.update((formas) => this.salvarNaLista(formas, forma));
+    this.formaPagamentoForm = { id: 0, nome: 'Pix manual', tipo: 'Pix manual', chavePix: '', recebedorPix: this.dadosEmpresaSaas.nomeFantasia || 'UNIFLOWIT', cidadePix: this.dadosEmpresaSaas.cidade || 'SAO PAULO', mercadoPagoPublicKey: '', mercadoPagoAccessToken: '', ativo: true };
+    this.toastr.success('Forma de pagamento salva com sucesso.', 'Financeiro');
+  }
+
+  protected salvarDespesaSaas(): void {
+    const id = this.despesaForm.id || this.proximoId(this.despesas());
+    const despesa = { ...this.despesaForm, id };
+    this.despesas.update((despesas) => this.salvarNaLista(despesas, despesa));
+    this.despesaForm = { id: 0, descricao: '', fornecedor: '', categoria: 'Infraestrutura', vencimento: new Date().toISOString().slice(0, 10), valor: 0, status: 'Aberta' };
+    this.toastr.success('Despesa salva com sucesso.', 'Financeiro');
+  }
+
+  private salvarNaLista<T extends { id: number }>(lista: T[], item: T): T[] {
+    return lista.some((atual) => atual.id === item.id) ? lista.map((atual) => (atual.id === item.id ? item : atual)) : [item, ...lista];
+  }
+
+  private proximoId(lista: Array<{ id: number }>): number {
+    return Math.max(0, ...lista.map((item) => item.id)) + 1;
+  }
+
+  private gerarTenantSlug(valor: string): string {
+    const slug = valor
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    return slug || `empresa-${Date.now()}`;
+  }
+
+  private formatarCnpj(valor: string): string {
+    const digitos = valor.replace(/\D/g, '').slice(0, 14);
+    return digitos
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  }
+
+  private formatarTelefone(valor: string): string {
+    const digitos = valor.replace(/\D/g, '').slice(0, 11);
+    if (digitos.length <= 10) {
+      return digitos
+        .replace(/^(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+
+    return digitos
+      .replace(/^(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  }
+
+  private validarCnpj(valor: string): boolean {
+    const cnpj = valor.replace(/\D/g, '');
+    if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) {
+      return false;
+    }
+
+    const calcularDigito = (tamanho: number): number => {
+      const pesos = tamanho === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const soma = cnpj
+        .slice(0, tamanho)
+        .split('')
+        .reduce((total, digito, index) => total + Number(digito) * pesos[index], 0);
+      const resto = soma % 11;
+      return resto < 2 ? 0 : 11 - resto;
+    };
+
+    return calcularDigito(12) === Number(cnpj[12]) && calcularDigito(13) === Number(cnpj[13]);
   }
 
   protected abrirNovaEmpresa(): void {
@@ -771,7 +1003,27 @@ export class App implements OnInit {
 
     this.novaEmpresa = { ...empresa, nome: empresa.nome ?? empresa.nomeFantasia };
     this.empresaEditando.set(true);
-    this.empresaModalAberto.set(true);
+    this.empresaModalAberto.set(false);
+  }
+
+  protected async alternarEmpresaAtiva(): Promise<void> {
+    const empresa = this.empresaSelecionada();
+    if (!empresa) {
+      return;
+    }
+
+    const ativa = !empresa.ativo;
+    this.novaEmpresa = {
+      ...empresa,
+      nome: empresa.nome ?? empresa.nomeFantasia,
+      ativo: ativa,
+      acessoBloqueado: !ativa,
+      motivoBloqueio: ativa ? '' : 'Empresa inativada pelo Administrador SaaS.',
+      bloqueadoEm: ativa ? '' : new Date().toISOString(),
+    };
+
+    await this.criarEmpresa();
+    this.toastr.info(ativa ? 'Empresa ativada e acesso liberado.' : 'Empresa inativada e acesso bloqueado.', 'Empresas');
   }
 
   protected fecharModalEmpresa(): void {
@@ -781,7 +1033,7 @@ export class App implements OnInit {
 
   protected abrirNovoUsuario(): void {
     this.usuarioEditando.set(false);
-    this.novoUsuario = { id: undefined, empresaId: this.empresaPermitidaParaUsuario(), nome: '', email: '', senha: '', senhaConfirmacao: '', role: 'Usuario', ativo: true };
+    this.novoUsuario = { id: undefined, empresaId: this.empresaPermitidaParaUsuario(), nome: '', email: '', senha: '', senhaConfirmacao: '', role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario', ativo: true };
     this.usuarioModalAberto.set(true);
   }
 
@@ -897,6 +1149,22 @@ export class App implements OnInit {
 
   protected alternarCadastro(): void {
     this.cadastroAberto.update((aberto) => !aberto);
+  }
+
+  protected alternarComercial(): void {
+    this.comercialAberto.update((aberto) => !aberto);
+  }
+
+  protected alternarOperacaoSaas(): void {
+    this.operacaoSaasAberto.update((aberto) => !aberto);
+  }
+
+  protected alternarPlataformaSaas(): void {
+    this.plataformaSaasAberto.update((aberto) => !aberto);
+  }
+
+  protected alternarAdministracaoSaas(): void {
+    this.administracaoSaasAberto.update((aberto) => !aberto);
   }
 
   protected empresasParaCadastroUsuario(): EmpresaLista[] {
@@ -1324,6 +1592,14 @@ export class App implements OnInit {
   }
 
   protected async abrirChamado(): Promise<void> {
+    await this.criarChamadoPortal();
+  }
+
+  protected async abrirChamadoDesenvolvedor(): Promise<void> {
+    await this.criarChamadoPortal('Desenvolvedor');
+  }
+
+  private async criarChamadoPortal(origem?: string): Promise<void> {
     const anexos = this.novoChamado.anexos
       .split(',')
       .map((anexo) => anexo.trim())
@@ -1340,6 +1616,7 @@ export class App implements OnInit {
       tipo: this.novoChamado.tipo,
       prioridade: this.novoChamado.prioridade,
       descricao,
+      origem,
       equipamentoRelacionado: this.criarEquipamentoCapturado(),
       anexos: anexos.map((anexo) => ({ nomeArquivo: anexo, tipoConteudo: '', tamanhoBytes: 0, url: '' })),
     };
@@ -1360,6 +1637,7 @@ export class App implements OnInit {
         descricao,
         equipamento: this.capturarEquipamento(),
         anexos,
+        origem,
         mensagens: [
           {
             autor: novoChamado.solicitante,

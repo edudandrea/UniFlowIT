@@ -121,3 +121,11 @@ D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\tr\Microsoft.CodeAnalysis.Works
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\zh-Hans\Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\zh-Hant\Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 D:\Dev\UniFlowIT\uniflowit.api\obj\Debug\net10.0\UniFlowIT.Api.sourcelink.json
+D:\Dev\UniFlowIT\.agents\api-build-check\appsettings.Development.json
+D:\Dev\UniFlowIT\.agents\api-build-check\appsettings.json
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.staticwebassets.endpoints.json
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.exe
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.deps.json
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.runtimeconfig.json
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.dll
+D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.pdb

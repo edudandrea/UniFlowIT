@@ -1,0 +1,291 @@
+@if (pagina === 'saas-dashboard') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Administracao SaaS</p>
+        <h2>Dashboard SaaS</h2>
+      </div>
+      <span class="badge info">Receita e plataforma</span>
+    </div>
+
+    <div class="saas-kpi-grid">
+      <article><span>Clientes ativos</span><strong>{{ clientesAtivos() }}</strong><small>{{ empresas.length }} cadastradas</small></article>
+      <article><span>MRR</span><strong>{{ formatarMoeda(mrr()) }}</strong><small>{{ assinaturas.length }} assinaturas</small></article>
+      <article><span>Usuarios</span><strong>{{ usuarios.length }}</strong><small>Usuarios cadastrados</small></article>
+      <article><span>Ativos monitorados</span><strong>{{ inventario.length }}</strong><small>Inventario carregado</small></article>
+      <article><span>Chamados registrados</span><strong>{{ chamados.length }}</strong><small>{{ chamados.length ? 'Dados carregados' : 'Sem chamados' }}</small></article>
+      <article><span>Inadimplencia</span><strong>{{ formatarMoeda(inadimplencia()) }}</strong><small>{{ cobrancas.length }} cobrancas</small></article>
+      <article><span>Churn</span><strong>{{ churn() }}</strong><small>Assinaturas canceladas</small></article>
+      <article><span>Disponibilidade</span><strong>{{ disponibilidade() }}</strong><small>Baseado em dados carregados</small></article>
+    </div>
+
+    <div class="saas-chart-grid">
+      <article class="saas-chart">
+        <header>
+          <span>Receita recebida</span>
+          <small>Cobrancas pagas por mes</small>
+        </header>
+        @if (evolucaoReceita().length) {
+          <div class="chart-bars">
+            @for (item of evolucaoReceita(); track item.label) {
+              <span [style.--bar-height]="item.altura + '%'"><i></i><b>{{ item.label }}</b></span>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">Sem cobrancas pagas para montar o grafico.</p>
+        }
+      </article>
+
+      <article class="saas-chart">
+        <header>
+          <span>Chamados da plataforma</span>
+          <small>Volume real por mes</small>
+        </header>
+        @if (evolucaoChamados().length) {
+          <div class="chart-bars violet">
+            @for (item of evolucaoChamados(); track item.label) {
+              <span [style.--bar-height]="item.altura + '%'"><i></i><b>{{ item.label }}</b></span>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">Sem chamados carregados para montar o grafico.</p>
+        }
+      </article>
+    </div>
+  </section>
+}
+
+@if (pagina === 'dados-empresariais') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Administrador SaaS</p>
+        <h2>Dados empresariais</h2>
+      </div>
+      <span class="badge info">Nota fiscal</span>
+    </div>
+
+    <form class="company-form modal-form inline-form" (ngSubmit)="salvarDadosEmpresa.emit()">
+      <label><span>Razao social</span><input name="saasRazaoSocial" [(ngModel)]="dadosEmpresa.razaoSocial" required /></label>
+      <label><span>Nome fantasia</span><input name="saasNomeFantasia" [(ngModel)]="dadosEmpresa.nomeFantasia" required /></label>
+      <label><span>CNPJ</span><input name="saasCnpj" [(ngModel)]="dadosEmpresa.cnpj" required /></label>
+      <label><span>Regime tributario</span><input name="saasRegimeTributario" [(ngModel)]="dadosEmpresa.regimeTributario" /></label>
+      <label><span>Inscricao municipal</span><input name="saasInscricaoMunicipal" [(ngModel)]="dadosEmpresa.inscricaoMunicipal" /></label>
+      <label><span>Inscricao estadual</span><input name="saasInscricaoEstadual" [(ngModel)]="dadosEmpresa.inscricaoEstadual" /></label>
+      <label><span>E-mail financeiro</span><input name="saasEmailFinanceiro" type="email" [(ngModel)]="dadosEmpresa.emailFinanceiro" /></label>
+      <label><span>Telefone</span><input name="saasTelefone" [(ngModel)]="dadosEmpresa.telefone" /></label>
+      <label class="span-2"><span>Endereco</span><input name="saasEndereco" [(ngModel)]="dadosEmpresa.endereco" /></label>
+      <label><span>Numero</span><input name="saasNumero" [(ngModel)]="dadosEmpresa.numero" /></label>
+      <label><span>Complemento</span><input name="saasComplemento" [(ngModel)]="dadosEmpresa.complemento" /></label>
+      <label><span>Bairro</span><input name="saasBairro" [(ngModel)]="dadosEmpresa.bairro" /></label>
+      <label><span>Cidade</span><input name="saasCidade" [(ngModel)]="dadosEmpresa.cidade" /></label>
+      <label><span>Estado</span><input name="saasEstado" [(ngModel)]="dadosEmpresa.estado" /></label>
+      <label><span>CEP</span><input name="saasCep" [(ngModel)]="dadosEmpresa.cep" /></label>
+      <footer class="modal-actions">
+        <button type="submit" class="primary">Salvar dados empresariais</button>
+      </footer>
+    </form>
+  </section>
+}
+
+@if (paginaGenericaSaas()) {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Administracao SaaS</p>
+        <h2>{{ tituloGenerico() }}</h2>
+      </div>
+      <span class="badge info">Modulo SaaS</span>
+    </div>
+
+    <div class="saas-module-placeholder">
+      <strong>{{ tituloGenerico() }}</strong>
+      <p>Modulo reservado para gestao da plataforma, clientes, operacao global e auditoria.</p>
+    </div>
+  </section>
+}
+
+@if (pagina === 'financeiro-planos') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Financeiro</p>
+        <h2>Planos</h2>
+      </div>
+      <span class="badge info">Oferta comercial</span>
+    </div>
+
+    <form class="company-form modal-form inline-form" (ngSubmit)="salvarPlano.emit()">
+      <label><span>Nome do plano</span><input name="planoNome" [(ngModel)]="planoForm.nome" required /></label>
+      <label><span>Valor mensal</span><input name="planoValor" type="number" min="0" step="0.01" [(ngModel)]="planoForm.valorMensal" required /></label>
+      <label><span>Limite usuarios</span><input name="planoUsuarios" type="number" min="1" [(ngModel)]="planoForm.limiteUsuarios" /></label>
+      <label><span>Limite empresas</span><input name="planoEmpresas" type="number" min="1" [(ngModel)]="planoForm.limiteEmpresas" /></label>
+      <label class="span-2"><span>Descricao</span><input name="planoDescricao" [(ngModel)]="planoForm.descricao" /></label>
+      <label><span>Ativo</span><select name="planoAtivo" [(ngModel)]="planoForm.ativo"><option [ngValue]="true">Sim</option><option [ngValue]="false">Nao</option></select></label>
+      <footer class="modal-actions"><button type="submit" class="primary">Salvar plano</button></footer>
+    </form>
+
+    <div class="result-list plans-list">
+      <div class="result-header"><span>Plano</span><span>Limites</span><span>Valor</span><span>Status</span></div>
+      @for (plano of planos; track plano.id) {
+        <article class="result-row">
+          <span><strong>{{ plano.nome }}</strong><small>{{ plano.descricao }}</small></span>
+          <span>{{ plano.limiteUsuarios }} usuarios / {{ plano.limiteEmpresas }} empresas</span>
+          <span>R$ {{ plano.valorMensal.toFixed(2) }}</span>
+          <span class="status-pill" [class.inactive]="!plano.ativo">{{ plano.ativo ? 'Ativo' : 'Inativo' }}</span>
+        </article>
+      }
+    </div>
+  </section>
+}
+
+@if (pagina === 'financeiro-assinaturas') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Financeiro</p>
+        <h2>Assinaturas</h2>
+      </div>
+      <span class="badge info">Contratos ativos</span>
+    </div>
+
+    <form class="company-form modal-form inline-form" (ngSubmit)="salvarAssinatura.emit()">
+      <label><span>Empresa</span><select name="assinaturaEmpresa" [(ngModel)]="assinaturaForm.empresaId" required>@for (empresa of empresas; track empresa.id) { <option [ngValue]="empresa.id">{{ empresa.nomeFantasia || empresa.razaoSocial }}</option> }</select></label>
+      <label><span>Plano</span><select name="assinaturaPlano" [(ngModel)]="assinaturaForm.planoId" required>@for (plano of planos; track plano.id) { <option [ngValue]="plano.id">{{ plano.nome }}</option> }</select></label>
+      <label><span>Inicio</span><input name="assinaturaInicio" type="date" [(ngModel)]="assinaturaForm.dataInicio" /></label>
+      <label><span>Fim</span><input name="assinaturaFim" type="date" [(ngModel)]="assinaturaForm.dataFim" /></label>
+      <label><span>Valor mensal</span><input name="assinaturaValor" type="number" min="0" step="0.01" [(ngModel)]="assinaturaForm.valorMensal" /></label>
+      <label><span>Status</span><select name="assinaturaStatus" [(ngModel)]="assinaturaForm.status"><option>Ativa</option><option>Pausada</option><option>Cancelada</option><option>Teste</option></select></label>
+      <footer class="modal-actions"><button type="submit" class="primary">Salvar assinatura</button></footer>
+    </form>
+
+    <div class="result-list subscriptions-list">
+      <div class="result-header"><span>Empresa</span><span>Plano</span><span>Periodo</span><span>Status</span></div>
+      @for (assinatura of assinaturas; track assinatura.id) {
+        <article class="result-row">
+          <span>{{ empresaNome(assinatura.empresaId) }}</span>
+          <span>{{ planoNome(assinatura.planoId) }}</span>
+          <span>{{ assinatura.dataInicio }} - {{ assinatura.dataFim || 'sem fim' }}</span>
+          <span class="status-pill">{{ assinatura.status }}</span>
+        </article>
+      }
+    </div>
+  </section>
+}
+
+@if (pagina === 'financeiro-cobrancas') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Financeiro</p>
+        <h2>Cobrancas</h2>
+      </div>
+      <span class="badge info">Recebiveis</span>
+    </div>
+
+    <form class="company-form modal-form inline-form" (ngSubmit)="salvarCobranca.emit()">
+      <label><span>Empresa</span><select name="cobrancaEmpresa" [(ngModel)]="cobrancaForm.empresaId" required>@for (empresa of empresas; track empresa.id) { <option [ngValue]="empresa.id">{{ empresa.nomeFantasia || empresa.razaoSocial }}</option> }</select></label>
+      <label><span>Assinatura</span><select name="cobrancaAssinatura" [(ngModel)]="cobrancaForm.assinaturaId">@for (assinatura of assinaturas; track assinatura.id) { <option [ngValue]="assinatura.id">{{ assinaturaDescricao(assinatura.id) }}</option> }</select></label>
+      <label><span>Vencimento</span><input name="cobrancaVencimento" type="date" [(ngModel)]="cobrancaForm.vencimento" /></label>
+      <label><span>Valor</span><input name="cobrancaValor" type="number" min="0" step="0.01" [(ngModel)]="cobrancaForm.valor" /></label>
+      <label><span>Forma pagamento</span><select name="cobrancaForma" [(ngModel)]="cobrancaForm.formaPagamento">@for (forma of formasPagamento; track forma.id) { <option [ngValue]="forma.nome">{{ forma.nome }}</option> }</select></label>
+      <label><span>Status</span><select name="cobrancaStatus" [(ngModel)]="cobrancaForm.status"><option>Aberta</option><option>Paga</option><option>Vencida</option><option>Cancelada</option></select></label>
+      <footer class="modal-actions"><button type="submit" class="primary">Salvar cobranca</button></footer>
+    </form>
+
+    <div class="result-list charges-list">
+      <div class="result-header"><span>Empresa</span><span>Vencimento</span><span>Valor</span><span>Status</span></div>
+      @for (cobranca of cobrancas; track cobranca.id) {
+        <article class="result-row">
+          <span>{{ empresaNome(cobranca.empresaId) }}</span>
+          <span>{{ cobranca.vencimento }}</span>
+          <span>R$ {{ cobranca.valor.toFixed(2) }}</span>
+          <span class="status-pill" [class.blocked]="cobranca.status === 'Vencida'">{{ cobranca.status }}</span>
+        </article>
+      }
+    </div>
+  </section>
+}
+
+@if (pagina === 'financeiro-pagamentos') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Financeiro</p>
+        <h2>Formas de pagamento</h2>
+      </div>
+      <span class="badge info">Mercado Pago e Pix</span>
+    </div>
+
+    <div class="payment-grid">
+      <form class="company-form modal-form inline-form" (ngSubmit)="salvarPagamento()">
+        <label><span>Nome</span><input name="formaNome" [(ngModel)]="formaPagamentoForm.nome" required /></label>
+        <label><span>Tipo</span><select name="formaTipo" [(ngModel)]="formaPagamentoForm.tipo"><option>Mercado Pago</option><option>Pix manual</option><option>Boleto</option><option>Cartao</option></select></label>
+        <label class="span-2"><span>Public key Mercado Pago</span><input name="mercadoPagoPublicKey" [(ngModel)]="formaPagamentoForm.mercadoPagoPublicKey" placeholder="APP_USR-..." /></label>
+        <label class="span-2"><span>Access token Mercado Pago</span><input name="mercadoPagoAccessToken" type="password" [(ngModel)]="formaPagamentoForm.mercadoPagoAccessToken" placeholder="Use somente no backend em producao" /></label>
+        <label><span>Chave Pix</span><input name="chavePix" [(ngModel)]="formaPagamentoForm.chavePix" (ngModelChange)="atualizarPix()" /></label>
+        <label><span>Recebedor Pix</span><input name="recebedorPix" [(ngModel)]="formaPagamentoForm.recebedorPix" (ngModelChange)="atualizarPix()" /></label>
+        <label><span>Cidade Pix</span><input name="cidadePix" [(ngModel)]="formaPagamentoForm.cidadePix" (ngModelChange)="atualizarPix()" /></label>
+        <label><span>Ativo</span><select name="formaAtiva" [(ngModel)]="formaPagamentoForm.ativo"><option [ngValue]="true">Sim</option><option [ngValue]="false">Nao</option></select></label>
+        <footer class="modal-actions"><button type="submit" class="primary">Salvar forma de pagamento</button></footer>
+      </form>
+
+      <aside class="panel pix-preview">
+        <p class="eyebrow">Pix manual</p>
+        <h3>QR Code de cobranca</h3>
+        @if (pixQrCodeUrl) {
+          <img [src]="pixQrCodeUrl" alt="QR Code Pix" />
+          <textarea readonly [value]="pixPayload" rows="5"></textarea>
+        } @else {
+          <p class="empty-state">Informe a chave Pix para gerar o QR Code.</p>
+        }
+      </aside>
+    </div>
+
+    <div class="result-list payment-list">
+      <div class="result-header"><span>Forma</span><span>Tipo</span><span>Pix</span><span>Status</span></div>
+      @for (forma of formasPagamento; track forma.id) {
+        <article class="result-row">
+          <span>{{ forma.nome }}</span>
+          <span>{{ forma.tipo }}</span>
+          <span>{{ forma.chavePix || '-' }}</span>
+          <span class="status-pill" [class.inactive]="!forma.ativo">{{ forma.ativo ? 'Ativa' : 'Inativa' }}</span>
+        </article>
+      }
+    </div>
+  </section>
+}
+
+@if (pagina === 'financeiro-despesas') {
+  <section class="tenant-panel panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Financeiro</p>
+        <h2>Despesas</h2>
+      </div>
+      <span class="badge info">Manutencao do sistema</span>
+    </div>
+
+    <form class="company-form modal-form inline-form" (ngSubmit)="salvarDespesa.emit()">
+      <label class="span-2"><span>Descricao</span><input name="despesaDescricao" [(ngModel)]="despesaForm.descricao" required /></label>
+      <label><span>Fornecedor</span><input name="despesaFornecedor" [(ngModel)]="despesaForm.fornecedor" /></label>
+      <label><span>Categoria</span><input name="despesaCategoria" [(ngModel)]="despesaForm.categoria" /></label>
+      <label><span>Vencimento</span><input name="despesaVencimento" type="date" [(ngModel)]="despesaForm.vencimento" /></label>
+      <label><span>Valor</span><input name="despesaValor" type="number" min="0" step="0.01" [(ngModel)]="despesaForm.valor" /></label>
+      <label><span>Status</span><select name="despesaStatus" [(ngModel)]="despesaForm.status"><option>Aberta</option><option>Paga</option><option>Atrasada</option></select></label>
+      <footer class="modal-actions"><button type="submit" class="primary">Salvar despesa</button></footer>
+    </form>
+
+    <div class="result-list expenses-list">
+      <div class="result-header"><span>Despesa</span><span>Fornecedor</span><span>Valor</span><span>Status</span></div>
+      @for (despesa of despesas; track despesa.id) {
+        <article class="result-row">
+          <span><strong>{{ despesa.descricao }}</strong><small>{{ despesa.categoria }}</small></span>
+          <span>{{ despesa.fornecedor }}</span>
+          <span>R$ {{ despesa.valor.toFixed(2) }}</span>
+          <span class="status-pill" [class.blocked]="despesa.status === 'Atrasada'">{{ despesa.status }}</span>
+        </article>
+      }
+    </div>
+  </section>
+}
