@@ -71,7 +71,7 @@ export class App implements OnInit {
   protected contaMenuAberto = signal(false);
   protected perfilModalAberto = signal(false);
   protected senhaModalAberto = signal(false);
-  protected existeAdministradorSaas = signal(false);
+  protected existeAdministradorSaas = signal(true);
   protected authFeedback = signal('');
   protected carregandoAuth = signal(false);
   protected chamadoSelecionadoId = signal(1);
@@ -129,7 +129,7 @@ export class App implements OnInit {
 
   protected novoUsuario = {
     id: undefined as number | undefined,
-    empresaId: 1,
+    empresaId: null as number | null,
     nome: '',
     email: '',
     senha: '',
@@ -568,14 +568,9 @@ export class App implements OnInit {
     const nomeBase = this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial || this.novaEmpresa.nome || 'empresa';
     const tenantSlug = this.novaEmpresa.tenantSlug || this.gerarTenantSlug(nomeBase);
     const cnpj = this.formatarCnpj(this.novaEmpresa.cnpj);
-    if (cnpj && !this.validarCnpj(cnpj)) {
-      this.toastr.warning('Informe um CNPJ valido para salvar a empresa.', 'CNPJ invalido');
-      this.spinner.hide('uniflowit');
-      return;
-    }
 
     const telefone = this.formatarTelefone(this.novaEmpresa.telefone);
-    const ativo = this.novaEmpresa.ativo;
+    const ativo = this.novaEmpresa.id ? this.novaEmpresa.ativo : true;
     const empresa: EmpresaLista = {
       id: this.novaEmpresa.id,
       nome: this.novaEmpresa.nome || this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial,
@@ -596,42 +591,52 @@ export class App implements OnInit {
       inscricaoEstadual: this.novaEmpresa.inscricaoEstadual,
       logoUrl: this.novaEmpresa.logoUrl,
       ativo,
-      acessoBloqueado: !ativo,
+      acessoBloqueado: this.novaEmpresa.id ? !ativo : false,
       motivoBloqueio: ativo ? '' : this.novaEmpresa.motivoBloqueio || 'Empresa inativada pelo Administrador SaaS.',
       bloqueadoEm: ativo ? '' : this.novaEmpresa.bloqueadoEm || new Date().toISOString(),
       dataCadastro,
     };
 
-    const id = empresa.id ?? Math.max(...this.empresas().map((item) => item.id ?? 0)) + 1;
-    const empresaComId = { ...empresa, id };
-
-    this.empresas.update((empresas) => {
-      const existe = empresas.some((item) => item.id === id);
-      return existe ? empresas.map((item) => (item.id === id ? empresaComId : item)) : [empresaComId, ...empresas];
-    });
-
-    this.empresaSelecionadaId.set(id);
-    this.empresaEditando.set(false);
-    this.empresaTab.set('detalhes');
-    this.novoUsuario.empresaId = id;
+    let empresaPersistida: EmpresaLista | null = null;
 
     try {
-      await fetch(`${this.apiUrl}/empresas${empresa.id ? `/${empresa.id}` : ''}`, {
+      const response = await fetch(`${this.apiUrl}/empresas${empresa.id ? `/${empresa.id}` : ''}`, {
         method: empresa.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(empresa),
       });
-      this.toastr.success('Empresa salva com sucesso.', 'Cadastro');
-    } catch {
-      this.authFeedback.set('Empresa adicionada na tela; API indisponivel para persistir agora.');
-      this.toastr.info('Empresa salva localmente. API indisponivel para persistir agora.', 'Modo local');
-    } finally {
-      this.empresaModalAberto.set(false);
+
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel salvar a empresa.');
+      }
+
+      empresaPersistida = this.mapearEmpresa((await response.json()) as Record<string, unknown>);
+      this.empresas.update((empresas) => {
+        const existe = empresas.some((item) => item.id === empresaPersistida?.id);
+        return existe ? empresas.map((item) => (item.id === empresaPersistida?.id ? empresaPersistida! : item)) : [empresaPersistida!, ...empresas];
+      });
+
+      this.empresaSelecionadaId.set(empresaPersistida.id ?? null);
       this.empresaEditando.set(false);
+      this.empresaTab.set('detalhes');
+      this.novoUsuario.empresaId = empresaPersistida.id ?? this.novoUsuario.empresaId;
+      this.toastr.success('Empresa salva com sucesso.', 'Cadastro');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'API indisponivel ou recusou a persistencia.';
+      this.authFeedback.set(mensagem);
+      this.toastr.error(mensagem, 'Empresa nao salva');
+    } finally {
+      if (empresaPersistida) {
+        this.empresaModalAberto.set(false);
+        this.empresaEditando.set(false);
+      }
       this.spinner.hide('uniflowit');
     }
 
-    this.novaEmpresa = { ...empresaComId, nome: empresaComId.nome ?? empresaComId.nomeFantasia };
+    if (empresaPersistida) {
+      this.novaEmpresa = { ...empresaPersistida, nome: empresaPersistida.nome ?? empresaPersistida.nomeFantasia };
+    }
   }
 
   protected async criarUsuario(): Promise<void> {
@@ -643,6 +648,12 @@ export class App implements OnInit {
     }
     const editando = this.usuarioEditando();
     const id = this.novoUsuario.id;
+
+    if (!empresaId) {
+      this.toastr.warning('Selecione a empresa contratante.', 'Cadastro');
+      this.spinner.hide('uniflowit');
+      return;
+    }
 
     if (!this.novoUsuario.nome.trim()) {
       this.toastr.warning('Informe o nome do usuario.', 'Cadastro');
@@ -664,20 +675,14 @@ export class App implements OnInit {
       return;
     }
 
-    const empresa = this.empresas().find((item) => item.id === empresaId);
-    const usuario: UsuarioLista = {
-      id: id ?? Math.max(...this.usuarios().map((item) => item.id ?? 0)) + 1,
-      empresaId,
-      empresaNome: empresa?.nome ?? 'Empresa nao localizada',
-      nome: this.novoUsuario.nome,
-      email: this.novoUsuario.email,
-      role: this.novoUsuario.role,
-      ativo: this.novoUsuario.ativo,
-    };
+    const email = this.novoUsuario.email.trim().toLowerCase();
+    if (!this.emailValido(email)) {
+      this.toastr.warning('Informe um e-mail valido.', 'Cadastro');
+      this.spinner.hide('uniflowit');
+      return;
+    }
 
-    this.usuarios.update((usuarios) => editando
-      ? usuarios.map((item) => (item.id === usuario.id ? usuario : item))
-      : [usuario, ...usuarios]);
+    let salvou = false;
 
     try {
       const response = await fetch(`${this.apiUrl}/usuarios${editando ? `/${id}` : ''}`, {
@@ -685,8 +690,8 @@ export class App implements OnInit {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           empresaId,
-          nome: this.novoUsuario.nome,
-          email: this.novoUsuario.email,
+          nome: this.novoUsuario.nome.trim(),
+          email,
           senha: this.novoUsuario.senha,
           role: this.novoUsuario.role,
           ativo: this.novoUsuario.ativo,
@@ -694,31 +699,51 @@ export class App implements OnInit {
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao salvar usuario');
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Falha ao salvar usuario');
       }
 
       const usuarioSalvo = (await response.json()) as Record<string, unknown>;
-      this.usuarios.update((usuarios) => usuarios.map((item) => (item.id === usuario.id ? {
-        id: Number(usuarioSalvo['id'] ?? usuario.id),
+      const usuarioPersistido: UsuarioLista = {
+        id: Number(usuarioSalvo['id'] ?? id ?? 0),
         empresaId: usuarioSalvo['empresaId'] == null ? undefined : Number(usuarioSalvo['empresaId']),
-        empresaNome: String(usuarioSalvo['empresaNome'] ?? usuario.empresaNome),
-        nome: String(usuarioSalvo['nome'] ?? usuario.nome),
-        email: String(usuarioSalvo['email'] ?? usuario.email),
+        empresaNome: String(usuarioSalvo['empresaNome'] ?? this.empresas().find((item) => item.id === empresaId)?.nome ?? 'Empresa nao localizada'),
+        nome: String(usuarioSalvo['nome'] ?? this.novoUsuario.nome.trim()),
+        email: String(usuarioSalvo['email'] ?? email),
         role: this.normalizarPerfil(usuarioSalvo['role']),
         ativo: Boolean(usuarioSalvo['ativo']),
-      } : item)));
+      };
+
+      this.usuarios.update((usuarios) => editando
+        ? usuarios.map((item) => (item.id === usuarioPersistido.id ? usuarioPersistido : item))
+        : [usuarioPersistido, ...usuarios]);
 
       this.toastr.success(editando ? 'Usuario atualizado com sucesso.' : 'Usuario criado com sucesso.', 'Cadastro');
-    } catch {
-      this.authFeedback.set('Usuario atualizado na tela; API indisponivel ou recusou a persistencia agora.');
-      this.toastr.info('Usuario salvo localmente. Verifique a API para persistir.', 'Modo local');
+      salvou = true;
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'API indisponivel ou recusou a persistencia.';
+      this.authFeedback.set(mensagem);
+      this.toastr.error(mensagem, 'Usuario nao salvo');
     } finally {
-      this.usuarioModalAberto.set(false);
-      this.usuarioEditando.set(false);
+      if (salvou) {
+        this.usuarioModalAberto.set(false);
+        this.usuarioEditando.set(false);
+      }
       this.spinner.hide('uniflowit');
     }
 
-    this.novoUsuario = { id: undefined, empresaId: this.novoUsuario.empresaId, nome: '', email: '', senha: '', senhaConfirmacao: '', role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario', ativo: true };
+    if (salvou) {
+      this.novoUsuario = {
+        id: undefined,
+        empresaId: this.perfil() === 'AdministradorSaas' ? null : this.empresaPermitidaParaUsuario(),
+        nome: '',
+        email: '',
+        senha: '',
+        senhaConfirmacao: '',
+        role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario',
+        ativo: true
+      };
+    }
   }
 
   protected sair(): void {
@@ -833,6 +858,23 @@ export class App implements OnInit {
     return id ? localStorage.getItem(`uniflowit:fotoperfil:${id}`) ?? '' : '';
   }
 
+  protected alterarModoAuth(modo: AuthMode): void {
+    this.authMode.set(modo);
+    if (modo === 'login') {
+      void this.verificarAdministradorSaas();
+    }
+  }
+
+  protected alterarEmpresaTab(tab: EmpresaTab): void {
+    if (tab === 'detalhes' && !this.empresaFiltro().trim()) {
+      this.empresaTab.set('pesquisa');
+      this.toastr.info('Pesquise uma empresa antes de abrir os dados cadastrais.', 'Pesquisa obrigatoria');
+      return;
+    }
+
+    this.empresaTab.set(tab);
+  }
+
   protected navegar(pagina: Pagina): void {
     if (this.perfil() === 'Usuario' || this.perfil() === 'Atendente') {
       this.paginaAtiva.set(pagina === 'chamados-desenvolvedor' ? 'chamados-desenvolvedor' : 'chamados');
@@ -939,25 +981,11 @@ export class App implements OnInit {
   }
 
   private formatarCnpj(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 14);
-    return digitos
-      .replace(/^(\d{2})(\d)/, '$1.$2')
-      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1/$2')
-      .replace(/(\d{4})(\d)/, '$1-$2');
+    return valor.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 18);
   }
 
   private formatarTelefone(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 11);
-    if (digitos.length <= 10) {
-      return digitos
-        .replace(/^(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2');
-    }
-
-    return digitos
-      .replace(/^(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{5})(\d)/, '$1-$2');
+    return valor.replace(/\D/g, '').slice(0, 13);
   }
 
   private validarCnpj(valor: string): boolean {
@@ -1033,7 +1061,16 @@ export class App implements OnInit {
 
   protected abrirNovoUsuario(): void {
     this.usuarioEditando.set(false);
-    this.novoUsuario = { id: undefined, empresaId: this.empresaPermitidaParaUsuario(), nome: '', email: '', senha: '', senhaConfirmacao: '', role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario', ativo: true };
+    this.novoUsuario = {
+      id: undefined,
+      empresaId: this.perfil() === 'AdministradorSaas' ? null : this.empresaPermitidaParaUsuario(),
+      nome: '',
+      email: '',
+      senha: '',
+      senhaConfirmacao: '',
+      role: this.perfil() === 'AdministradorSaas' ? 'Administrador' : 'Usuario',
+      ativo: true
+    };
     this.usuarioModalAberto.set(true);
   }
 
@@ -1041,7 +1078,7 @@ export class App implements OnInit {
     this.usuarioEditando.set(true);
     this.novoUsuario = {
       id: usuario.id,
-      empresaId: Number(usuario.empresaId ?? this.empresaPermitidaParaUsuario()),
+      empresaId: usuario.empresaId ?? this.empresaPermitidaParaUsuario(),
       nome: usuario.nome,
       email: usuario.email,
       senha: '',
@@ -1201,6 +1238,10 @@ export class App implements OnInit {
     return 'A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial.';
   }
 
+  private emailValido(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  }
+
   private gerarSenhaForte(): string {
     const maiusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const minusculas = 'abcdefghijkmnopqrstuvwxyz';
@@ -1227,9 +1268,9 @@ export class App implements OnInit {
     return opcoes[valores[0] % opcoes.length];
   }
 
-  private empresaPermitidaParaUsuario(): number {
+  private empresaPermitidaParaUsuario(): number | null {
     if (this.perfil() === 'AdministradorSaas') {
-      return Number(this.novoUsuario.empresaId || this.empresas()[0]?.id || 1);
+      return this.novoUsuario.empresaId ? Number(this.novoUsuario.empresaId) : null;
     }
 
     return Number(this.sessao()?.empresaId || this.novoUsuario.empresaId || this.empresas()[0]?.id || 1);
@@ -1489,6 +1530,15 @@ export class App implements OnInit {
     };
   }
 
+  private async lerMensagemErro(response: Response): Promise<string> {
+    try {
+      const data = (await response.json()) as { message?: string };
+      return data.message ?? '';
+    } catch {
+      return '';
+    }
+  }
+
   private normalizarPerfil(valor: unknown): Perfil {
     return valor === 'AdministradorSaas' || valor === 'Administrador' || valor === 'Atendente' || valor === 'Usuario' ? valor : 'Usuario';
   }
@@ -1551,7 +1601,8 @@ export class App implements OnInit {
         this.authMode.set('login');
       }
     } catch {
-      this.existeAdministradorSaas.set(false);
+      this.existeAdministradorSaas.set(true);
+      this.authFeedback.set('Nao foi possivel verificar o primeiro acesso. Confirme se a API esta rodando.');
     }
   }
 

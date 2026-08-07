@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
 using System.Text.Json.Serialization;
 using UniFlowIT.Api.Data;
 using UniFlowIT.Api.Models;
@@ -42,13 +43,13 @@ app.MapGet("/", () => Results.Ok(new { name = "UniFlowIT.Api", phase = "Fase 1 -
 
 app.MapGet("/api/auth/bootstrap-status", async (AppDbContext db) =>
 {
-    var existeAdministradorSaas = await db.Users.AnyAsync(user => user.Role == "AdministradorSaas");
+    var existeAdministradorSaas = await db.Users.AnyAsync(user => user.Role.ToLower() == "administradorsaas");
     return Results.Ok(new { existeAdministradorSaas });
 });
 
 app.MapPost("/api/auth/criar-administrador-saas", async (AppDbContext db, CriarAdministradorSaasRequest request) =>
 {
-    var existeAdministradorSaas = await db.Users.AnyAsync(user => user.Role == "AdministradorSaas");
+    var existeAdministradorSaas = await db.Users.AnyAsync(user => user.Role.ToLower() == "administradorsaas");
     if (existeAdministradorSaas)
     {
         return Results.Conflict(new { message = "O Administrador SaaS inicial ja foi criado." });
@@ -108,6 +109,12 @@ app.MapGet("/api/empresas", async (AppDbContext db) =>
 
 app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request) =>
 {
+    var erroValidacao = ValidarEmpresaRequest(request);
+    if (erroValidacao is not null)
+    {
+        return Results.BadRequest(new { message = erroValidacao });
+    }
+
     var slug = NormalizarTenantSlug(request.TenantSlug);
     var slugExiste = await db.Empresas.AnyAsync(empresa => empresa.TenantSlug == slug);
     if (slugExiste)
@@ -137,7 +144,8 @@ app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request
         Ativo = request.Ativo,
         AcessoBloqueado = request.AcessoBloqueado,
         MotivoBloqueio = request.MotivoBloqueio,
-        BloqueadoEm = request.BloqueadoEm
+        BloqueadoEm = request.BloqueadoEm,
+        DataCadastro = DateTime.UtcNow.Date
     };
 
     db.Empresas.Add(empresa);
@@ -148,6 +156,12 @@ app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request
 
 app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, int id, CriarEmpresaRequest request) =>
 {
+    var erroValidacao = ValidarEmpresaRequest(request);
+    if (erroValidacao is not null)
+    {
+        return Results.BadRequest(new { message = erroValidacao });
+    }
+
     var empresa = await db.Empresas.FindAsync(id);
     if (empresa is null)
     {
@@ -218,6 +232,17 @@ app.MapGet("/api/usuarios", async (AppDbContext db, int? empresaId) =>
 
 app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request) =>
 {
+    if (request.EmpresaId <= 0)
+    {
+        return Results.BadRequest(new { message = "Selecione a empresa contratante." });
+    }
+
+    var email = request.Email.Trim().ToLowerInvariant();
+    if (!EmailValido(email))
+    {
+        return Results.BadRequest(new { message = "Informe um e-mail valido." });
+    }
+
     if (!PasswordService.IsStrong(request.Senha))
     {
         return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
@@ -229,7 +254,6 @@ app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request
         return Results.BadRequest(new { message = "Empresa contratante nao encontrada." });
     }
 
-    var email = request.Email.Trim().ToLowerInvariant();
     var emailExiste = await db.Users.AnyAsync(user => user.Email == email);
     if (emailExiste)
     {
@@ -715,6 +739,54 @@ static AuthResponse CriarAuthResponse(Users usuario)
         TenantSlug = usuario.Empresa?.TenantSlug,
         Token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
     };
+}
+
+static string? ValidarEmpresaRequest(CriarEmpresaRequest request)
+{
+    var camposObrigatorios = new Dictionary<string, string>
+    {
+        ["Razao social"] = request.RazaoSocial,
+        ["Nome fantasia"] = request.NomeFantasia,
+        ["CNPJ"] = request.Cnpj,
+        ["Endereco"] = request.Endereco,
+        ["E-mail"] = request.Email,
+        ["Telefone"] = request.Telefone,
+        ["CEP"] = request.Cep,
+        ["Cidade"] = request.Cidade,
+        ["Estado"] = request.Estado
+    };
+
+    var campoVazio = camposObrigatorios.FirstOrDefault(campo => string.IsNullOrWhiteSpace(campo.Value));
+    if (!string.IsNullOrWhiteSpace(campoVazio.Key))
+    {
+        return $"{campoVazio.Key} e obrigatorio.";
+    }
+
+    if (!request.Email.Contains('@') || !request.Email.Contains('.'))
+    {
+        return "Informe um e-mail valido.";
+    }
+
+    return null;
+}
+
+static bool EmailValido(string email)
+{
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        return false;
+    }
+
+    try
+    {
+        var endereco = new MailAddress(email);
+        return endereco.Address.Equals(email, StringComparison.OrdinalIgnoreCase)
+            && email.Contains('.');
+    }
+    catch
+    {
+        return false;
+    }
 }
 
 static string NormalizarTenantSlug(string value)

@@ -4900,54 +4900,6 @@ label:has(select)::before,
   font-size: 0.7rem;
 }
 
-.sidebar-account,
-.sidebar-account-menu button {
-  width: 100%;
-  border: 1px solid #1d3048;
-  border-radius: 8px;
-  background: rgb(255 255 255 / 0.035);
-  color: #e5edf8;
-}
-
-.sidebar-account {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  padding: 8px 10px;
-  text-align: left;
-}
-
-.sidebar-account strong,
-.sidebar-account small {
-  display: block;
-}
-
-.sidebar-account small {
-  color: #94a3b8;
-  font-size: 0.74rem;
-}
-
-.sidebar-account b {
-  color: #8b5cf6;
-  letter-spacing: 1px;
-}
-
-.sidebar-account-menu {
-  display: grid;
-  gap: 6px;
-}
-
-.sidebar-account-menu button {
-  min-height: 34px;
-  padding: 0 10px;
-  text-align: left;
-}
-
-.sidebar-account-menu .danger {
-  color: #fca5a5;
-}
-
 app-root,
 .workspace,
 .nav,
@@ -5032,12 +4984,17 @@ app-root.theme-light ::-webkit-scrollbar-thumb {
   transform: translateX(20px);
 }
 
-.shell:has(.saas-badge) .topbar-actions .account-box {
-  display: none;
+.shell:has(.saas-badge) .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .shell:has(.saas-badge) .topbar-actions {
-  display: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shell:has(.saas-badge) .account-box {
+  min-width: 300px;
 }
 
 .nav-empresas .nav-icon::before,
@@ -5261,17 +5218,15 @@ app-root.theme-light .sidebar:has(.saas-badge) .brand {
   border-bottom-color: #1d3048;
 }
 
-app-root.theme-light .sidebar:has(.saas-badge) :is(.brand strong, .sidebar-account strong) {
+app-root.theme-light .sidebar:has(.saas-badge) .brand strong {
   color: #0a1b2d;
 }
 
-app-root.theme-light .sidebar:has(.saas-badge) :is(.brand small, .nav-section, .sidebar-account small, .platform-health strong) {
+app-root.theme-light .sidebar:has(.saas-badge) :is(.brand small, .nav-section, .platform-health strong) {
   color: #51647c;
 }
 
 app-root.theme-light .sidebar:has(.saas-badge) .nav :is(button, .nav-parent),
-app-root.theme-light .sidebar-account,
-app-root.theme-light .sidebar-account-menu button,
 app-root.theme-light .platform-health {
   border-color: #a8bad0;
   background: rgb(244 248 252 / 0.62);
@@ -5292,8 +5247,348 @@ app-root.theme-light .platform-health span {
   color: #26384d;
 }
 
+.company-create-form {
+  align-content: start;
+  gap: 16px;
+}
+
+.modal-form-block {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+
+.modal-form-block h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.company-form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 16px;
+  align-items: end;
+}
+
+.company-form-grid label {
+  min-width: 0;
+}
+
+.company-form-grid .field-full {
+  grid-column: 1 / -1;
+}
+
+.company-form-grid .field-half {
+  grid-column: span 6;
+}
+
+.company-form-grid .field-third {
+  grid-column: span 4;
+}
+
+.company-form-grid .field-medium {
+  grid-column: span 4;
+}
+
+.company-form-grid .field-small {
+  grid-column: span 3;
+}
+
+.company-form-grid .field-tiny {
+  grid-column: span 2;
+}
+
+.company-create-form .modal-actions {
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .company-form-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .company-form-grid :is(.field-half, .field-third, .field-medium, .field-small, .field-tiny) {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .company-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .company-form-grid :is(.field-full, .field-half, .field-third, .field-medium, .field-small, .field-tiny) {
+    grid-column: 1 / -1;
+  }
+}
+
+app-empresas-page > .tenant-panel > .tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-strong);
+  background: transparent;
+  padding: 0 8px;
+}
+
+app-empresas-page > .tenant-panel > .tabs button {
+  position: relative;
+  min-height: 38px;
+  border: 1px solid var(--border-strong);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0 !important;
+  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  color: var(--text-muted);
+  padding: 0 18px;
+  font-weight: 850;
+}
+
+app-empresas-page > .tenant-panel > .tabs button.active {
+  z-index: 1;
+  margin-bottom: -1px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -2px 0 #8b5cf6 inset !important;
+}
+
+app-empresas-page > .tenant-panel > .tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  background: color-mix(in srgb, var(--surface-3) 78%, transparent);
+  color: var(--text-soft);
+}
+
+.search-empty-state {
+  margin-top: 16px;
+}
+
 @media (max-width: 1180px) {
   .saas-chart-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Login without card: soft split background */
+app-login-page .auth-shell {
+  grid-template-columns: minmax(0, 1.08fr) minmax(460px, 0.92fr);
+  min-height: 100dvh;
+  height: auto;
+  background:
+    linear-gradient(
+      90deg,
+      #0b2844 0%,
+      #112d54 38%,
+      rgb(12 34 58 / 0.98) 52%,
+      #071422 68%,
+      #061120 100%
+    );
+}
+
+app-login-page .auth-shell::before {
+  inset: 0;
+  width: auto;
+  background:
+    radial-gradient(circle at 29% 28%, rgb(255 255 255 / 0.12), transparent 22%),
+    radial-gradient(circle at 25% 50%, rgb(45 140 255 / 0.16), transparent 30%),
+    linear-gradient(90deg, rgb(32 88 146 / 0.24) 0%, rgb(32 88 146 / 0.1) 42%, transparent 58%),
+    linear-gradient(90deg, transparent 0 48%, rgb(3 10 18 / 0.44) 60%, rgb(2 6 23 / 0.68) 100%);
+  box-shadow: none;
+}
+
+app-login-page .auth-shell::after {
+  background:
+    linear-gradient(90deg, transparent 0 49%, rgb(2 6 23 / 0.1) 50%, rgb(2 6 23 / 0.7) 63%, transparent 78%),
+    radial-gradient(ellipse at 51% 50%, rgb(7 20 34 / 0.78) 0%, rgb(7 20 34 / 0.42) 18%, transparent 36%),
+    radial-gradient(circle at 76% 24%, rgb(6 182 212 / 0.12), transparent 26%);
+}
+
+app-login-page .matrix-code {
+  opacity: 0.1;
+}
+
+app-login-page .auth-brand {
+  align-content: center;
+  padding: clamp(32px, 5vw, 72px);
+}
+
+app-login-page .auth-brand img {
+  width: min(430px, 46dvh, 74vw);
+  border: 1px solid rgb(255 255 255 / 0.36);
+  border-radius: 8px;
+  box-shadow:
+    0 24px 70px rgb(2 6 23 / 0.34),
+    0 0 0 1px rgb(6 182 212 / 0.08);
+}
+
+app-login-page .auth-brand h1 {
+  max-width: 680px;
+  color: #f8fbff;
+  text-shadow: 0 2px 18px rgb(2 6 23 / 0.22);
+}
+
+app-login-page .auth-brand p:not(.eyebrow) {
+  color: #e6f2ff;
+}
+
+app-login-page .auth-card {
+  align-self: center;
+  width: min(640px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+app-login-page .auth-card-heading {
+  margin-bottom: 28px;
+}
+
+app-login-page .auth-card-heading .eyebrow {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+app-login-page .auth-card-heading h2 {
+  max-width: 620px;
+  color: #f8fbff;
+  font-size: clamp(2.05rem, 3.25vw, 3.45rem);
+  font-weight: 780;
+  letter-spacing: 0;
+}
+
+app-login-page .auth-form {
+  max-width: 576px;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+app-login-page .auth-form label {
+  color: #f8fbff;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+app-login-page .auth-form label::before {
+  color: #9bb4cc;
+}
+
+app-login-page .auth-form input {
+  height: 40px !important;
+  min-height: 40px !important;
+  border: 1px solid #1d3048 !important;
+  background: rgb(3 15 26 / 0.92) !important;
+  color: #f8fbff !important;
+  caret-color: #2d8cff;
+}
+
+app-login-page .auth-form input:hover {
+  border-color: #2b4766 !important;
+  background: rgb(4 18 32 / 0.96) !important;
+}
+
+app-login-page .auth-form input:focus {
+  border-color: #2d8cff !important;
+  outline: 0;
+  background: #061322 !important;
+  box-shadow: 0 0 0 3px rgb(45 140 255 / 0.14) !important;
+}
+
+app-login-page .auth-form input:-webkit-autofill,
+app-login-page .auth-form input:-webkit-autofill:hover,
+app-login-page .auth-form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f8fbff;
+  box-shadow: 0 0 0 1000px #061322 inset !important;
+}
+
+app-login-page .auth-form .primary {
+  max-width: 576px;
+  height: 40px;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 28px rgb(45 140 255 / 0.18) !important;
+}
+
+app-login-page .auth-feedback {
+  max-width: 576px;
+  color: #93c5fd;
+}
+
+app-login-page .link-button {
+  max-width: 576px;
+  color: #2d8cff;
+}
+
+app-root.theme-light app-login-page .auth-shell {
+  background:
+    linear-gradient(
+      90deg,
+      #dcebf7 0%,
+      #b7d6ef 38%,
+      #153555 55%,
+      #071422 72%,
+      #061120 100%
+    );
+}
+
+app-root.theme-light app-login-page .auth-shell::before {
+  background:
+    radial-gradient(circle at 29% 28%, rgb(255 255 255 / 0.58), transparent 25%),
+    radial-gradient(circle at 25% 52%, rgb(45 140 255 / 0.2), transparent 34%),
+    linear-gradient(90deg, rgb(239 247 255 / 0.78) 0%, rgb(196 224 246 / 0.46) 42%, transparent 58%),
+    linear-gradient(90deg, transparent 0 47%, rgb(10 27 45 / 0.28) 58%, rgb(2 6 23 / 0.66) 100%);
+}
+
+app-root.theme-light app-login-page .auth-brand h1 {
+  color: #f8fbff;
+}
+
+app-root.theme-light app-login-page .auth-brand p:not(.eyebrow) {
+  color: #e7f1fb;
+}
+
+app-root.theme-light app-login-page .auth-form input {
+  background: rgb(3 15 26 / 0.94) !important;
+  color: #f8fbff !important;
+}
+
+@media (max-width: 980px) {
+  app-login-page .auth-shell {
+    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    padding: 32px 20px;
+    overflow-y: auto;
+  }
+
+  app-login-page .auth-shell::before,
+  app-login-page .auth-shell::after {
+    background:
+      radial-gradient(circle at 50% 14%, rgb(45 140 255 / 0.22), transparent 28%),
+      linear-gradient(180deg, #12345a 0%, #071422 52%, #061120 100%);
+  }
+
+  app-login-page .auth-brand {
+    padding: 0;
+  }
+
+  app-login-page .auth-brand img {
+    width: min(300px, 72vw);
+  }
+
+  app-login-page .auth-brand h1 {
+    font-size: clamp(1.8rem, 8vw, 2.6rem);
+  }
+
+  app-login-page .auth-card {
+    width: min(576px, 100%);
+    padding: 8px 0 24px;
   }
 }

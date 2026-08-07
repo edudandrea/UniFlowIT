@@ -17,6 +17,14 @@ export class EmpresasPage {
   @Input() empresaModalAberto = false;
   @Input() empresaEditando = false;
 
+  protected pesquisaInformada(): boolean {
+    return Boolean(this.empresaFiltro.trim());
+  }
+
+  protected podeAbrirDetalhes(): boolean {
+    return this.pesquisaInformada() && Boolean(this.empresaSelecionada?.id);
+  }
+
   @Output() empresaTabChange = new EventEmitter<EmpresaTab>();
   @Output() empresaFiltroChange = new EventEmitter<string>();
   @Output() novaEmpresaClick = new EventEmitter<void>();
@@ -35,24 +43,10 @@ export class EmpresasPage {
   }
 
   private formatarCnpj(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 14);
-    return digitos
-      .replace(/^(\d{2})(\d)/, '$1.$2')
-      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1/$2')
-      .replace(/(\d{4})(\d)/, '$1-$2');
+    return valor.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 18);
   }
 
   private formatarTelefone(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 11);
-    if (digitos.length <= 10) {
-      return digitos
-        .replace(/^(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2');
-    }
-
-    return digitos
-      .replace(/^(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{5})(\d)/, '$1-$2');
+    return valor.replace(/\D/g, '').slice(0, 13);
   }
 }

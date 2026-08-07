@@ -164,7 +164,7 @@ export interface AdminSaasForm {
 
 export interface NovoUsuarioForm {
   id?: number;
-  empresaId: number;
+  empresaId: number | null;
   nome: string;
   email: string;
   senha: string;

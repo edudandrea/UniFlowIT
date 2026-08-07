@@ -6,7 +6,7 @@
     [existeAdministradorSaas]="existeAdministradorSaas()"
     [carregandoAuth]="carregandoAuth()"
     [authFeedback]="authFeedback()"
-    (authModeChange)="authMode.set($event)"
+    (authModeChange)="alterarModoAuth($event)"
     (loginSubmit)="login()"
     (adminSaasSubmit)="criarAdministradorSaas()"
   />
@@ -167,26 +167,6 @@
             <span><i></i>Workers <strong>Operacional</strong></span>
             <span class="attention"><i></i>E-mail <strong>Atencao</strong></span>
           </div>
-
-          <button type="button" class="sidebar-account" (click)="alternarMenuConta()">
-            <span>
-              <strong>{{ sessao()?.nome }}</strong>
-              <small>Super Administrador</small>
-            </span>
-            <b aria-hidden="true">...</b>
-          </button>
-
-          @if (contaMenuAberto()) {
-            <div class="sidebar-account-menu">
-              <button type="button" class="theme-switch-row" (click)="alternarTema()">
-                <span>Modo {{ tema() === 'dark' ? 'escuro' : 'claro' }}</span>
-                <span class="theme-switch" [class.light]="tema() === 'light'" aria-hidden="true"><i></i></span>
-              </button>
-              <button type="button" (click)="abrirEditarPerfil()">Editar perfil</button>
-              <button type="button" (click)="abrirAlterarSenha()">Alterar senha</button>
-              <button type="button" class="danger" (click)="sair()">Sair</button>
-            </div>
-          }
         </div>
       }
     </aside>
@@ -210,7 +190,7 @@
             </span>
             <span class="account-summary">
               <strong>{{ sessao()?.nome }}</strong>
-              <small>{{ sessao()?.empresaNome || 'Administrador SaaS' }}</small>
+              <small>{{ perfil() === 'AdministradorSaas' ? 'Super Administrador' : sessao()?.empresaNome || 'Administrador SaaS' }}</small>
             </span>
             <span class="account-role">{{ perfil() }}</span>
             <span class="account-chevron">⌄</span>
@@ -299,7 +279,7 @@
           [empresaFiltro]="empresaFiltro()"
           [empresaModalAberto]="empresaModalAberto()"
           [empresaEditando]="empresaEditando()"
-          (empresaTabChange)="empresaTab.set($event)"
+          (empresaTabChange)="alterarEmpresaTab($event)"
           (empresaFiltroChange)="empresaFiltro.set($event)"
           (novaEmpresaClick)="abrirNovaEmpresa()"
           (empresaSelecionadaChange)="selecionarEmpresa($event)"

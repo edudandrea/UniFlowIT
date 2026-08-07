@@ -50,6 +50,7 @@
       <label>
         <span>Empresa contratante</span>
         <select name="usuarioEmpresaModal" [(ngModel)]="novoUsuario.empresaId" [disabled]="travarEmpresa" required>
+          <option [ngValue]="null" disabled>Selecione uma empresa</option>
           @for (empresa of empresas; track empresa.tenantSlug) {
             <option [ngValue]="empresa.id">{{ empresa.nomeFantasia || empresa.razaoSocial }}</option>
           }
