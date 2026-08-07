@@ -5592,3 +5592,54 @@ app-root.theme-light app-login-page .auth-form input {
     padding: 8px 0 24px;
   }
 }
+
+/* Dark mode form field hardening */
+app-root.theme-dark :is(input, select, textarea, .password-control) {
+  border-color: #1d3048 !important;
+  background: #061322 !important;
+  color: #f4f7fb !important;
+  caret-color: #2d8cff;
+  -webkit-text-fill-color: #f4f7fb;
+  box-shadow: none !important;
+}
+
+app-root.theme-dark :is(input, select, textarea)::placeholder {
+  color: #8fa3b8 !important;
+  opacity: 1;
+  -webkit-text-fill-color: #8fa3b8;
+}
+
+app-root.theme-dark :is(input, select, textarea):hover:not(:disabled),
+app-root.theme-dark .password-control:hover {
+  border-color: #2b4766 !important;
+  background: #08182a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+}
+
+app-root.theme-dark :is(input, select, textarea):focus,
+app-root.theme-dark .password-control:focus-within {
+  border-color: #2d8cff !important;
+  outline: 0;
+  background: #071827 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  box-shadow: 0 0 0 3px rgb(45 140 255 / 0.14) !important;
+}
+
+app-root.theme-dark :is(input, select, textarea):disabled {
+  background: #081525 !important;
+  color: #9fb1c5 !important;
+  opacity: 1;
+  -webkit-text-fill-color: #9fb1c5;
+}
+
+app-root.theme-dark :is(input, select, textarea):-webkit-autofill {
+  -webkit-text-fill-color: #f4f7fb !important;
+  box-shadow: 0 0 0 1000px #061322 inset !important;
+  transition: background-color 999999s ease-in-out 0s;
+}
+
+app-root.theme-dark :is(label:has(input:not([type="file"])), label:has(select), label:has(textarea), .password-control)::before {
+  color: #9fb1c5 !important;
+}

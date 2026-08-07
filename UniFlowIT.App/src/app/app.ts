@@ -571,6 +571,9 @@ export class App implements OnInit {
 
     const telefone = this.formatarTelefone(this.novaEmpresa.telefone);
     const ativo = this.novaEmpresa.id ? this.novaEmpresa.ativo : true;
+    const bloqueadoEm = ativo
+      ? null
+      : this.normalizarDataIsoNullable(this.novaEmpresa.bloqueadoEm) ?? new Date().toISOString();
     const empresa: EmpresaLista = {
       id: this.novaEmpresa.id,
       nome: this.novaEmpresa.nome || this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial,
@@ -593,9 +596,14 @@ export class App implements OnInit {
       ativo,
       acessoBloqueado: this.novaEmpresa.id ? !ativo : false,
       motivoBloqueio: ativo ? '' : this.novaEmpresa.motivoBloqueio || 'Empresa inativada pelo Administrador SaaS.',
-      bloqueadoEm: ativo ? '' : this.novaEmpresa.bloqueadoEm || new Date().toISOString(),
       dataCadastro,
     };
+
+    if (this.novaEmpresa.id) {
+      empresa.bloqueadoEm = bloqueadoEm;
+    } else if (!ativo) {
+      empresa.bloqueadoEm = bloqueadoEm;
+    }
 
     let empresaPersistida: EmpresaLista | null = null;
 
@@ -1240,6 +1248,18 @@ export class App implements OnInit {
 
   private emailValido(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  }
+
+  private normalizarDataIsoNullable(valor?: string | null): string | null {
+    if (!valor?.trim()) {
+      return null;
+    }
+
+    const data = /^\d{4}-\d{2}-\d{2}$/.test(valor)
+      ? new Date(`${valor}T00:00:00.000Z`)
+      : new Date(valor);
+
+    return Number.isNaN(data.getTime()) ? null : data.toISOString();
   }
 
   private gerarSenhaForte(): string {

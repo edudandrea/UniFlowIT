@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace UniFlowIT.Api.Models
 {
     public class LoginRequest
@@ -35,6 +38,7 @@ namespace UniFlowIT.Api.Models
         public bool Ativo { get; set; } = true;
         public bool AcessoBloqueado { get; set; }
         public string? MotivoBloqueio { get; set; }
+        [JsonConverter(typeof(NullableDateTimeAllowEmptyStringConverter))]
         public DateTime? BloqueadoEm { get; set; }
     }
 
@@ -83,5 +87,40 @@ namespace UniFlowIT.Api.Models
         public string? EmpresaNome { get; set; }
         public string? TenantSlug { get; set; }
         public string Token { get; set; } = string.Empty;
+    }
+
+    public class NullableDateTimeAllowEmptyStringConverter : JsonConverter<DateTime?>
+    {
+        public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null)
+            {
+                return null;
+            }
+
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                var valor = reader.GetString();
+                if (string.IsNullOrWhiteSpace(valor))
+                {
+                    return null;
+                }
+
+                return DateTime.TryParse(valor, out var data) ? data : throw new JsonException("Data invalida.");
+            }
+
+            return reader.GetDateTime();
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTime? value, JsonSerializerOptions options)
+        {
+            if (value.HasValue)
+            {
+                writer.WriteStringValue(value.Value);
+                return;
+            }
+
+            writer.WriteNullValue();
+        }
     }
 }

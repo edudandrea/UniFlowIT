@@ -133,7 +133,7 @@ export interface EmpresaLista {
   ativo: boolean;
   acessoBloqueado: boolean;
   motivoBloqueio?: string;
-  bloqueadoEm?: string;
+  bloqueadoEm?: string | null;
   dataCadastro: string;
 }
 
