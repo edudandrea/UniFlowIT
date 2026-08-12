@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniFlowIT.Api.Data;
@@ -11,9 +12,11 @@ using UniFlowIT.Api.Data;
 namespace UniFlowIT.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812154159_AddLinkMonitoringDetails")]
+    partial class AddLinkMonitoringDetails
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,10 +72,6 @@ namespace UniFlowIT.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.PrimitiveCollection<string[]>("Anexos")
-                        .IsRequired()
-                        .HasColumnType("text[]");
-
                     b.Property<DateTime>("AtualizadoEm")
                         .HasColumnType("timestamp with time zone");
 
@@ -99,14 +98,6 @@ namespace UniFlowIT.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
-
-                    b.Property<string>("UsuarioCriador")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<int?>("UsuarioCriadorId")
-                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -158,38 +149,6 @@ namespace UniFlowIT.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("categorias_chamado", (string)null);
-                });
-
-            modelBuilder.Entity("UniFlowIT.Api.Models.CategoriaConhecimento", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("EmpresaId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmpresaId");
-
-                    b.HasIndex("EmpresaId", "Nome")
-                        .IsUnique();
-
-                    b.ToTable("categorias_conhecimento", (string)null);
                 });
 
             modelBuilder.Entity("UniFlowIT.Api.Models.Chamado", b =>
@@ -566,11 +525,6 @@ namespace UniFlowIT.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Cep")
-                        .IsRequired()
-                        .HasMaxLength(9)
-                        .HasColumnType("character varying(9)");
-
                     b.Property<int?>("ChamadoAbertoId")
                         .HasColumnType("integer");
 
@@ -749,16 +703,6 @@ namespace UniFlowIT.Api.Migrations
                 });
 
             modelBuilder.Entity("UniFlowIT.Api.Models.CategoriaChamado", b =>
-                {
-                    b.HasOne("UniFlowIT.Api.Models.Empresa", "Empresa")
-                        .WithMany()
-                        .HasForeignKey("EmpresaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Empresa");
-                });
-
-            modelBuilder.Entity("UniFlowIT.Api.Models.CategoriaConhecimento", b =>
                 {
                     b.HasOne("UniFlowIT.Api.Models.Empresa", "Empresa")
                         .WithMany()

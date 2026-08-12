@@ -13,6 +13,7 @@ namespace UniFlowIT.Api.Data
         public DbSet<ComunicacaoChamado> ComunicacoesChamados => Set<ComunicacaoChamado>();
         public DbSet<AnexoChamado> AnexosChamados => Set<AnexoChamado>();
         public DbSet<ArtigoConhecimento> BaseConhecimento => Set<ArtigoConhecimento>();
+        public DbSet<CategoriaConhecimento> CategoriasConhecimento => Set<CategoriaConhecimento>();
         public DbSet<ControleEquipamento> ControleEquipamentos => Set<ControleEquipamento>();
         public DbSet<InventarioEquipamento> InventarioEquipamentos => Set<InventarioEquipamento>();
         public DbSet<LinkMonitorado> LinksMonitorados => Set<LinkMonitorado>();
@@ -138,7 +139,21 @@ namespace UniFlowIT.Api.Data
                 entity.HasKey(item => item.Id);
                 entity.Property(item => item.Titulo).HasMaxLength(180).IsRequired();
                 entity.Property(item => item.Categoria).HasMaxLength(80).IsRequired();
+                entity.Property(item => item.UsuarioCriador).HasMaxLength(160);
                 entity.HasIndex(item => item.EmpresaId);
+                entity.HasOne(item => item.Empresa)
+                    .WithMany()
+                    .HasForeignKey(item => item.EmpresaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CategoriaConhecimento>(entity =>
+            {
+                entity.ToTable("categorias_conhecimento");
+                entity.HasKey(item => item.Id);
+                entity.Property(item => item.Nome).HasMaxLength(100).IsRequired();
+                entity.HasIndex(item => item.EmpresaId);
+                entity.HasIndex(item => new { item.EmpresaId, item.Nome }).IsUnique();
                 entity.HasOne(item => item.Empresa)
                     .WithMany()
                     .HasForeignKey(item => item.EmpresaId)
@@ -180,8 +195,10 @@ namespace UniFlowIT.Api.Data
                 entity.HasKey(item => item.Id);
                 entity.Property(item => item.Nome).HasMaxLength(160).IsRequired();
                 entity.Property(item => item.Tipo).HasMaxLength(80).IsRequired();
+                entity.Property(item => item.Local).HasMaxLength(80).IsRequired();
                 entity.Property(item => item.Firewall).HasMaxLength(120);
                 entity.Property(item => item.Endereco).HasMaxLength(160).IsRequired();
+                entity.Property(item => item.Cep).HasMaxLength(9);
                 entity.HasIndex(item => item.EmpresaId);
                 entity.HasOne(item => item.Empresa)
                     .WithMany()

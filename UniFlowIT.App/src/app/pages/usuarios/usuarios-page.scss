@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.users-list .result-header,
+.users-list .result-row {
+  grid-template-columns:
+    minmax(190px, 1.4fr)
+    minmax(170px, 1fr)
+    minmax(130px, 0.7fr)
+    minmax(110px, 0.55fr);
+}
+
+.users-list .result-row {
+  cursor: pointer;
+}
+
+.users-list .result-row:hover {
+  border-color: rgba(56, 130, 246, 0.58);
+  background: rgba(25, 72, 124, 0.38);
+}
+
+@media (max-width: 780px) {
+  .users-list .result-header {
+    display: none;
+  }
+
+  .users-list .result-row {
+    grid-template-columns: 1fr;
+  }
+}

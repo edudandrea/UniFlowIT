@@ -7,6 +7,7 @@ import { CategoriaChamado, Chamado, Perfil, Prioridade } from '../../models/unif
   selector: 'app-chamados-page',
   imports: [CommonModule, FormsModule],
   templateUrl: './chamados-page.html',
+  styleUrls: ['./chamados-page.scss'],
 })
 export class ChamadosPage {
   @Input({ required: true }) perfil!: Perfil;

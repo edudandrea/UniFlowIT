@@ -7,6 +7,7 @@ import { EmpresaLista, NovoUsuarioForm, UsuarioLista } from '../../models/uniflo
   selector: 'app-usuarios-page',
   imports: [CommonModule, FormsModule],
   templateUrl: './usuarios-page.html',
+  styleUrls: ['./usuarios-page.scss'],
 })
 export class UsuariosPage {
   protected senhaVisivel = false;

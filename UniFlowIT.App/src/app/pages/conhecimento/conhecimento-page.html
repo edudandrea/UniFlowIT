@@ -1,20 +1,234 @@
-<section class="section-grid">
-  <div class="section-heading">
-    <p class="eyebrow">Autosservico</p>
-    <h2>Base de conhecimento</h2>
+<section class="knowledge-page">
+  <div class="knowledge-hero panel">
+    <div>
+      <p class="eyebrow">Base de conhecimento</p>
+      <h2>Como podemos ajudar hoje?</h2>
+      <p>Consulte orientacoes por categoria ou cadastre novos conhecimentos para a equipe.</p>
+    </div>
+    <div class="knowledge-actions">
+      <button type="button" (click)="abrirCategoriasClick.emit()">Categorias</button>
+      <button type="button" class="primary" (click)="novoConhecimentoClick.emit()">Novo conhecimento</button>
+    </div>
   </div>
 
-  @for (artigo of artigos; track artigo.titulo) {
-    <article class="card">
-      <span class="badge">{{ artigo.categoria }}</span>
-      <h3>{{ artigo.titulo }}</h3>
-      <p>{{ artigo.resumo }}</p>
-      <div class="tags">
-        @for (tag of artigo.tags; track tag) {
-          <small>{{ tag }}</small>
+  <div class="knowledge-metrics">
+    <button type="button" class="dashboard-card knowledge-metric-card" (click)="abrirCategoriasClick.emit()">
+      <span>{{ categoriasAtivas.length }}</span>
+      <small>Categorias cadastradas</small>
+      <strong>Ver categorias</strong>
+    </button>
+    <article class="dashboard-card knowledge-metric-card">
+      <span>{{ artigos.length }}</span>
+      <small>Conhecimentos publicados</small>
+      <strong>Disponiveis para consulta</strong>
+    </article>
+  </div>
+
+  <section class="knowledge-search panel">
+    <label>
+      <span>Pesquisar conhecimento por palavra-chave</span>
+      <input name="pesquisaConhecimento" [(ngModel)]="termoPesquisa" placeholder="Ex.: usuario, senha, VPN, impressora" />
+    </label>
+
+    @if (termoPesquisa.trim()) {
+      <div class="knowledge-search-results">
+        <header>
+          <strong>{{ conhecimentosPesquisados.length }} resultados encontrados</strong>
+          <small>Busca em titulo, categoria, descricao, usuario e anexos</small>
+        </header>
+
+        @for (artigo of conhecimentosPesquisados; track artigo.id ?? artigo.titulo) {
+          <button type="button" class="knowledge-result-row" (click)="editarConhecimentoClick.emit(artigo)">
+            <span class="badge info">{{ artigo.categoria }}</span>
+            <strong>{{ artigo.titulo }}</strong>
+            <small>{{ artigo.descricao || artigo.resumo }}</small>
+          </button>
+        } @empty {
+          <p class="empty-state">Nenhum conhecimento encontrado para essa palavra-chave.</p>
         }
       </div>
-    </article>
-  }
+    }
+  </section>
+
+  <div class="knowledge-category-grid">
+    @for (categoria of categoriasAtivas; track categoria.nome) {
+      <button type="button" class="knowledge-category-card card" (click)="abrirCategoriaClick.emit(categoria.nome)">
+        <header>
+          <span class="badge info">{{ totalConhecimentos(categoria.nome) }}</span>
+          <small>Conhecimentos</small>
+        </header>
+        <div>
+          <h3>{{ categoria.nome }}</h3>
+          <p>Visualize os artigos e orientacoes cadastrados nessa categoria.</p>
+        </div>
+        <strong>Abrir categoria</strong>
+      </button>
+    } @empty {
+      <p class="empty-state">Nenhuma categoria de conhecimento cadastrada.</p>
+    }
+  </div>
 </section>
 
+@if (modalConhecimentoAberto) {
+  <div class="modal-backdrop" (click)="fecharModaisClick.emit()"></div>
+  <section class="modal-panel knowledge-modal" role="dialog" aria-modal="true" aria-label="Cadastro de conhecimento">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Conhecimento</p>
+        <h2>{{ conhecimentoForm.id ? 'Editar conhecimento' : 'Novo conhecimento' }}</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModaisClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <form class="modal-form knowledge-form" (ngSubmit)="salvarConhecimentoSubmit.emit()">
+      <label class="full">
+        <span>Titulo do conhecimento</span>
+        <input name="conhecimentoTitulo" [(ngModel)]="conhecimentoForm.titulo" required />
+      </label>
+
+      <label>
+        <span>Categoria</span>
+        <select name="conhecimentoCategoria" [(ngModel)]="conhecimentoForm.categoria" required>
+          @for (categoria of categoriasAtivas; track categoria.nome) {
+            <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Usuario</span>
+        <input name="conhecimentoUsuario" [(ngModel)]="conhecimentoForm.usuario" readonly />
+      </label>
+
+      <label class="full">
+        <span>Descricao</span>
+        <textarea name="conhecimentoDescricao" [(ngModel)]="conhecimentoForm.descricao" rows="5" required></textarea>
+      </label>
+
+      <div class="full upload-field">
+        <span>Upload de arquivos</span>
+        <input id="conhecimentoArquivos" name="conhecimentoArquivos" type="file" multiple (change)="atualizarArquivos($event)" />
+        <label class="upload-control" for="conhecimentoArquivos">
+          <strong>Selecionar arquivos</strong>
+          <small>{{ conhecimentoForm.anexos.length ? conhecimentoForm.anexos.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo escolhido' }}</small>
+        </label>
+        @if (conhecimentoForm.anexos.length) {
+          <div class="upload-list">
+            @for (anexo of conhecimentoForm.anexos; track anexo) {
+              <span>{{ anexo }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="fecharModaisClick.emit()">Cancelar</button>
+        <button type="submit" class="primary">{{ conhecimentoForm.id ? 'Salvar alteracoes' : 'Cadastrar conhecimento' }}</button>
+      </footer>
+    </form>
+  </section>
+}
+
+@if (modalCategoriaAberto) {
+  <div class="modal-backdrop" (click)="fecharModaisClick.emit()"></div>
+  <section class="modal-panel knowledge-category-modal" role="dialog" aria-modal="true" aria-label="Cadastro de categoria">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Categoria</p>
+        <h2>{{ categoriaForm.id ? 'Editar categoria' : 'Nova categoria' }}</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModaisClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <form class="modal-form user-modal-form" (ngSubmit)="salvarCategoriaSubmit.emit()">
+      <label class="full">
+        <span>Nome da categoria</span>
+        <input name="categoriaConhecimentoNome" [(ngModel)]="categoriaForm.nome" required />
+      </label>
+
+      <label>
+        <span>Status</span>
+        <select name="categoriaConhecimentoAtiva" [(ngModel)]="categoriaForm.ativo">
+          <option [ngValue]="true">Ativa</option>
+          <option [ngValue]="false">Inativa</option>
+        </select>
+      </label>
+
+      <footer class="modal-actions">
+        @if (categoriaForm.id) {
+          <button type="button" class="danger-text" (click)="excluirCategoriaClick.emit(categoriaForm)">Excluir categoria</button>
+        }
+        <button type="button" (click)="fecharModaisClick.emit()">Cancelar</button>
+        <button type="submit" class="primary">Salvar categoria</button>
+      </footer>
+    </form>
+  </section>
+}
+
+@if (modalListaCategoriasAberto) {
+  <div class="modal-backdrop" (click)="fecharModaisClick.emit()"></div>
+  <section class="modal-panel knowledge-list-modal" role="dialog" aria-modal="true" aria-label="Categorias cadastradas">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Categorias</p>
+        <h2>Categorias cadastradas</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModaisClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <div class="knowledge-modal-body">
+      <div class="search-toolbar compact-toolbar">
+        <p>{{ categoriasAtivas.length }} categorias disponiveis para conhecimentos.</p>
+        <button type="button" class="primary" (click)="novaCategoriaClick.emit()">Nova categoria</button>
+      </div>
+
+      <div class="result-list">
+        @for (categoria of categoriasAtivas; track categoria.nome) {
+          <button type="button" class="result-row knowledge-list-row" (click)="editarCategoriaClick.emit(categoria)">
+            <span><strong>{{ categoria.nome }}</strong></span>
+            <span>{{ totalConhecimentos(categoria.nome) }} conhecimentos</span>
+          </button>
+        } @empty {
+          <p class="empty-state">Nenhuma categoria cadastrada.</p>
+        }
+      </div>
+    </div>
+  </section>
+}
+
+@if (categoriaSelecionada) {
+  <div class="modal-backdrop" (click)="fecharModaisClick.emit()"></div>
+  <section class="modal-panel knowledge-list-modal" role="dialog" aria-modal="true" aria-label="Conhecimentos da categoria">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Conhecimentos</p>
+        <h2>{{ categoriaSelecionada }}</h2>
+      </div>
+      <button type="button" class="icon-button" (click)="fecharModaisClick.emit()" aria-label="Fechar">x</button>
+    </header>
+
+    <div class="knowledge-modal-body knowledge-article-list">
+      @for (artigo of artigosDaCategoria(categoriaSelecionada); track artigo.id ?? artigo.titulo) {
+        <article class="card knowledge-article-card">
+          <header>
+            <span class="badge info">{{ artigo.categoria }}</span>
+            <div class="knowledge-card-actions">
+              <button type="button" class="edit-text" (click)="editarConhecimentoClick.emit(artigo)">Editar</button>
+              <button type="button" class="danger-text" (click)="excluirConhecimentoClick.emit(artigo)">Excluir</button>
+            </div>
+          </header>
+          <h3>{{ artigo.titulo }}</h3>
+          <p>{{ artigo.descricao || artigo.resumo }}</p>
+          <div class="knowledge-meta">
+            <span>{{ artigo.usuario || 'Usuario nao informado' }}</span>
+            @if (artigo.anexos?.length) {
+              <span>{{ artigo.anexos?.join(', ') }}</span>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="empty-state">Nenhum conhecimento cadastrado nessa categoria.</p>
+      }
+    </div>
+  </section>
+}

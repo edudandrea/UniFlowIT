@@ -1,28 +1,321 @@
-<section class="panel links-panel">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">Disponibilidade</p>
-      <h2>Monitoramento de links</h2>
-    </div>
-    <span class="badge info">Abre chamado urgente automaticamente</span>
+<section class="links-dashboard">
+  <div class="dashboard-cards link-summary-cards">
+    <article class="dashboard-card green">
+      <span>{{ linksAtivos.length }}</span>
+      <small>Monitoramentos ativos</small>
+    </article>
+    <article class="dashboard-card red">
+      <span>{{ linksInativos.length }}</span>
+      <small>Monitoramentos inativos</small>
+    </article>
+    <article class="dashboard-card cyan">
+      <span>{{ pingLabel(menorPing) }}</span>
+      <small>Menor ping{{ menorPing ? ' - ' + menorPing.nome : '' }}</small>
+    </article>
+    <article class="dashboard-card amber">
+      <span>{{ pingLabel(maiorPing) }}</span>
+      <small>Maior ping{{ maiorPing ? ' - ' + maiorPing.nome : '' }}</small>
+    </article>
   </div>
 
-  <div class="link-grid">
-    @for (link of links; track link.nome) {
-      <article class="link-card" [class.down]="!link.disponivel">
+  <div class="dashboard-grid link-dashboard-grid">
+    <section class="panel link-map-panel">
+      <div class="panel-heading">
         <div>
-          <strong>{{ link.nome }}</strong>
-          <small>{{ link.firewall }} - {{ link.endereco }} - {{ link.intervalo }}s</small>
+          <p class="eyebrow">Mapa de monitoramento</p>
+          <h2>Distribuicao por local</h2>
         </div>
-        <span>{{ link.disponivel ? 'Disponivel' : 'Indisponivel' }}</span>
-        @if (link.chamado) {
-          <small>Chamado: {{ link.chamado }}</small>
+        <span class="badge info">{{ linksMapa.length }} firewalls</span>
+      </div>
+
+      <div
+        class="link-map"
+        [class.dragging]="mapaArrastando"
+        aria-label="Mapa real com a posicao aproximada dos monitoramentos"
+        (wheel)="zoomMapaComScroll($event)"
+        (mousedown)="iniciarArrastoMapa($event)"
+        (mousemove)="arrastarMapa($event)"
+        (mouseup)="finalizarArrastoMapa()"
+        (mouseleave)="finalizarArrastoMapa()"
+      >
+        <div class="map-tile-layer" aria-hidden="true">
+          @for (tile of mapTiles(); track tile.url) {
+            <img [src]="tile.url" [ngStyle]="tile.style" alt="" />
+          }
+        </div>
+        <div class="map-zoom-controls" aria-label="Controles de zoom do mapa">
+          <button type="button" aria-label="Aproximar mapa" (click)="aumentarZoom()">+</button>
+          <button type="button" aria-label="Afastar mapa" (click)="diminuirZoom()">-</button>
+        </div>
+        <svg class="map-link-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          @for (conexao of conexoesMapa(); track conexao.id) {
+            <path [attr.d]="conexao.path" [class.down]="conexao.down" />
+          }
+        </svg>
+        @for (link of linksMapa; track link.nome) {
+          <button type="button" class="map-pin" [class.down]="!link.disponivel" [ngStyle]="mapStyle(link)" [attr.aria-label]="link.nome" (click)="abrirEdicaoLink(link)">
+            <strong>{{ link.nome }}</strong>
+            <span aria-hidden="true"></span>
+          </button>
+        } @empty {
+          <p class="empty-state">Nenhum firewall cadastrado para exibir no mapa.</p>
         }
-        <button type="button" (click)="alternarLinkClick.emit(link)">
-          {{ link.disponivel ? 'Simular queda' : 'Marcar disponivel' }}
-        </button>
-      </article>
-    }
+      </div>
+    </section>
+
+    <section class="panel link-ranking-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Latencia</p>
+          <h2>Ranking de resposta</h2>
+        </div>
+      </div>
+
+      <div class="link-ranking-list">
+        @for (link of linksOrdenados; track link.nome) {
+          <article class="link-ranking-item" [class.down]="!link.disponivel">
+            <div>
+              <strong>{{ link.nome }}</strong>
+              <small>{{ link.tipo }} - {{ link.local }} - {{ link.endereco }}</small>
+            </div>
+            <span class="status-pill" [class.inactive]="!link.disponivel">{{ link.disponivel ? 'Ativo' : 'Inativo' }}</span>
+            <strong>{{ pingLabel(link) }}</strong>
+          </article>
+        } @empty {
+          <p class="empty-state">Cadastre o primeiro monitoramento para acompanhar a latencia.</p>
+        }
+      </div>
+    </section>
   </div>
+
+  <section class="panel links-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Disponibilidade</p>
+        <h2>Monitoramentos cadastrados</h2>
+      </div>
+      <div class="link-heading-actions">
+        <span class="badge info">Chamado automatico para indisponibilidade</span>
+        <button type="button" class="primary" (click)="abrirNovoLink()">Novo Monitoramento</button>
+      </div>
+    </div>
+
+    <div class="dashboard-table link-search-table link-dashboard-table">
+      <div class="table-head">
+        <span>Nome</span>
+        <span>Tipo</span>
+        <span>Local</span>
+        <span>Endereco</span>
+        <span>Status</span>
+        <span>Ping</span>
+      </div>
+      @for (link of links; track link.nome) {
+        <button type="button" class="table-line" (click)="abrirEdicaoLink(link)">
+          <strong>{{ link.nome }}</strong>
+          <span>{{ link.tipo }}</span>
+          <span>{{ link.local }}</span>
+          <span>{{ link.endereco }}</span>
+          <span class="status-pill" [class.inactive]="!link.disponivel">{{ link.disponivel ? 'Ativo' : 'Inativo' }}</span>
+          <span>{{ pingLabel(link) }}</span>
+        </button>
+      } @empty {
+        <p class="empty-state">Nenhum monitoramento cadastrado.</p>
+      }
+    </div>
+
+    <div class="link-grid">
+      @for (link of links; track link.nome) {
+        <article class="link-card" [class.down]="!link.disponivel" role="button" tabindex="0" (click)="abrirEdicaoLink(link)" (keydown.enter)="abrirEdicaoLink(link)" (keydown.space)="abrirEdicaoLink(link)">
+          <div>
+            <strong>{{ link.nome }}</strong>
+            <small>{{ link.tipo }} - {{ link.local }}</small>
+            <small>{{ link.firewall }} - {{ link.endereco }} - leitura {{ link.intervalo }}s</small>
+          </div>
+          <span>{{ link.disponivel ? 'Disponivel' : 'Indisponivel' }}</span>
+          <strong>{{ pingLabel(link) }}</strong>
+          @if (link.chamado) {
+            <small>Chamado ativo: {{ link.chamado }}</small>
+          }
+          <button type="button" (click)="$event.stopPropagation(); alternarLinkClick.emit(link)">
+            {{ link.disponivel ? 'Simular queda' : 'Marcar operante' }}
+          </button>
+        </article>
+      }
+    </div>
+  </section>
 </section>
 
+@if (listaLinksModalAberto) {
+  <div class="link-modal-backdrop" (click)="fecharListaLinks()"></div>
+  <section class="link-modal-panel link-list-modal" role="dialog" aria-modal="true" aria-label="Editar monitoramento">
+    <header class="link-modal-header">
+      <div>
+        <p class="eyebrow">Monitoramento</p>
+        <h2>Editar monitoramento</h2>
+      </div>
+      <button type="button" class="icon-button" aria-label="Fechar" (click)="fecharListaLinks()">x</button>
+    </header>
+
+    @if (linkSelecionadoNome) {
+        <div class="link-data-heading">
+          <span class="badge info">Leitura a cada 5, 10, 30 ou 60 segundos</span>
+          @if (!linkEditando) {
+            <button type="button" (click)="editarLink()">Editar link</button>
+          }
+        </div>
+
+        <form class="modal-form user-modal-form link-form link-edit-form" (ngSubmit)="salvarLink()">
+          <label>
+            <span>Nome do link</span>
+            <input name="linkNome" [(ngModel)]="linkForm.nome" [disabled]="!linkEditando" placeholder="Matriz - Internet principal" required />
+          </label>
+
+          <label>
+            <span>Tipo</span>
+            <select name="linkTipo" [(ngModel)]="linkForm.tipo" [disabled]="!linkEditando">
+              @for (tipo of tipos; track tipo) {
+                <option [ngValue]="tipo">{{ tipo }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Local</span>
+            <select name="linkLocal" [(ngModel)]="linkForm.local" [disabled]="!linkEditando">
+              @for (local of locais; track local) {
+                <option [ngValue]="local">{{ local }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Firewall ou provedor</span>
+            <input name="linkFirewall" [(ngModel)]="linkForm.firewall" [disabled]="!linkEditando" placeholder="Fortigate Matriz" />
+          </label>
+
+          <label>
+            <span>Endereco monitorado</span>
+            <input name="linkEndereco" [(ngModel)]="linkForm.endereco" [disabled]="!linkEditando" placeholder="IP, dominio ou URL" required />
+          </label>
+
+          <label>
+            <span>Tempo de resposta do ping</span>
+            <select name="linkIntervalo" [(ngModel)]="linkForm.intervalo" [disabled]="!linkEditando">
+              @for (intervalo of intervalos; track intervalo) {
+                <option [ngValue]="intervalo">{{ intervalo }} segundos</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Ping atual em ms</span>
+            <input name="linkPing" type="number" min="0" [(ngModel)]="linkForm.pingMs" [disabled]="!linkEditando" />
+          </label>
+
+          <label>
+            <span>CEP</span>
+            <input name="linkCep" [ngModel]="linkForm.cep" (ngModelChange)="atualizarCep(linkForm, $event, 'edicao')" [disabled]="!linkEditando" inputmode="numeric" maxlength="9" placeholder="00000-000" />
+          </label>
+
+          <label>
+            <span>Latitude</span>
+            <input name="linkLatitude" type="number" step="0.001" [(ngModel)]="linkForm.latitude" [disabled]="!linkEditando || buscandoCepEdicao" />
+          </label>
+
+          <label>
+            <span>Longitude</span>
+            <input name="linkLongitude" type="number" step="0.001" [(ngModel)]="linkForm.longitude" [disabled]="!linkEditando || buscandoCepEdicao" />
+          </label>
+
+          <footer class="modal-actions">
+            <button type="button" class="danger" (click)="excluirLink()">Excluir link</button>
+            <button type="submit" class="primary" [disabled]="!linkEditando">Salvar alteracoes</button>
+          </footer>
+        </form>
+    } @else {
+      <p class="empty-state">Selecione um link cadastrado para visualizar os dados.</p>
+    }
+  </section>
+}
+
+@if (novoLinkModalAberto) {
+  <div class="link-modal-backdrop" (click)="fecharNovoLink()"></div>
+  <section class="link-modal-panel" role="dialog" aria-modal="true" aria-label="Cadastrar novo monitoramento">
+    <header class="link-modal-header">
+      <div>
+        <p class="eyebrow">Novo monitoramento</p>
+        <h2>Cadastrar monitoramento</h2>
+      </div>
+      <button type="button" class="icon-button" aria-label="Fechar" (click)="fecharNovoLink()">x</button>
+    </header>
+
+    <form class="modal-form user-modal-form link-form" (ngSubmit)="cadastrarNovoLink()">
+      <label>
+        <span>Nome do link</span>
+        <input name="novoLinkNome" [(ngModel)]="novoLinkForm.nome" placeholder="Matriz - Internet principal" required />
+      </label>
+
+      <label>
+        <span>Tipo</span>
+        <select name="novoLinkTipo" [(ngModel)]="novoLinkForm.tipo">
+          @for (tipo of tipos; track tipo) {
+            <option [ngValue]="tipo">{{ tipo }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Local</span>
+        <select name="novoLinkLocal" [(ngModel)]="novoLinkForm.local">
+          @for (local of locais; track local) {
+            <option [ngValue]="local">{{ local }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Firewall ou provedor</span>
+        <input name="novoLinkFirewall" [(ngModel)]="novoLinkForm.firewall" placeholder="Fortigate Matriz" />
+      </label>
+
+      <label>
+        <span>Endereco monitorado</span>
+        <input name="novoLinkEndereco" [(ngModel)]="novoLinkForm.endereco" placeholder="IP, dominio ou URL" required />
+      </label>
+
+      <label>
+        <span>Tempo de resposta do ping</span>
+        <select name="novoLinkIntervalo" [(ngModel)]="novoLinkForm.intervalo">
+          @for (intervalo of intervalos; track intervalo) {
+            <option [ngValue]="intervalo">{{ intervalo }} segundos</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Ping atual em ms</span>
+        <input name="novoLinkPing" type="number" min="0" [(ngModel)]="novoLinkForm.pingMs" />
+      </label>
+
+      <label>
+        <span>CEP</span>
+        <input name="novoLinkCep" [ngModel]="novoLinkForm.cep" (ngModelChange)="atualizarCep(novoLinkForm, $event, 'novo')" inputmode="numeric" maxlength="9" placeholder="00000-000" />
+      </label>
+
+      <label>
+        <span>Latitude</span>
+        <input name="novoLinkLatitude" type="number" step="0.001" [(ngModel)]="novoLinkForm.latitude" [disabled]="buscandoCepNovo" />
+      </label>
+
+      <label>
+        <span>Longitude</span>
+        <input name="novoLinkLongitude" type="number" step="0.001" [(ngModel)]="novoLinkForm.longitude" [disabled]="buscandoCepNovo" />
+      </label>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="fecharNovoLink()">Cancelar</button>
+        <button type="submit" class="primary">Cadastrar monitoramento</button>
+      </footer>
+    </form>
+  </section>
+}

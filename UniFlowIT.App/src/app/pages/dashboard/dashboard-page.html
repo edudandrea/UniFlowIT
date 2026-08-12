@@ -11,7 +11,7 @@
     </div>
 
     <div class="quick-actions">
-      <button type="button" class="primary" (click)="navegarClick.emit('chamados')">Abrir chamado</button>
+      <button type="button" class="primary" (click)="navegarClick.emit('chamados')">Abrir ticket</button>
       <button type="button" (click)="navegarClick.emit('equipamentos')">Cadastrar equipamento</button>
       <button type="button" (click)="navegarClick.emit('chamados')">Solicitar acesso</button>
       <button type="button" class="remote-button">Iniciar acesso remoto</button>
@@ -42,7 +42,7 @@
       <div class="panel-heading">
         <div>
           <p class="eyebrow">Operacao atual</p>
-          <h2>Chamados por status</h2>
+          <h2>Tickets por status</h2>
         </div>
       </div>
       <div class="bar-list">
@@ -59,7 +59,7 @@
       <div class="panel-heading">
         <div>
           <p class="eyebrow">Risco operacional</p>
-          <h2>Chamados por prioridade</h2>
+          <h2>Tickets por prioridade</h2>
         </div>
       </div>
       <div class="bar-list">
@@ -77,7 +77,7 @@
     <div class="panel-heading">
       <div>
         <p class="eyebrow">Fila priorizada</p>
-        <h2>Chamados que exigem atencao</h2>
+        <h2>Tickets que exigem atencao</h2>
       </div>
     </div>
 
@@ -100,7 +100,7 @@
           <span>{{ chamado.prioridade === 'Urgente' ? 'Vencido' : 'Em acompanhamento' }}</span>
         </button>
       } @empty {
-        <p class="empty-state">Nenhum chamado exigindo atencao agora.</p>
+        <p class="empty-state">Nenhum ticket exigindo atencao agora.</p>
       }
     </div>
   </section>
@@ -241,4 +241,3 @@
     </section>
   </div>
 </section>
-

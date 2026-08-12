@@ -39,7 +39,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 app.UseHttpsRedirection();
 
-app.MapGet("/", () => Results.Ok(new { name = "UniFlowIT.Api", phase = "Fase 1 - Central de chamados" }));
+app.MapGet("/", () => Results.Ok(new { name = "UniFlowIT.Api", phase = "Fase 1 - Central de tickets" }));
 
 app.MapGet("/api/auth/bootstrap-status", async (AppDbContext db) =>
 {
@@ -560,6 +560,96 @@ app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, int id, Av
     return Results.Ok(chamado);
 });
 
+app.MapGet("/api/categorias-conhecimento", async (AppDbContext db, int? empresaId) =>
+{
+    var query = db.CategoriasConhecimento.AsQueryable();
+
+    if (empresaId.HasValue)
+    {
+        query = query.Where(item => item.EmpresaId == empresaId || item.EmpresaId == null);
+    }
+
+    var categorias = await query
+        .OrderBy(item => item.Nome)
+        .ToListAsync();
+
+    return Results.Ok(categorias);
+});
+
+app.MapPost("/api/categorias-conhecimento", async (AppDbContext db, CategoriaConhecimento categoria) =>
+{
+    categoria.Nome = categoria.Nome.Trim();
+    categoria.CriadoEm = DateTime.UtcNow;
+
+    var existente = await db.CategoriasConhecimento
+        .FirstOrDefaultAsync(item => item.EmpresaId == categoria.EmpresaId && item.Nome.ToLower() == categoria.Nome.ToLower());
+
+    if (existente is not null)
+    {
+        existente.Ativo = categoria.Ativo;
+        await db.SaveChangesAsync();
+        return Results.Ok(existente);
+    }
+
+    db.CategoriasConhecimento.Add(categoria);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/categorias-conhecimento/{categoria.Id}", categoria);
+});
+
+app.MapPut("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, int id, CategoriaConhecimento request) =>
+{
+    var categoria = await db.CategoriasConhecimento.FindAsync(id);
+
+    if (categoria is null)
+    {
+        return Results.NotFound();
+    }
+
+    var nomeAnterior = categoria.Nome;
+    categoria.Nome = request.Nome.Trim();
+    categoria.Ativo = request.Ativo;
+
+    if (!string.Equals(nomeAnterior, categoria.Nome, StringComparison.OrdinalIgnoreCase))
+    {
+        var artigos = await db.BaseConhecimento
+            .Where(item => item.EmpresaId == categoria.EmpresaId && item.Categoria == nomeAnterior)
+            .ToListAsync();
+
+        foreach (var artigo in artigos)
+        {
+            artigo.Categoria = categoria.Nome;
+            artigo.AtualizadoEm = DateTime.UtcNow;
+        }
+    }
+
+    await db.SaveChangesAsync();
+    return Results.Ok(categoria);
+});
+
+app.MapDelete("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, int id) =>
+{
+    var categoria = await db.CategoriasConhecimento.FindAsync(id);
+
+    if (categoria is null)
+    {
+        return Results.NotFound();
+    }
+
+    var possuiConhecimento = await db.BaseConhecimento
+        .AnyAsync(item => item.Publicado && item.EmpresaId == categoria.EmpresaId && item.Categoria == categoria.Nome);
+
+    if (possuiConhecimento)
+    {
+        return Results.Conflict(new { mensagem = "Categoria possui conhecimentos cadastrados." });
+    }
+
+    db.CategoriasConhecimento.Remove(categoria);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 app.MapGet("/api/base-conhecimento", async (AppDbContext db, int? empresaId) =>
 {
     var query = db.BaseConhecimento
@@ -585,6 +675,46 @@ app.MapPost("/api/base-conhecimento", async (AppDbContext db, ArtigoConhecimento
     await db.SaveChangesAsync();
 
     return Results.Created($"/api/base-conhecimento/{artigo.Id}", artigo);
+});
+
+app.MapPut("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id, ArtigoConhecimento request) =>
+{
+    var artigo = await db.BaseConhecimento.FindAsync(id);
+
+    if (artigo is null)
+    {
+        return Results.NotFound();
+    }
+
+    artigo.EmpresaId = request.EmpresaId;
+    artigo.Titulo = request.Titulo.Trim();
+    artigo.Categoria = request.Categoria.Trim();
+    artigo.Conteudo = request.Conteudo;
+    artigo.Tags = request.Tags;
+    artigo.Anexos = request.Anexos;
+    artigo.UsuarioCriador = request.UsuarioCriador;
+    artigo.UsuarioCriadorId = request.UsuarioCriadorId;
+    artigo.Publicado = request.Publicado;
+    artigo.AtualizadoEm = DateTime.UtcNow;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(artigo);
+});
+
+app.MapDelete("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id) =>
+{
+    var artigo = await db.BaseConhecimento.FindAsync(id);
+
+    if (artigo is null)
+    {
+        return Results.NotFound();
+    }
+
+    artigo.Publicado = false;
+    artigo.AtualizadoEm = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
 });
 
 app.MapGet("/api/equipamentos/envios", async (AppDbContext db, int? empresaId) =>
@@ -656,10 +786,49 @@ app.MapGet("/api/links", async (AppDbContext db, int? empresaId) =>
 
 app.MapPost("/api/links", async (AppDbContext db, LinkMonitorado link) =>
 {
+    link.UltimaLeituraEm = DateTime.UtcNow;
     db.LinksMonitorados.Add(link);
     await db.SaveChangesAsync();
 
     return Results.Created($"/api/links/{link.Id}", link);
+});
+
+app.MapPut("/api/links/{id:int}", async (AppDbContext db, int id, LinkMonitorado request) =>
+{
+    var link = await db.LinksMonitorados.FindAsync(id);
+    if (link is null)
+    {
+        return Results.NotFound();
+    }
+
+    link.EmpresaId = request.EmpresaId;
+    link.Nome = request.Nome.Trim();
+    link.Tipo = request.Tipo.Trim();
+    link.Local = request.Local.Trim();
+    link.Firewall = request.Firewall.Trim();
+    link.Endereco = request.Endereco.Trim();
+    link.Cep = request.Cep.Trim();
+    link.IntervaloLeituraSegundos = request.IntervaloLeituraSegundos;
+    link.PingMs = request.PingMs;
+    link.Latitude = request.Latitude;
+    link.Longitude = request.Longitude;
+    link.UltimaLeituraEm = DateTime.UtcNow;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(link);
+});
+
+app.MapDelete("/api/links/{id:int}", async (AppDbContext db, int id) =>
+{
+    var link = await db.LinksMonitorados.FindAsync(id);
+    if (link is null)
+    {
+        return Results.NotFound();
+    }
+
+    db.LinksMonitorados.Remove(link);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
 });
 
 app.MapPost("/api/links/{id:int}/status", async (AppDbContext db, int id, AtualizarStatusLinkRequest request) =>
@@ -695,6 +864,18 @@ app.MapPost("/api/links/{id:int}/status", async (AppDbContext db, int id, Atuali
         link.ChamadoAbertoId = chamado.Id;
     }
 
+    if (request.Disponivel && link.ChamadoAbertoId is not null)
+    {
+        var chamado = await db.Chamados.FindAsync(link.ChamadoAbertoId.Value);
+        if (chamado is not null)
+        {
+            chamado.Status = StatusChamado.Encerrado;
+            chamado.AtualizadoEm = DateTime.UtcNow;
+        }
+
+        link.ChamadoAbertoId = null;
+    }
+
     await db.SaveChangesAsync();
     return Results.Ok(link);
 });
@@ -719,11 +900,9 @@ static async Task<IResult> AtualizarStatusChamado(AppDbContext db, int id, Statu
 
 static async Task<string> GerarNumeroChamado(AppDbContext db)
 {
-    var hoje = DateTime.UtcNow.Date;
-    var amanha = hoje.AddDays(1);
-    var quantidadeHoje = await db.Chamados.CountAsync(item => item.CriadoEm >= hoje && item.CriadoEm < amanha);
+    var totalChamados = await db.Chamados.CountAsync();
 
-    return $"CH-{DateTime.UtcNow:yyyyMMdd}-{quantidadeHoje + 1:0000}";
+    return $"#TK-{totalChamados + 1:000}";
 }
 
 static AuthResponse CriarAuthResponse(Users usuario)

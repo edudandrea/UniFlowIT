@@ -41,31 +41,24 @@
 
       <nav class="nav">
         @if (perfil() === 'AdministradorSaas') {
-          <p class="nav-section">Visao geral</p>
           <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'saas-dashboard'" (click)="navegar('saas-dashboard')">
             <span class="nav-icon" aria-hidden="true"></span><span>Dashboard SaaS</span>
           </button>
 
-          <p class="nav-section">Clientes</p>
           <button type="button" class="nav-empresas" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">
             <span class="nav-icon" aria-hidden="true"></span><span>Empresas</span>
           </button>
           <button type="button" class="nav-usuarios" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">
             <span class="nav-icon" aria-hidden="true"></span><span>Usuarios</span>
           </button>
-          <button type="button" class="nav-implantacoes" [class.active]="paginaAtiva() === 'saas-implantacoes'" (click)="navegar('saas-implantacoes')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Implantacoes</span>
-          </button>
           <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')">
             <span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span>
           </button>
 
-          <p class="nav-section">Comercial</p>
           <div class="nav-group">
             <button type="button" class="nav-parent nav-comercial" [class.open]="comercialAberto()" (click)="alternarComercial()">
               <span class="nav-icon" aria-hidden="true"></span>
               <span>Comercial</span>
-              <span class="chevron">&gt;</span>
             </button>
             <div class="nav-children" [class.open]="comercialAberto()">
               <button type="button" [class.active]="paginaAtiva() === 'financeiro-planos'" (click)="navegar('financeiro-planos')">Planos</button>
@@ -77,54 +70,10 @@
             </div>
           </div>
 
-          <p class="nav-section">Operacao</p>
-          <div class="nav-group">
-            <button type="button" class="nav-parent nav-operacao" [class.open]="operacaoSaasAberto()" (click)="alternarOperacaoSaas()">
-              <span class="nav-icon" aria-hidden="true"></span>
-              <span>Operacao</span>
-              <span class="chevron">&gt;</span>
-            </button>
-            <div class="nav-children" [class.open]="operacaoSaasAberto()">
-              <button type="button" [class.active]="paginaAtiva() === 'saas-chamados-globais'" (click)="navegar('saas-chamados-globais')">
-                <span>Chamados globais</span><span class="nav-count">18</span>
-              </button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-sla-plataforma'" (click)="navegar('saas-sla-plataforma')">SLA da plataforma</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-incidentes'" (click)="navegar('saas-incidentes')">Incidentes</button>
-            </div>
-          </div>
-
-          <p class="nav-section">Plataforma</p>
-          <div class="nav-group">
-            <button type="button" class="nav-parent nav-plataforma" [class.open]="plataformaSaasAberto()" (click)="alternarPlataformaSaas()">
-              <span class="nav-icon" aria-hidden="true"></span>
-              <span>Plataforma</span>
-              <span class="chevron">&gt;</span>
-            </button>
-            <div class="nav-children" [class.open]="plataformaSaasAberto()">
-              <button type="button" [class.active]="paginaAtiva() === 'saas-monitoramento'" (click)="navegar('saas-monitoramento')">Monitoramento</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-agentes'" (click)="navegar('saas-agentes')">Agentes</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-integracoes'" (click)="navegar('saas-integracoes')">Integracoes</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-acesso-remoto'" (click)="navegar('saas-acesso-remoto')">Acesso remoto</button>
-            </div>
-          </div>
-
-          <p class="nav-section">Inteligencia</p>
-          <button type="button" class="nav-relatorios" [class.active]="paginaAtiva() === 'saas-relatorios'" (click)="navegar('saas-relatorios')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Relatorios</span>
-          </button>
-          <button type="button" class="nav-metricas" [class.active]="paginaAtiva() === 'saas-metricas-uso'" (click)="navegar('saas-metricas-uso')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Metricas de uso</span>
-          </button>
-          <button type="button" class="nav-auditoria" [class.active]="paginaAtiva() === 'saas-auditoria'" (click)="navegar('saas-auditoria')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Auditoria</span>
-          </button>
-
-          <p class="nav-section">Administracao</p>
           <div class="nav-group">
             <button type="button" class="nav-parent nav-admin" [class.open]="administracaoSaasAberto()" (click)="alternarAdministracaoSaas()">
               <span class="nav-icon" aria-hidden="true"></span>
               <span>Administracao</span>
-              <span class="chevron">&gt;</span>
             </button>
             <div class="nav-children" [class.open]="administracaoSaasAberto()">
               <button type="button" [class.active]="paginaAtiva() === 'saas-configuracoes'" (click)="navegar('saas-configuracoes')">Configuracoes</button>
@@ -136,24 +85,23 @@
           </div>
         } @else if (perfil() === 'Administrador') {
           <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Dashboard</span></button>
-          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Chamados</span></button>
+          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
           <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')"><span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span></button>
           <div class="nav-group">
             <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
               <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
               <span>Cadastro</span>
-              <span class="chevron">&gt;</span>
             </button>
             <div class="nav-children" [class.open]="cadastroAberto()">
               <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
               <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
             </div>
           </div>
-          <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')"><span class="nav-icon" aria-hidden="true"></span><span>Base</span></button>
+          <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')"><span class="nav-icon" aria-hidden="true"></span><span>Base de Conhecimentos</span></button>
           <button type="button" class="nav-equipamentos" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')"><span class="nav-icon" aria-hidden="true"></span><span>Equipamentos</span></button>
-          <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links'" (click)="navegar('links')"><span class="nav-icon" aria-hidden="true"></span><span>Links</span></button>
+          <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links-dashboard'" (click)="navegar('links-dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Monitoramento</span></button>
         } @else {
-          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Chamados</span></button>
+          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
           <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')"><span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span></button>
         }
       </nav>
@@ -384,15 +332,35 @@
       }
 
       @if (paginaAtiva() === 'conhecimento') {
-        <app-conhecimento-page [artigos]="artigos" />
+        <app-conhecimento-page
+          [artigos]="artigos"
+          [categorias]="categoriasConhecimento()"
+          [conhecimentoForm]="conhecimentoForm"
+          [categoriaForm]="categoriaConhecimentoForm"
+          [modalConhecimentoAberto]="conhecimentoModalAberto()"
+          [modalCategoriaAberto]="categoriaConhecimentoModalAberto()"
+          [modalListaCategoriasAberto]="categoriasConhecimentoModalAberto()"
+          [categoriaSelecionada]="categoriaConhecimentoSelecionada()"
+          (novoConhecimentoClick)="abrirNovoConhecimento()"
+          (novaCategoriaClick)="abrirNovaCategoriaConhecimento()"
+          (editarCategoriaClick)="editarCategoriaConhecimento($event)"
+          (abrirCategoriasClick)="abrirListaCategoriasConhecimento()"
+          (abrirCategoriaClick)="abrirConhecimentosCategoria($event)"
+          (fecharModaisClick)="fecharModaisConhecimento()"
+          (salvarConhecimentoSubmit)="salvarConhecimento()"
+          (salvarCategoriaSubmit)="salvarCategoriaConhecimento()"
+          (editarConhecimentoClick)="editarConhecimento($event)"
+          (excluirConhecimentoClick)="excluirConhecimento($event)"
+          (excluirCategoriaClick)="excluirCategoriaConhecimento($event)"
+        />
       }
 
       @if (paginaAtiva() === 'equipamentos') {
         <app-equipamentos-page [envios]="envios" [inventario]="inventario" />
       }
 
-      @if (paginaAtiva() === 'links') {
-        <app-links-page [links]="links()" (alternarLinkClick)="alternarLink($event)" />
+      @if (paginaAtiva() === 'links-dashboard') {
+        <app-links-page [links]="links()" [linkForm]="linkForm" (alternarLinkClick)="alternarLink($event)" (salvarLinkSubmit)="salvarLinkMonitorado($event.link, $event.originalNome)" (excluirLinkClick)="excluirLinkMonitorado($event)" />
       }
     </section>
   </main>

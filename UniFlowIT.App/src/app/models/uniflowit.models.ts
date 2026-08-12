@@ -10,7 +10,7 @@ export type Pagina =
   | 'cadastro-categorias'
   | 'conhecimento'
   | 'equipamentos'
-  | 'links'
+  | 'links-dashboard'
   | 'dados-empresariais'
   | 'financeiro-assinaturas'
   | 'financeiro-cobrancas'
@@ -75,11 +75,40 @@ export interface Chamado {
 }
 
 export interface Artigo {
+  id?: number;
   empresaId?: number;
   titulo: string;
   categoria: string;
   resumo: string;
+  descricao?: string;
   tags: string[];
+  anexos?: string[];
+  usuario?: string;
+  usuarioId?: number;
+}
+
+export interface CategoriaConhecimento {
+  id?: number;
+  empresaId?: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ConhecimentoForm {
+  id?: number;
+  titulo: string;
+  categoria: string;
+  descricao: string;
+  anexos: string[];
+  usuario: string;
+  usuarioId?: number;
+}
+
+export interface CategoriaConhecimentoForm {
+  id?: number;
+  nomeOriginal?: string;
+  nome: string;
+  ativo: boolean;
 }
 
 export interface EnvioEquipamento {
@@ -102,11 +131,18 @@ export interface Inventario {
 }
 
 export interface LinkMonitorado {
+  id?: number;
   empresaId?: number;
   nome: string;
+  tipo: 'Link internet' | 'Firewall' | 'Site';
+  local: 'Matriz' | 'Filial' | 'Site externo';
   firewall: string;
   endereco: string;
+  cep: string;
   intervalo: number;
+  pingMs: number;
+  latitude: number;
+  longitude: number;
   disponivel: boolean;
   chamado?: string;
 }

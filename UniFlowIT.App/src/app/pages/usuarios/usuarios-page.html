@@ -18,7 +18,6 @@
       <span>Empresa</span>
       <span>Perfil</span>
       <span>Status</span>
-      <span>Acoes</span>
     </div>
     @for (usuario of usuarios; track usuario.email) {
       <article class="result-row" role="button" tabindex="0" (click)="editarUsuarioClick.emit(usuario)" (keydown.enter)="editarUsuarioClick.emit(usuario)">
@@ -29,7 +28,6 @@
         <span>{{ usuario.empresaNome }}</span>
         <span>{{ usuario.role }}</span>
         <span class="status-pill" [class.inactive]="!usuario.ativo">{{ usuario.ativo ? 'Ativo' : 'Inativo' }}</span>
-        <span><button type="button" class="row-action" (click)="editarUsuarioClick.emit(usuario); $event.stopPropagation()">Editar</button></span>
       </article>
     }
   </div>

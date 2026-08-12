@@ -51,8 +51,8 @@ export class DashboardPage {
 
   protected get cardsPrimarios(): DashboardCard[] {
     return [
-      { label: 'Chamados abertos', value: this.chamadosAbertos.length, tone: 'blue' },
-      { label: 'Chamados criticos', value: this.chamadosCriticos.length, tone: 'red' },
+      { label: 'Tickets abertos', value: this.chamadosAbertos.length, tone: 'blue' },
+      { label: 'Tickets criticos', value: this.chamadosCriticos.length, tone: 'red' },
       { label: 'SLA vencido', value: this.chamados.filter((chamado) => chamado.prioridade === 'Urgente' && chamado.status !== 'Encerrado').length, tone: 'amber' },
       { label: 'Ativos cadastrados', value: this.inventario.length, tone: 'cyan' },
       { label: 'Equipamentos offline', value: this.linksFora.length, tone: 'red' },
@@ -119,7 +119,7 @@ export class DashboardPage {
       servico: link.nome,
       situacao: link.disponivel ? 'Online' : 'Indisponivel',
       disponibilidade: link.disponivel ? '100%' : '0%',
-      evento: link.chamado ? `Chamado ${link.chamado}` : 'Sem incidentes ativos',
+      evento: link.chamado ? `Ticket ${link.chamado}` : 'Sem incidentes ativos',
       down: !link.disponivel,
     }));
   }
@@ -180,4 +180,3 @@ export class DashboardPage {
     return prioridade + semTecnico + aberto;
   }
 }
-

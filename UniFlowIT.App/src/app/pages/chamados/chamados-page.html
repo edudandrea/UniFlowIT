@@ -1,4 +1,4 @@
-<section class="metrics" aria-label="Resumo de chamados">
+<section class="metrics" aria-label="Resumo de tickets">
   <article>
     <span>{{ metricas.abertos }}</span>
     <small>Abertos</small>
@@ -21,14 +21,14 @@
   <div class="panel-heading">
     <div>
       <p class="eyebrow">{{ modoDesenvolvedor ? 'Suporte da plataforma' : perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
-      <h2>{{ modoDesenvolvedor ? 'Chamados para o desenvolvedor' : perfil === 'Usuario' ? 'Meus chamados abertos' : 'Painel de chamados' }}</h2>
+      <h2>{{ modoDesenvolvedor ? 'Tickets para o desenvolvedor' : perfil === 'Usuario' ? 'Meus tickets abertos' : 'Painel de tickets' }}</h2>
     </div>
-    <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo chamado' }}</button>
+    <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo ticket' }}</button>
   </div>
 
   <div class="result-list tickets-list">
     <div class="result-header">
-      <span>Chamado</span>
+      <span>Ticket</span>
       <span>Solicitante</span>
       <span>Categoria</span>
       <span>Prioridade</span>
@@ -60,18 +60,18 @@
         <span>{{ chamado.atendente || 'Sem proprietario' }}</span>
       </button>
     } @empty {
-      <p class="empty-state">Nenhum chamado aberto encontrado para este perfil.</p>
+      <p class="empty-state">Nenhum ticket aberto encontrado para este perfil.</p>
     }
   </div>
 </section>
 
 @if (novoChamadoModalAberto) {
   <div class="modal-backdrop" (click)="fecharModalNovoChamado()"></div>
-  <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Abertura de chamado">
+  <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Abertura de ticket">
     <header class="modal-header">
       <div>
-        <p class="eyebrow">{{ modoDesenvolvedor ? 'Desenvolvedor UniFlowIT' : 'Novo chamado' }}</p>
-        <h2>{{ modoDesenvolvedor ? 'Solicitar ajuste na plataforma' : 'Abrir chamado' }}</h2>
+        <p class="eyebrow">{{ modoDesenvolvedor ? 'Desenvolvedor UniFlowIT' : 'Novo ticket' }}</p>
+        <h2>{{ modoDesenvolvedor ? 'Solicitar ajuste na plataforma' : 'Abrir ticket' }}</h2>
       </div>
       <div class="modal-header-actions">
         <button
@@ -128,7 +128,7 @@
       </label>
 
       <label class="full">
-        <span>Descrição do chamado</span>
+        <span>Descricao do ticket</span>
         <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" [placeholder]="modoDesenvolvedor ? 'Descreva o erro, tela afetada, passos para reproduzir e impacto para a empresa' : 'Descreva o problema, impacto e mensagens de erro'"></textarea>
       </label>
 
@@ -156,7 +156,7 @@
 
       <div class="modal-actions">
         <button type="button" (click)="fecharModalNovoChamado()">Voltar</button>
-        <button class="primary" type="submit">{{ modoDesenvolvedor ? 'Enviar ao desenvolvedor' : 'Abrir chamado' }}</button>
+        <button class="primary" type="submit">{{ modoDesenvolvedor ? 'Enviar ao desenvolvedor' : 'Abrir ticket' }}</button>
       </div>
     </form>
   </section>
@@ -164,7 +164,7 @@
 
 @if (chamadoModalAberto && chamadoSelecionado) {
   <div class="modal-backdrop" (click)="fecharDetalheChamado()"></div>
-  <section class="modal-panel large-modal ticket-detail-modal" role="dialog" aria-modal="true" aria-label="Detalhe do chamado">
+  <section class="modal-panel large-modal ticket-detail-modal" role="dialog" aria-modal="true" aria-label="Detalhe do ticket">
     <header class="modal-header">
       <div>
         <p class="eyebrow">{{ chamadoSelecionado.numero }}</p>
@@ -260,7 +260,7 @@
               <p>{{ mensagem.texto }}</p>
             </article>
           } @empty {
-            <p class="empty-state">Nenhuma comunicacao registrada para este chamado.</p>
+            <p class="empty-state">Nenhuma comunicacao registrada para este ticket.</p>
           }
         </div>
       }

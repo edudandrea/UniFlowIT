@@ -1812,43 +1812,6 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
-.links-panel {
-  margin-top: 24px;
-}
-
-.link-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.link-card {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--slate-200);
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 14px;
-}
-
-.link-card > span {
-  width: fit-content;
-  background: rgb(34 197 94 / 0.14);
-  color: #15803d;
-}
-
-.link-card.down {
-  border-color: rgb(239 68 68 / 0.42);
-  background: #fff7f7;
-}
-
-.link-card button {
-  border-color: var(--cyan-500);
-  background: var(--cyan-500);
-  color: #ffffff;
-  font-weight: 900;
-}
 
 @media (max-width: 1180px) {
   .ticket-grid,
@@ -2168,7 +2131,6 @@ textarea:focus {
   }
 }
 
-/* Typography system */
 app-root {
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
 }
@@ -2276,7 +2238,6 @@ button,
   }
 }
 
-/* Professional interface refresh. Keep this layer last so the app has one visual language. */
 app-root {
   --blue-950: #111827;
   --blue-800: #1e3a5f;
@@ -2814,7 +2775,6 @@ form.ng-submitted textarea.ng-invalid {
   padding: 14px 22px;
 }
 
-/* Dark-surface readability and sidebar menu icons */
 .auth-brand,
 .auth-brand h1,
 .auth-brand p,
@@ -2888,7 +2848,6 @@ form.ng-submitted textarea.ng-invalid {
   content: "∞";
 }
 
-/* UniFlowIT theme layer */
 app-root.theme-dark,
 app-root.theme-light {
   --primary: #2d8cff;
@@ -3217,7 +3176,6 @@ app-root.theme-light .whatsapp-chat .message.mine {
   }
 }
 
-/* FontAwesome field icons, modern TI mark, spinner and toast refinements. */
 .ti-mark {
   display: inline-grid;
   place-items: center;
@@ -3292,34 +3250,6 @@ app-root.theme-light .whatsapp-chat .message.mine {
   box-shadow: 0 20px 54px rgb(0 0 0 / 0.28);
 }
 
-.toast-container .ngx-toastr::before {
-  position: absolute;
-  top: 16px;
-  left: 18px;
-  font-family: inherit;
-  font-weight: 900;
-}
-
-.toast-success::before {
-  content: "\f058";
-  color: var(--success);
-}
-
-.toast-error::before {
-  content: "\f06a";
-  color: var(--danger);
-}
-
-.toast-info::before {
-  content: "\f05a";
-  color: var(--primary);
-}
-
-.toast-warning::before {
-  content: "\f071";
-  color: var(--warning);
-}
-
 label:has(input:not([type="file"])),
 label:has(select),
 label:has(textarea) {
@@ -3335,8 +3265,7 @@ label:has(textarea)::before {
   z-index: 1;
   width: 18px;
   color: var(--text-soft, #8798ab);
-  content: "\f044";
-  font-family: inherit;
+  --uf-icon: var(--icon-edit);
   font-size: 0.92rem;
   font-weight: 900;
   line-height: 1;
@@ -3346,19 +3275,19 @@ label:has(textarea)::before {
 label:has(input[type="email"])::before,
 label:has(input[name*="Email"])::before,
 label:has(input[name*="email"])::before {
-  content: "\f0e0";
+  --uf-icon: var(--icon-mail);
 }
 
 label:has(input[type="password"])::before,
 label:has(input[name*="senha"])::before,
 label:has(input[name*="Senha"])::before {
-  content: "\f023";
+  --uf-icon: var(--icon-lock);
 }
 
 label:has(input[name*="nome"])::before,
 label:has(input[name*="Nome"])::before,
 label:has(input[name*="solicitante"])::before {
-  content: "\f007";
+  --uf-icon: var(--icon-user);
 }
 
 label:has(input[name*="empresa"])::before,
@@ -3366,17 +3295,17 @@ label:has(input[name*="Empresa"])::before,
 label:has(input[name*="razao"])::before,
 label:has(input[name*="fantasia"])::before,
 label:has(input[name*="tenant"])::before {
-  content: "\f1ad";
+  --uf-icon: var(--icon-building);
 }
 
 label:has(input[name*="cnpj"])::before,
 label:has(input[name*="Cnpj"])::before,
 label:has(input[name*="inscricao"])::before {
-  content: "\f1c1";
+  --uf-icon: var(--icon-file);
 }
 
 label:has(input[name*="telefone"])::before {
-  content: "\f095";
+  --uf-icon: var(--icon-phone);
 }
 
 label:has(input[name*="endereco"])::before,
@@ -3384,41 +3313,41 @@ label:has(input[name*="bairro"])::before,
 label:has(input[name*="cidade"])::before,
 label:has(input[name*="estado"])::before,
 label:has(input[name*="cep"])::before {
-  content: "\f3c5";
+  --uf-icon: var(--icon-map);
 }
 
 label:has(input[name*="numero"])::before {
-  content: "\23";
+  --uf-icon: var(--icon-hash);
 }
 
 label:has(input[name*="logo"])::before,
 label:has(input[name*="Foto"])::before,
 label:has(input[name*="foto"])::before {
-  content: "\f03e";
+  --uf-icon: var(--icon-image);
 }
 
 label:has(input[type="date"])::before,
 label:has(input[type="datetime-local"])::before {
-  content: "\f133";
+  --uf-icon: var(--icon-calendar);
 }
 
 label:has(input[name*="Filtro"])::before,
 label:has(input[name*="filtro"])::before {
-  content: "\f002";
+  --uf-icon: var(--icon-search);
 }
 
 label:has(input[name*="titulo"])::before,
 label:has(input[name*="categoria"])::before,
 label:has(input[name*="Categoria"])::before {
-  content: "\f02b";
+  --uf-icon: var(--icon-tag);
 }
 
 label:has(select)::before {
-  content: "\f0ca";
+  --uf-icon: var(--icon-list);
 }
 
 label:has(textarea)::before {
-  content: "\f4ad";
+  --uf-icon: var(--icon-message);
   top: 42px;
   bottom: auto;
 }
@@ -3488,7 +3417,6 @@ label:has(textarea) textarea {
   }
 }
 
-/* Login readability in both themes */
 app-root.theme-dark .auth-shell {
   background:
     radial-gradient(circle at 18% 16%, rgb(45 140 255 / 0.22), transparent 34%),
@@ -3616,7 +3544,6 @@ app-root.theme-dark .auth-brand p:not(.eyebrow) {
   }
 }
 
-/* Polished login/bootstrap card and deterministic field icon alignment */
 app-root.theme-dark .auth-card,
 app-root.theme-light .auth-card {
   width: min(700px, calc(100% - 56px));
@@ -3749,7 +3676,6 @@ app-root.theme-light .auth-form input:-webkit-autofill:focus {
   }
 }
 
-/* User modal field alignment */
 label:has(input:required) > span:not(.password-control)::after,
 label:has(select:required) > span:not(.password-control)::after,
 label:has(textarea:required) > span:not(.password-control)::after {
@@ -3797,8 +3723,7 @@ label:has(textarea:required) > .password-control::after {
   left: 14px;
   z-index: 1;
   color: var(--text-soft, #8798ab);
-  content: "\f023";
-  font-family: inherit;
+  --uf-icon: var(--icon-lock);
   font-size: 0.92rem;
   font-weight: 900;
   line-height: 1;
@@ -3845,7 +3770,6 @@ label:has(textarea:required) > .password-control::after {
   margin: -8px 0 0;
 }
 
-/* Final form alignment pass */
 .modal-form label:has(input:not([type="file"]))::before,
 .modal-form label:has(select)::before,
 .modal-form label:has(textarea)::before {
@@ -3952,7 +3876,6 @@ label:has(textarea:required) > .password-control::after {
   }
 }
 
-/* Field contrast and company form polish */
 app-root.theme-light {
   --bg: #e8f0f8;
   --bg-soft: #edf4fb;
@@ -4098,21 +4021,20 @@ app-root.theme-light :is(input, select, textarea):-webkit-autofill:focus {
 }
 
 .section-icon::before {
-  content: "\f0ca";
-  font-family: inherit;
+  --uf-icon: var(--icon-list);
   font-weight: 900;
 }
 
 .section-icon.location::before {
-  content: "\f3c5";
+  --uf-icon: var(--icon-map);
 }
 
 .section-icon.fiscal::before {
-  content: "\f571";
+  --uf-icon: var(--icon-file);
 }
 
 .section-icon.access::before {
-  content: "\f023";
+  --uf-icon: var(--icon-lock);
 }
 
 .company-fields {
@@ -4480,7 +4402,6 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
   }
 }
 
-/* UniFlowIT design system baseline */
 app-root {
   --font-primary: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   --font-technical: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
@@ -4511,6 +4432,9 @@ app-root {
   --icon-book: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 7v14'/%3E%3Cpath d='M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z'/%3E%3C/svg%3E");
   --icon-monitor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='14' x='2' y='3' rx='2'/%3E%3Cpath d='M8 21h8M12 17v4'/%3E%3C/svg%3E");
   --icon-link: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
+  --icon-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21'/%3E%3C/svg%3E");
+  --icon-tag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.6 2.6H4a2 2 0 0 0-2 2v8.6a2 2 0 0 0 .6 1.4l6.8 6.8a2 2 0 0 0 2.8 0l9.2-9.2a2 2 0 0 0 0-2.8l-6.8-6.8a2 2 0 0 0-1.4-.6Z'/%3E%3Ccircle cx='7.5' cy='7.5' r='.5'/%3E%3C/svg%3E");
+  --icon-message: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z'/%3E%3C/svg%3E");
   font-family: var(--font-primary);
   letter-spacing: 0;
 }
@@ -4572,12 +4496,11 @@ label:has(select)::before,
 label:has(textarea)::before,
 .password-control::before,
 .nav-icon::before,
-.section-icon::before,
-.toast-container .ngx-toastr::before {
+.section-icon::before {
   content: "" !important;
   display: block;
   background: currentColor;
-  font-family: initial !important;
+  font-family: sans-serif !important;
   -webkit-mask: var(--uf-icon, var(--icon-edit)) center / contain no-repeat;
   mask: var(--uf-icon, var(--icon-edit)) center / contain no-repeat;
 }
@@ -4730,7 +4653,6 @@ label:has(select)::before,
   height: 18px;
 }
 
-/* SaaS Admin navigation */
 .sidebar:has(.saas-badge) {
   width: 292px;
   padding: 16px 14px;
@@ -5170,7 +5092,6 @@ app-root.theme-light ::-webkit-scrollbar-thumb {
   text-align: center;
 }
 
-/* Professional light mode contrast pass */
 app-root.theme-light {
   --bg: #dce8f3;
   --bg-soft: #e7eff7;
@@ -5374,7 +5295,6 @@ app-empresas-page > .tenant-panel > .tabs button:disabled {
   }
 }
 
-/* Login without card: soft split background */
 app-login-page .auth-shell {
   grid-template-columns: minmax(0, 1.08fr) minmax(460px, 0.92fr);
   min-height: 100dvh;
@@ -5382,11 +5302,11 @@ app-login-page .auth-shell {
   background:
     linear-gradient(
       90deg,
-      #0b2844 0%,
-      #112d54 38%,
-      rgb(12 34 58 / 0.98) 52%,
-      #071422 68%,
-      #061120 100%
+      #1d75ad 0%,
+      #2384c2 35%,
+      #0a2d4f 49%,
+      #020b16 64%,
+      #010611 100%
     );
 }
 
@@ -5394,18 +5314,18 @@ app-login-page .auth-shell::before {
   inset: 0;
   width: auto;
   background:
-    radial-gradient(circle at 29% 28%, rgb(255 255 255 / 0.12), transparent 22%),
-    radial-gradient(circle at 25% 50%, rgb(45 140 255 / 0.16), transparent 30%),
-    linear-gradient(90deg, rgb(32 88 146 / 0.24) 0%, rgb(32 88 146 / 0.1) 42%, transparent 58%),
-    linear-gradient(90deg, transparent 0 48%, rgb(3 10 18 / 0.44) 60%, rgb(2 6 23 / 0.68) 100%);
+    radial-gradient(circle at 24% 20%, rgb(255 255 255 / 0.24), transparent 24%),
+    radial-gradient(circle at 24% 56%, rgb(125 211 252 / 0.28), transparent 34%),
+    linear-gradient(90deg, rgb(56 189 248 / 0.2) 0%, rgb(14 116 144 / 0.1) 44%, transparent 53%),
+    linear-gradient(90deg, transparent 0 46%, rgb(1 7 18 / 0.62) 58%, rgb(0 3 10 / 0.9) 100%);
   box-shadow: none;
 }
 
 app-login-page .auth-shell::after {
   background:
-    linear-gradient(90deg, transparent 0 49%, rgb(2 6 23 / 0.1) 50%, rgb(2 6 23 / 0.7) 63%, transparent 78%),
-    radial-gradient(ellipse at 51% 50%, rgb(7 20 34 / 0.78) 0%, rgb(7 20 34 / 0.42) 18%, transparent 36%),
-    radial-gradient(circle at 76% 24%, rgb(6 182 212 / 0.12), transparent 26%);
+    linear-gradient(90deg, transparent 0 47%, rgb(2 6 23 / 0.3) 52%, rgb(0 4 12 / 0.92) 68%, rgb(0 4 12 / 0.55) 100%),
+    radial-gradient(ellipse at 54% 50%, rgb(1 8 19 / 0.9) 0%, rgb(1 8 19 / 0.62) 18%, transparent 36%),
+    radial-gradient(circle at 78% 24%, rgb(6 182 212 / 0.08), transparent 26%);
 }
 
 app-login-page .matrix-code {
@@ -5478,7 +5398,13 @@ app-login-page .auth-form label {
 }
 
 app-login-page .auth-form label::before {
+  top: 42px !important;
+  bottom: auto !important;
+  left: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
   color: #9bb4cc;
+  transform: translateY(-50%) !important;
 }
 
 app-login-page .auth-form input {
@@ -5593,7 +5519,6 @@ app-root.theme-light app-login-page .auth-form input {
   }
 }
 
-/* Dark mode form field hardening */
 app-root.theme-dark :is(input, select, textarea, .password-control) {
   border-color: #1d3048 !important;
   background: #061322 !important;
@@ -5642,4 +5567,27 @@ app-root.theme-dark :is(input, select, textarea):-webkit-autofill {
 
 app-root.theme-dark :is(label:has(input:not([type="file"])), label:has(select), label:has(textarea), .password-control)::before {
   color: #9fb1c5 !important;
+}
+
+app-root :is(label:has(input:not([type="file"])), label:has(select))::before {
+  top: auto !important;
+  bottom: calc((var(--field-control-height, 40px) - var(--field-icon-size, 18px)) / 2) !important;
+  width: var(--field-icon-size, 18px) !important;
+  height: var(--field-icon-size, 18px) !important;
+  transform: none !important;
+}
+
+app-root :is(.auth-form, .modal-form, .user-modal-form, .company-form, .company-details-form) :is(label:has(input:not([type="file"])), label:has(select)) {
+  --field-control-height: 48px;
+  --field-icon-size: 18px;
+}
+
+app-root app-login-page .auth-form :is(label:has(input:not([type="file"])), label:has(select)) {
+  --field-control-height: 40px;
+}
+
+app-root .password-control::before {
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
 }

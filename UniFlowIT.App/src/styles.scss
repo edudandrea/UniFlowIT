@@ -41,3 +41,511 @@ body {
   background-color: #0f172a;
   border-left: 4px solid #06b6d4;
 }
+
+.toast-warning {
+  background-color: #0f172a;
+  border-left: 4px solid #f59e0b;
+}
+
+body:has(app-root.theme-dark) .toast-container .ngx-toastr {
+  --toast-neon-shadow: rgb(0 229 255 / 0.28);
+  border: 1px solid rgb(0 229 255 / 0.56);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.08), transparent 38%),
+    #020817 !important;
+  color: #f8fbff !important;
+  text-shadow: 0 0 14px rgb(255 255 255 / 0.12);
+  box-shadow:
+    0 22px 60px rgb(0 0 0 / 0.48),
+    0 0 28px var(--toast-neon-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.14) !important;
+}
+
+body:has(app-root.theme-dark) .toast-container .ngx-toastr:hover {
+  filter: saturate(1.12) brightness(1.08);
+}
+
+body:has(app-root.theme-dark) .toast-container .toast-title {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+body:has(app-root.theme-dark) .toast-container .toast-message {
+  color: rgb(248 251 255 / 0.88);
+}
+
+body:has(app-root.theme-dark) .toast-success {
+  --toast-neon-shadow: rgb(57 255 20 / 0.34);
+  border-color: rgb(57 255 20 / 0.72) !important;
+  border-left: 5px solid #39ff14 !important;
+}
+
+body:has(app-root.theme-dark) .toast-error {
+  --toast-neon-shadow: rgb(255 43 109 / 0.38);
+  border-color: rgb(255 43 109 / 0.76) !important;
+  border-left: 5px solid #ff2b6d !important;
+}
+
+body:has(app-root.theme-dark) .toast-info {
+  --toast-neon-shadow: rgb(0 229 255 / 0.36);
+  border-color: rgb(0 229 255 / 0.74) !important;
+  border-left: 5px solid #00e5ff !important;
+}
+
+body:has(app-root.theme-dark) .toast-warning {
+  --toast-neon-shadow: rgb(255 234 0 / 0.34);
+  border-color: rgb(255 234 0 / 0.72) !important;
+  border-left: 5px solid #ffea00 !important;
+}
+
+app-root label:has(input:not([type="file"])),
+app-root label:has(select),
+app-root label:has(textarea) {
+  --field-icon-size: 18px;
+  --field-control-height: 40px;
+}
+
+app-root label:has(input:not([type="file"]))::before,
+app-root label:has(select)::before,
+app-root .modal-form label:has(input:not([type="file"]))::before,
+app-root .modal-form label:has(select)::before,
+app-root .user-modal-form label:has(input:not([type="file"]))::before,
+app-root .user-modal-form label:has(select)::before,
+app-root .company-form label:has(input:not([type="file"]))::before,
+app-root .company-form label:has(select)::before,
+app-root .company-details-form label:has(input:not([type="file"]))::before,
+app-root .company-details-form label:has(select)::before {
+  top: auto !important;
+  bottom: calc((var(--field-control-height) - var(--field-icon-size)) / 2) !important;
+  width: var(--field-icon-size) !important;
+  height: var(--field-icon-size) !important;
+  line-height: 1 !important;
+}
+
+app-root label:has(textarea)::before,
+app-root .modal-form label:has(textarea)::before,
+app-root .user-modal-form label:has(textarea)::before {
+  top: 42px !important;
+  bottom: auto !important;
+  width: var(--field-icon-size) !important;
+  height: var(--field-icon-size) !important;
+}
+
+app-root label:has(input:not([type="file"])) input,
+app-root label:has(select) select,
+app-root label:has(textarea) textarea {
+  padding-left: 48px !important;
+}
+
+app-root :is(.modal-form, .user-modal-form, .company-form, .company-details-form) label:has(input:not([type="file"])),
+app-root :is(.modal-form, .user-modal-form, .company-form, .company-details-form) label:has(select) {
+  --field-icon-size: 18px;
+  --field-control-height: 48px;
+}
+
+app-root :is(.modal-form, .user-modal-form, .company-form, .company-details-form) label:has(input:not([type="file"]))::before,
+app-root :is(.modal-form, .user-modal-form, .company-form, .company-details-form) label:has(select)::before {
+  top: auto !important;
+  bottom: 15px !important;
+  left: 20px !important;
+  width: var(--field-icon-size) !important;
+  height: var(--field-icon-size) !important;
+  line-height: 1 !important;
+}
+
+app-root :is(.modal-form, .user-modal-form, .company-form, .company-details-form) :is(input, select) {
+  min-height: var(--field-control-height) !important;
+  height: var(--field-control-height) !important;
+  line-height: var(--field-control-height) !important;
+  padding-left: 60px !important;
+}
+
+@keyframes modalCenterGrow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes modalBackdropFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+app-root :is(.modal-backdrop, .link-modal-backdrop) {
+  animation: modalBackdropFade 170ms ease-out both !important;
+}
+
+app-root :is(.modal-panel, .link-modal-panel) {
+  transform-origin: 50% 50%;
+  animation: modalCenterGrow 220ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* UniFlow People twin visual layer: structure, spacing and controls only. */
+app-root {
+  --font-display: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-body: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  --shell-sidebar-width: 292px;
+}
+
+app-root,
+app-root :is(button, input, select, textarea) {
+  font-family: var(--font-body);
+}
+
+app-root :is(h1, h2, h3, .brand strong, .modal-header h2, .panel-heading h2, .section-heading h2) {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+app-root .shell,
+app-root .shell:has(.saas-badge) {
+  grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
+}
+
+app-root .sidebar,
+app-root .sidebar:has(.saas-badge) {
+  width: var(--shell-sidebar-width);
+  gap: 22px;
+  padding: 22px 20px;
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  overflow: hidden;
+}
+
+app-root .brand,
+app-root .sidebar:has(.saas-badge) .brand {
+  min-height: 70px;
+  gap: 12px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.07);
+}
+
+app-root .brand img,
+app-root .sidebar:has(.saas-badge) .brand img {
+  width: 74px;
+  height: 54px;
+  padding: 7px;
+  object-fit: contain;
+  border-radius: 14px;
+}
+
+app-root .brand strong {
+  font-size: 1.06rem;
+}
+
+app-root .brand small {
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+app-root .nav,
+app-root .sidebar:has(.saas-badge) .nav {
+  flex: 1 1 auto;
+  gap: 7px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 4px 0 0;
+  border: 0;
+  scrollbar-width: thin;
+}
+
+app-root .nav-group {
+  gap: 8px;
+}
+
+app-root :is(.nav button, .nav-parent, .nav-children button),
+app-root .sidebar:has(.saas-badge) :is(.nav button, .nav-parent, .nav-children button) {
+  min-height: 42px;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  box-shadow: none;
+  font-size: 0.9rem;
+  font-weight: 780;
+}
+
+app-root .nav button > span:not(.nav-icon):not(.chevron),
+app-root .nav-parent > span:not(.nav-icon):not(.chevron) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+app-root :is(.nav button:hover, .nav button.active, .nav-children button:hover, .nav-children button.active),
+app-root .sidebar:has(.saas-badge) :is(.nav button:hover, .nav button.active, .nav-children button:hover, .nav-children button.active) {
+  border-color: rgb(6 182 212 / 0.26);
+  box-shadow: inset 0 0 0 1px rgb(6 182 212 / 0.08) !important;
+  transform: none;
+}
+
+app-root :is(.nav button:hover .nav-icon, .nav button.active .nav-icon, .nav-parent:hover .nav-icon, .nav-parent.open .nav-icon) {
+  color: #ffffff;
+  border-color: rgb(6 182 212 / 0.2);
+  background: rgb(255 255 255 / 0.14);
+}
+
+app-root .nav-parent .chevron {
+  margin-left: auto;
+  font-size: 1rem;
+}
+
+app-root .nav-children,
+app-root .sidebar:has(.saas-badge) .nav-children {
+  gap: 6px;
+  margin-left: 16px;
+  padding-left: 12px;
+  border-left: 1px solid rgb(203 213 225 / 0.16);
+}
+
+app-root .nav-children.open,
+app-root .sidebar:has(.saas-badge) .nav-children.open {
+  max-height: 280px;
+}
+
+app-root .nav-children button,
+app-root .sidebar:has(.saas-badge) .nav-children button {
+  min-height: 40px;
+  padding-left: 12px;
+  font-size: 0.82rem;
+}
+
+app-root .nav-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  min-width: 28px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: rgb(226 232 240 / 0.84);
+  background: rgb(255 255 255 / 0.08);
+}
+
+app-root .nav-icon::before {
+  width: 15px;
+  height: 15px;
+}
+
+app-root .workspace {
+  padding: 0 32px 34px;
+}
+
+app-root .topbar {
+  margin: 0 -32px 28px;
+  padding: 18px 32px;
+}
+
+app-root :is(.topbar h1, .panel-heading h2, .section-heading h2, .modal-header h2) {
+  line-height: 1.12;
+}
+
+app-root :is(.panel, .card, .dashboard-card, .dashboard-table, .result-list, .modal-panel) {
+  border-radius: 14px !important;
+}
+
+app-root .panel {
+  padding: 24px;
+}
+
+app-root :is(.panel-heading, .section-heading) {
+  gap: 10px;
+}
+
+app-root :is(button, .primary, .secondary, .row-action, .remote-button, .icon-button, .theme-toggle, .account-trigger),
+app-root .modal-actions button {
+  min-height: 42px;
+  border-radius: 12px !important;
+}
+
+app-root :is(input, select) {
+  height: 42px !important;
+  min-height: 42px !important;
+  line-height: 42px !important;
+}
+
+app-root :is(input, select, textarea) {
+  border-radius: 12px !important;
+}
+
+app-root .modal-panel {
+  width: min(820px, calc(100vw - 32px));
+}
+
+app-root :is(.modal-header, .modal-form, .modal-actions) {
+  padding-inline: 24px;
+}
+
+app-root :is(.table, .dashboard-table, .result-list) {
+  overflow: hidden;
+}
+
+app-root :is(.table-row, .dashboard-table .table-head, .dashboard-table .table-line, .result-row, .result-header) {
+  min-height: 52px;
+}
+
+app-root .saas-sidebar-footer {
+  margin-top: auto;
+}
+
+app-root .platform-health {
+  border-radius: 16px;
+}
+
+/* Glass + Status visual system inspired by the supplied reference. */
+app-root.theme-dark {
+  --bg: #0b1220;
+  --bg-soft: #0b1220;
+  --sidebar-bg: #111827;
+  --surface: #1a2235;
+  --surface-2: #111827;
+  --surface-3: #0f1725;
+  --primary: #3882f6;
+  --primary-hover: #5b9bff;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #8b5cf6;
+  --border: rgb(148 163 184 / 0.16);
+  --border-strong: rgb(148 163 184 / 0.28);
+  --text: #e5e7eb;
+  --text-muted: #94a3b8;
+  --text-soft: #64748b;
+  --field-bg: #0b1220;
+  --radius: 8px;
+  --shadow: 0 14px 40px rgb(0 0 0 / 0.26);
+  --shadow-soft: 0 10px 28px rgb(0 0 0 / 0.2);
+  background:
+    radial-gradient(circle at 76% 0%, rgb(56 130 246 / 0.14), transparent 28%),
+    linear-gradient(180deg, #0b1220 0%, #080f1d 100%);
+}
+
+app-root.theme-dark .sidebar {
+  background: linear-gradient(180deg, rgb(56 130 246 / 0.06), transparent 38%), #111827 !important;
+}
+
+app-root.theme-dark :is(.panel, .card, .metrics article, .dashboard-card, .result-list, .dashboard-table, .modal-panel, .account-trigger, .account-menu, .session-box, .company-form-section, .saas-kpi-grid article, .saas-chart, .saas-module-placeholder),
+app-root.theme-dark app-links-page :is(.link-modal-panel, .link-ranking-item, .link-card) {
+  border-color: var(--border) !important;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.035), transparent 42%),
+    #1a2235 !important;
+  color: var(--text) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+app-root.theme-dark :is(.topbar, .modal-header, .modal-actions, app-links-page .link-modal-header) {
+  border-color: var(--border) !important;
+  background: rgb(11 18 32 / 0.84) !important;
+  backdrop-filter: blur(14px);
+}
+
+app-root.theme-dark :is(input, select, textarea, .password-control),
+app-root.theme-dark app-links-page .link-search input {
+  border-color: rgb(148 163 184 / 0.22) !important;
+  background: #0b1220 !important;
+  color: #e5e7eb !important;
+}
+
+app-root.theme-dark :is(input, select, textarea):focus,
+app-root.theme-dark .password-control:focus-within,
+app-root.theme-dark app-links-page .link-search input:focus {
+  border-color: #3882f6 !important;
+  box-shadow: 0 0 0 3px rgb(56 130 246 / 0.24) !important;
+}
+
+app-root.theme-dark :is(.primary, button.primary) {
+  background: linear-gradient(180deg, #3882f6, #176ce5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 26px rgb(56 130 246 / 0.26) !important;
+}
+
+app-root.theme-dark :is(.secondary, .row-action, .detail-toolbar button, .modal-actions button, .form-actions button, .quick-actions button, .actions button, .rating button, .remote-button),
+app-root.theme-dark app-links-page .link-data-heading button {
+  border-color: rgb(148 163 184 / 0.26) !important;
+  background: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+app-root.theme-dark :is(.nav button:hover, .nav button.active, .nav-children button:hover, .nav-children button.active) {
+  border-color: rgb(56 130 246 / 0.28) !important;
+  background: linear-gradient(90deg, rgb(56 130 246 / 0.34), rgb(56 130 246 / 0.12)) !important;
+  box-shadow: inset 3px 0 0 #3882f6 !important;
+}
+
+app-root.theme-dark :is(.status-pill, .badge) {
+  border-color: rgb(56 130 246 / 0.28) !important;
+  background: rgb(56 130 246 / 0.12) !important;
+  color: #93c5fd !important;
+}
+
+app-root.theme-dark :is(.status-pill.low, .status-pill:not(.blocked):not(.high):not(.urgent):not(.medium)) {
+  border-color: rgb(16 185 129 / 0.34) !important;
+  background: rgb(16 185 129 / 0.12) !important;
+  color: #34d399 !important;
+}
+
+app-root.theme-dark .status-pill.medium {
+  border-color: rgb(245 158 11 / 0.36) !important;
+  background: rgb(245 158 11 / 0.13) !important;
+  color: #fbbf24 !important;
+}
+
+app-root.theme-dark :is(.status.urgent, .badge.danger, .status-pill.blocked, .status-pill.high, .status-pill.urgent) {
+  border-color: rgb(239 68 68 / 0.38) !important;
+  background: rgb(239 68 68 / 0.13) !important;
+  color: #f87171 !important;
+}
+
+@media (max-width: 980px) {
+  app-root .shell,
+  app-root .shell:has(.saas-badge) {
+    grid-template-columns: 1fr;
+  }
+
+  app-root .sidebar,
+  app-root .sidebar:has(.saas-badge) {
+    position: relative;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    padding: 16px;
+  }
+
+  app-root .brand,
+  app-root .sidebar:has(.saas-badge) .brand {
+    min-height: 58px;
+  }
+
+  app-root .brand img,
+  app-root .sidebar:has(.saas-badge) .brand img {
+    width: 58px;
+    height: 42px;
+  }
+
+  app-root .workspace {
+    padding: 0 16px 24px;
+  }
+
+  app-root .topbar {
+    margin: 0 -16px 20px;
+    padding: 16px;
+  }
+}

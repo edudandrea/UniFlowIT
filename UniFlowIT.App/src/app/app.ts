@@ -19,8 +19,11 @@ import {
   AssinaturaSaas,
   CategoriaChamado,
   CategoriaChamadoForm,
+  CategoriaConhecimento,
+  CategoriaConhecimentoForm,
   Chamado,
   CobrancaSaas,
+  ConhecimentoForm,
   DadosEmpresaSaas,
   DespesaSaas,
   EmpresaForm,
@@ -55,7 +58,7 @@ export class App implements OnInit {
   protected authMode = signal<AuthMode>('login');
   protected sessao = signal<Sessao | null>(null);
   protected paginaAtiva = signal<Pagina>('chamados');
-  protected cadastroAberto = signal(true);
+  protected cadastroAberto = signal(false);
   protected comercialAberto = signal(false);
   protected operacaoSaasAberto = signal(false);
   protected plataformaSaasAberto = signal(false);
@@ -68,6 +71,10 @@ export class App implements OnInit {
   protected usuarioModalAberto = signal(false);
   protected usuarioEditando = signal(false);
   protected categoriaModalAberto = signal(false);
+  protected conhecimentoModalAberto = signal(false);
+  protected categoriaConhecimentoModalAberto = signal(false);
+  protected categoriasConhecimentoModalAberto = signal(false);
+  protected categoriaConhecimentoSelecionada = signal<string | null>(null);
   protected contaMenuAberto = signal(false);
   protected perfilModalAberto = signal(false);
   protected senhaModalAberto = signal(false);
@@ -248,27 +255,58 @@ export class App implements OnInit {
 
   protected artigos: Artigo[] = [
     {
+      id: 1,
       empresaId: 1,
       titulo: 'Como abrir um chamado com evidencias',
       categoria: 'Central de chamados',
       resumo: 'Inclua prints, mensagem de erro, horario do problema e impacto para acelerar o atendimento.',
+      descricao: 'Inclua prints, mensagem de erro, horario do problema e impacto para acelerar o atendimento.',
       tags: ['chamado', 'evidencia'],
+      anexos: [],
+      usuario: 'Sistema',
     },
     {
+      id: 2,
       empresaId: 1,
       titulo: 'Primeiros passos quando a internet falhar',
       categoria: 'Infraestrutura',
       resumo: 'Confira cabo, Wi-Fi, VPN e reinicie o navegador antes de acionar o suporte.',
+      descricao: 'Confira cabo, Wi-Fi, VPN e reinicie o navegador antes de acionar o suporte.',
       tags: ['internet', 'link'],
+      anexos: [],
+      usuario: 'Sistema',
     },
     {
+      id: 3,
       empresaId: 1,
       titulo: 'Politica de envio de equipamentos',
       categoria: 'Equipamentos',
       resumo: 'Todo envio para filial precisa de patrimonio, responsavel, termo e confirmacao de recebimento.',
+      descricao: 'Todo envio para filial precisa de patrimonio, responsavel, termo e confirmacao de recebimento.',
       tags: ['patrimonio', 'filial'],
+      anexos: [],
+      usuario: 'Sistema',
     },
   ];
+
+  protected categoriasConhecimento = signal<CategoriaConhecimento[]>([
+    { id: 1, empresaId: 1, nome: 'Central de chamados', ativo: true },
+    { id: 2, empresaId: 1, nome: 'Infraestrutura', ativo: true },
+    { id: 3, empresaId: 1, nome: 'Equipamentos', ativo: true },
+  ]);
+
+  protected conhecimentoForm: ConhecimentoForm = {
+    titulo: '',
+    categoria: 'Central de chamados',
+    descricao: '',
+    anexos: [],
+    usuario: '',
+  };
+
+  protected categoriaConhecimentoForm: CategoriaConhecimentoForm = {
+    nome: '',
+    ativo: true,
+  };
 
   protected envios: EnvioEquipamento[] = [
     { empresaId: 1, patrimonio: 'UNI-NB-1042', tipo: 'Notebook', filialDestino: 'Campinas', responsavel: 'TI Matriz', status: 'Enviado' },
@@ -281,9 +319,25 @@ export class App implements OnInit {
   ];
 
   protected links = signal<LinkMonitorado[]>([
-    { empresaId: 1, nome: 'Matriz - Internet principal', firewall: 'Fortigate Matriz', endereco: '200.10.10.1', intervalo: 30, disponivel: true },
-    { empresaId: 1, nome: 'Campinas - MPLS', firewall: 'Fortigate Campinas', endereco: '10.255.20.1', intervalo: 60, disponivel: false, chamado: 'CH-20260720-0002' },
+    { id: 0, empresaId: 1, nome: 'Matriz - Internet principal', tipo: 'Link internet', local: 'Matriz', firewall: 'Fortigate Matriz', endereco: '200.10.10.1', cep: '01310-100', intervalo: 30, pingMs: 18, latitude: -23.561, longitude: -46.656, disponivel: true },
+    { id: -1, empresaId: 1, nome: 'Campinas - MPLS', tipo: 'Firewall', local: 'Filial', firewall: 'Fortigate Campinas', endereco: '10.255.20.1', cep: '13010-111', intervalo: 60, pingMs: 0, latitude: -22.909, longitude: -47.062, disponivel: false, chamado: '#TK-002' },
+    { id: -2, empresaId: 1, nome: 'Portal externo', tipo: 'Site', local: 'Site externo', firewall: 'Cloudflare', endereco: 'status.uniflowit.com', cep: '01001-000', intervalo: 10, pingMs: 42, latitude: -23.55, longitude: -46.633, disponivel: true },
   ]);
+
+  protected linkForm: LinkMonitorado = {
+    empresaId: undefined,
+    nome: '',
+    tipo: 'Link internet',
+    local: 'Matriz',
+    firewall: '',
+    endereco: '',
+    cep: '',
+    intervalo: 30,
+    pingMs: 25,
+    latitude: -23.561,
+    longitude: -46.656,
+    disponivel: true,
+  };
 
   constructor(
     private readonly spinner: NgxSpinnerService,
@@ -394,7 +448,7 @@ export class App implements OnInit {
       case 'dashboard':
         return 'Dashboard da empresa';
       case 'chamados-desenvolvedor':
-        return 'Chamados para o desenvolvedor';
+        return 'Tickets para o desenvolvedor';
       case 'saas-dashboard':
         return 'Dashboard SaaS';
       case 'cadastro-empresas':
@@ -418,7 +472,7 @@ export class App implements OnInit {
       case 'saas-inadimplencia':
         return 'Inadimplencia';
       case 'saas-chamados-globais':
-        return 'Chamados globais';
+        return 'Tickets globais';
       case 'saas-sla-plataforma':
         return 'SLA da plataforma';
       case 'saas-incidentes':
@@ -444,15 +498,15 @@ export class App implements OnInit {
       case 'saas-administradores':
         return 'Administradores SaaS';
       case 'cadastro-categorias':
-        return 'Categorias de chamados';
+        return 'Categorias de tickets';
       case 'conhecimento':
         return 'Base de conhecimento';
       case 'equipamentos':
         return 'Equipamentos';
-      case 'links':
-        return 'Monitoramento de links';
+      case 'links-dashboard':
+        return 'Monitoramento';
       default:
-        return 'Central de chamados';
+        return 'Tickets';
     }
   });
 
@@ -503,7 +557,9 @@ export class App implements OnInit {
       this.sessao.set(data);
       this.perfil.set(data.role);
       this.paginaAtiva.set(data.role === 'AdministradorSaas' ? 'saas-dashboard' : data.role === 'Administrador' ? 'dashboard' : 'chamados');
-      this.cadastroAberto.set(data.role === 'AdministradorSaas' || data.role === 'Administrador');
+      this.cadastroAberto.set(false);
+      this.comercialAberto.set(false);
+      this.administracaoSaasAberto.set(false);
       if (data.empresaId) {
         this.novoUsuario.empresaId = data.empresaId;
         this.empresaSelecionadaId.set(data.empresaId);
@@ -548,7 +604,7 @@ export class App implements OnInit {
       this.sessao.set(data);
       this.perfil.set('AdministradorSaas');
       this.paginaAtiva.set('saas-dashboard');
-      this.cadastroAberto.set(true);
+      this.cadastroAberto.set(false);
       this.existeAdministradorSaas.set(true);
       this.loginForm.email = data.email;
       this.authFeedback.set('Administrador SaaS criado com sucesso.');
@@ -759,7 +815,9 @@ export class App implements OnInit {
     this.authFeedback.set('');
     this.perfil.set('Usuario');
     this.paginaAtiva.set('chamados');
-    this.cadastroAberto.set(true);
+    this.cadastroAberto.set(false);
+    this.comercialAberto.set(false);
+    this.administracaoSaasAberto.set(false);
     this.contaMenuAberto.set(false);
   }
 
@@ -1192,6 +1250,252 @@ export class App implements OnInit {
     }
   }
 
+  protected abrirNovoConhecimento(): void {
+    const usuario = this.sessao()?.nome ?? 'Usuario atual';
+    const categoria = this.categoriasConhecimento().find((item) => item.ativo)?.nome || this.artigos[0]?.categoria || '';
+    this.conhecimentoForm = {
+      id: undefined,
+      titulo: '',
+      categoria,
+      descricao: '',
+      anexos: [],
+      usuario,
+      usuarioId: this.sessao()?.id,
+    };
+    this.conhecimentoModalAberto.set(true);
+  }
+
+  protected editarConhecimento(artigo: Artigo): void {
+    this.categoriaConhecimentoSelecionada.set(null);
+    this.conhecimentoForm = {
+      id: artigo.id,
+      titulo: artigo.titulo,
+      categoria: artigo.categoria,
+      descricao: artigo.descricao || artigo.resumo,
+      anexos: [...(artigo.anexos ?? [])],
+      usuario: artigo.usuario || this.sessao()?.nome || 'Usuario atual',
+      usuarioId: artigo.usuarioId ?? this.sessao()?.id,
+    };
+    this.conhecimentoModalAberto.set(true);
+  }
+
+  protected abrirListaCategoriasConhecimento(): void {
+    this.categoriasConhecimentoModalAberto.set(true);
+    this.categoriaConhecimentoSelecionada.set(null);
+  }
+
+  protected abrirNovaCategoriaConhecimento(): void {
+    this.categoriaConhecimentoForm = { nome: '', ativo: true };
+    this.categoriasConhecimentoModalAberto.set(false);
+    this.categoriaConhecimentoModalAberto.set(true);
+  }
+
+  protected editarCategoriaConhecimento(categoria: CategoriaConhecimento): void {
+    this.categoriaConhecimentoForm = {
+      id: categoria.id,
+      nomeOriginal: categoria.nome,
+      nome: categoria.nome,
+      ativo: categoria.ativo,
+    };
+    this.categoriasConhecimentoModalAberto.set(false);
+    this.categoriaConhecimentoModalAberto.set(true);
+  }
+
+  protected abrirConhecimentosCategoria(categoria: string): void {
+    this.categoriasConhecimentoModalAberto.set(false);
+    this.categoriaConhecimentoSelecionada.set(categoria);
+  }
+
+  protected fecharModaisConhecimento(): void {
+    this.conhecimentoModalAberto.set(false);
+    this.categoriaConhecimentoModalAberto.set(false);
+    this.categoriasConhecimentoModalAberto.set(false);
+    this.categoriaConhecimentoSelecionada.set(null);
+  }
+
+  protected async salvarCategoriaConhecimento(): Promise<void> {
+    const nome = this.categoriaConhecimentoForm.nome.trim();
+    if (!nome) {
+      this.toastr.warning('Informe o nome da categoria.', 'Base');
+      return;
+    }
+
+    const editando = Boolean(this.categoriaConhecimentoForm.id);
+    const id = this.categoriaConhecimentoForm.id ?? Math.max(0, ...this.categoriasConhecimento().map((item) => item.id ?? 0)) + 1;
+    const nomeOriginal = this.categoriaConhecimentoForm.nomeOriginal;
+    const categoria: CategoriaConhecimento = {
+      id,
+      empresaId: this.sessao()?.empresaId,
+      nome,
+      ativo: this.categoriaConhecimentoForm.ativo,
+    };
+
+    this.categoriasConhecimento.update((categorias) => {
+      const existe = categorias.some((item) => item.id === id);
+      const semDuplicidade = categorias.filter((item) => item.id === id || item.nome.toLowerCase() !== nome.toLowerCase());
+      return existe ? semDuplicidade.map((item) => (item.id === id ? categoria : item)) : [categoria, ...semDuplicidade];
+    });
+
+    if (nomeOriginal && nomeOriginal !== nome) {
+      this.artigos = this.artigos.map((artigo) => artigo.categoria === nomeOriginal ? { ...artigo, categoria: nome } : artigo);
+    }
+
+    this.categoriaConhecimentoModalAberto.set(false);
+    this.spinner.show('uniflowit');
+
+    try {
+      const response = await fetch(`${this.apiUrl}/categorias-conhecimento${editando ? `/${id}` : ''}`, {
+        method: editando ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoria),
+      });
+
+      if (response.ok) {
+        const salva = (await response.json()) as Record<string, unknown>;
+        this.categoriasConhecimento.update((categorias) => categorias.map((item) => (item.id === id ? this.mapearCategoriaConhecimento(salva) : item)));
+      }
+
+      this.toastr.success(editando ? 'Categoria atualizada com sucesso.' : 'Categoria de conhecimento salva.', 'Base');
+    } catch {
+      this.toastr.info('Categoria salva localmente. API indisponivel para persistir agora.', 'Modo local');
+    } finally {
+      this.spinner.hide('uniflowit');
+    }
+  }
+
+  protected async excluirCategoriaConhecimento(categoriaForm: CategoriaConhecimentoForm): Promise<void> {
+    const id = categoriaForm.id;
+    const nome = (categoriaForm.nomeOriginal || categoriaForm.nome).trim();
+
+    if (!id || !nome) {
+      this.toastr.warning('Categoria invalida para exclusao.', 'Base');
+      return;
+    }
+
+    const totalVinculados = this.artigos.filter((artigo) => artigo.categoria === nome).length;
+    if (totalVinculados > 0) {
+      this.toastr.warning(`Nao e possivel excluir. Existem ${totalVinculados} conhecimento(s) cadastrados nessa categoria.`, 'Categoria em uso');
+      return;
+    }
+
+    this.categoriasConhecimento.update((categorias) => categorias.filter((categoria) => categoria.id !== id));
+    this.categoriaConhecimentoModalAberto.set(false);
+    this.spinner.show('uniflowit');
+
+    try {
+      const response = await fetch(`${this.apiUrl}/categorias-conhecimento/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.status === 409) {
+        this.toastr.warning('Nao e possivel excluir. Existem conhecimentos cadastrados nessa categoria.', 'Categoria em uso');
+        await this.carregarCategoriasConhecimento();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('Falha ao excluir categoria.');
+      }
+
+      this.toastr.success('Categoria excluida com sucesso.', 'Base');
+    } catch {
+      this.toastr.error('Nao foi possivel excluir a categoria no backend.', 'Base');
+      await this.carregarCategoriasConhecimento();
+    } finally {
+      this.spinner.hide('uniflowit');
+    }
+  }
+
+  protected async salvarConhecimento(): Promise<void> {
+    const titulo = this.conhecimentoForm.titulo.trim();
+    const descricao = this.conhecimentoForm.descricao.trim();
+    const categoria = this.conhecimentoForm.categoria.trim();
+    const editando = Boolean(this.conhecimentoForm.id);
+    const id = this.conhecimentoForm.id ?? Math.max(0, ...this.artigos.map((item) => item.id ?? 0)) + 1;
+
+    if (!titulo || !descricao || !categoria) {
+      this.toastr.warning('Informe titulo, categoria e descricao.', 'Base');
+      return;
+    }
+
+    const artigo: Artigo = {
+      id,
+      empresaId: this.sessao()?.empresaId,
+      titulo,
+      categoria,
+      resumo: descricao,
+      descricao,
+      tags: [],
+      anexos: [...this.conhecimentoForm.anexos],
+      usuario: this.sessao()?.nome ?? this.conhecimentoForm.usuario,
+      usuarioId: this.sessao()?.id,
+    };
+
+    this.artigos = editando
+      ? this.artigos.map((item) => item.id === id ? artigo : item)
+      : [artigo, ...this.artigos];
+    this.conhecimentoModalAberto.set(false);
+    this.spinner.show('uniflowit');
+
+    try {
+      const response = await fetch(`${this.apiUrl}/base-conhecimento${editando ? `/${id}` : ''}`, {
+        method: editando ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: artigo.id,
+          empresaId: artigo.empresaId,
+          titulo: artigo.titulo,
+          categoria: artigo.categoria,
+          conteudo: artigo.descricao,
+          tags: artigo.tags,
+          anexos: artigo.anexos,
+          usuarioCriador: artigo.usuario,
+          usuarioCriadorId: artigo.usuarioId,
+          publicado: true,
+        }),
+      });
+
+      if (response.ok) {
+        const salvo = this.mapearArtigo((await response.json()) as Record<string, unknown>);
+        this.artigos = this.artigos.map((item) => (item.id === id ? salvo : item));
+      }
+
+      this.toastr.success(editando ? 'Conhecimento atualizado com sucesso.' : 'Conhecimento cadastrado com sucesso.', 'Base');
+    } catch {
+      this.toastr.info(editando ? 'Conhecimento atualizado localmente. API indisponivel para persistir agora.' : 'Conhecimento salvo localmente. API indisponivel para persistir agora.', 'Modo local');
+    } finally {
+      this.spinner.hide('uniflowit');
+    }
+  }
+
+  protected async excluirConhecimento(artigo: Artigo): Promise<void> {
+    const id = artigo.id;
+    this.artigos = this.artigos.filter((item) => (id ? item.id !== id : item !== artigo));
+
+    if (!id) {
+      this.toastr.success('Conhecimento removido.', 'Base');
+      return;
+    }
+
+    this.spinner.show('uniflowit');
+
+    try {
+      const response = await fetch(`${this.apiUrl}/base-conhecimento/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao excluir conhecimento.');
+      }
+
+      this.toastr.success('Conhecimento excluido com sucesso.', 'Base');
+    } catch {
+      this.toastr.error('Nao foi possivel excluir no backend. Recarregue a base para conferir os dados.', 'Base');
+    } finally {
+      this.spinner.hide('uniflowit');
+    }
+  }
+
   protected alternarCadastro(): void {
     this.cadastroAberto.update((aberto) => !aberto);
   }
@@ -1302,6 +1606,7 @@ export class App implements OnInit {
       this.carregarUsuarios(),
       this.carregarCategorias(),
       this.carregarChamados(),
+      this.carregarCategoriasConhecimento(),
       this.carregarBaseConhecimento(),
       this.carregarEnviosEquipamentos(),
       this.carregarInventario(),
@@ -1403,13 +1708,23 @@ export class App implements OnInit {
       }
 
       const artigos = (await response.json()) as Array<Record<string, unknown>>;
-      this.artigos = artigos.map((artigo) => ({
-        empresaId: artigo['empresaId'] == null ? undefined : Number(artigo['empresaId']),
-        titulo: String(artigo['titulo'] ?? ''),
-        categoria: String(artigo['categoria'] ?? ''),
-        resumo: String(artigo['conteudo'] ?? ''),
-        tags: Array.isArray(artigo['tags']) ? artigo['tags'].map(String) : [],
-      }));
+      this.artigos = artigos.map((artigo) => this.mapearArtigo(artigo));
+    } catch {
+      return;
+    }
+  }
+
+  private async carregarCategoriasConhecimento(): Promise<void> {
+    try {
+      const response = await fetch(`${this.apiUrl}/categorias-conhecimento${this.queryEmpresa()}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const categorias = (await response.json()) as Array<Record<string, unknown>>;
+      if (categorias.length) {
+        this.categoriasConhecimento.set(categorias.map((categoria) => this.mapearCategoriaConhecimento(categoria)));
+      }
     } catch {
       return;
     }
@@ -1466,18 +1781,55 @@ export class App implements OnInit {
       }
 
       const links = (await response.json()) as Array<Record<string, unknown>>;
-      this.links.set(links.map((link) => ({
-        empresaId: link['empresaId'] == null ? undefined : Number(link['empresaId']),
-        nome: String(link['nome'] ?? ''),
-        firewall: String(link['firewall'] ?? ''),
-        endereco: String(link['endereco'] ?? ''),
-        intervalo: Number(link['intervaloLeituraSegundos'] ?? 60),
-        disponivel: Boolean(link['disponivel']),
-        chamado: link['chamadoAbertoId'] ? `#${link['chamadoAbertoId']}` : undefined,
-      })));
+      this.links.set(links.map((link) => this.mapearLink(link)));
     } catch {
       return;
     }
+  }
+
+  private mapearLink(link: Record<string, unknown>): LinkMonitorado {
+    return {
+      id: link['id'] == null ? undefined : Number(link['id']),
+      empresaId: link['empresaId'] == null ? undefined : Number(link['empresaId']),
+      nome: String(link['nome'] ?? ''),
+      tipo: this.normalizarTipoLink(link['tipo']),
+      local: this.normalizarLocalLink(link['local']),
+      firewall: String(link['firewall'] ?? ''),
+      endereco: String(link['endereco'] ?? ''),
+      cep: String(link['cep'] ?? ''),
+      intervalo: Number(link['intervaloLeituraSegundos'] ?? link['intervalo'] ?? 60),
+      pingMs: Number(link['pingMs'] ?? link['tempoRespostaMs'] ?? (Boolean(link['disponivel']) ? 30 : 0)),
+      latitude: Number(link['latitude'] ?? -23.561),
+      longitude: Number(link['longitude'] ?? -46.656),
+      disponivel: Boolean(link['disponivel']),
+      chamado: link['chamadoAbertoId'] ? `#${link['chamadoAbertoId']}` : undefined,
+    };
+  }
+
+  private mapearArtigo(artigo: Record<string, unknown>): Artigo {
+    const descricao = String(artigo['descricao'] ?? artigo['conteudo'] ?? artigo['resumo'] ?? '');
+
+    return {
+      id: artigo['id'] == null ? undefined : Number(artigo['id']),
+      empresaId: artigo['empresaId'] == null ? undefined : Number(artigo['empresaId']),
+      titulo: String(artigo['titulo'] ?? ''),
+      categoria: String(artigo['categoria'] ?? ''),
+      resumo: descricao,
+      descricao,
+      tags: Array.isArray(artigo['tags']) ? artigo['tags'].map(String) : [],
+      anexos: Array.isArray(artigo['anexos']) ? artigo['anexos'].map(String) : [],
+      usuario: String(artigo['usuarioCriador'] ?? artigo['usuario'] ?? ''),
+      usuarioId: artigo['usuarioCriadorId'] == null ? undefined : Number(artigo['usuarioCriadorId']),
+    };
+  }
+
+  private mapearCategoriaConhecimento(categoria: Record<string, unknown>): CategoriaConhecimento {
+    return {
+      id: categoria['id'] == null ? undefined : Number(categoria['id']),
+      empresaId: categoria['empresaId'] == null ? undefined : Number(categoria['empresaId']),
+      nome: String(categoria['nome'] ?? ''),
+      ativo: categoria['ativo'] == null ? true : Boolean(categoria['ativo']),
+    };
   }
 
   private mapearEmpresa(empresa: Record<string, unknown>): EmpresaLista {
@@ -1525,7 +1877,7 @@ export class App implements OnInit {
       id: Number(chamado['id']),
       empresaId: chamado['empresaId'] == null ? undefined : Number(chamado['empresaId']),
       solicitanteUsuarioId: chamado['solicitanteUsuarioId'] == null ? undefined : Number(chamado['solicitanteUsuarioId']),
-      numero: String(chamado['numero'] ?? ''),
+      numero: this.formatarNumeroTicket(Number(chamado['id']), String(chamado['numero'] ?? '')),
       titulo: String(chamado['titulo'] ?? chamado['assunto'] ?? ''),
       solicitante: String(chamado['solicitante'] ?? ''),
       categoria: String(chamado['categoria'] ?? ''),
@@ -1548,6 +1900,19 @@ export class App implements OnInit {
         horario: String(mensagem['enviadoEm'] ?? '').slice(11, 16) || 'Agora',
       })),
     };
+  }
+
+  private formatarNumeroTicket(id: number, numero = ''): string {
+    const numeroAtual = numero.trim();
+    if (/^#TK-\d{3,}$/i.test(numeroAtual)) {
+      return numeroAtual.toUpperCase();
+    }
+
+    const sequencial = Number.isFinite(id) && id > 0
+      ? id
+      : Math.max(0, ...this.chamados().map((chamado) => chamado.id)) + 1;
+
+    return `#TK-${String(sequencial).padStart(3, '0')}`;
   }
 
   private async lerMensagemErro(response: Response): Promise<string> {
@@ -1605,6 +1970,14 @@ export class App implements OnInit {
     }
 
     return 'Aberto';
+  }
+
+  private normalizarTipoLink(valor: unknown): LinkMonitorado['tipo'] {
+    return valor === 'Firewall' || valor === 'Site' || valor === 'Link internet' ? valor : 'Link internet';
+  }
+
+  private normalizarLocalLink(valor: unknown): LinkMonitorado['local'] {
+    return valor === 'Filial' || valor === 'Site externo' || valor === 'Matriz' ? valor : 'Matriz';
   }
 
   private async verificarAdministradorSaas(): Promise<void> {
@@ -1697,7 +2070,7 @@ export class App implements OnInit {
         id,
         empresaId: novoChamado.empresaId,
         solicitanteUsuarioId: novoChamado.solicitanteUsuarioId,
-        numero: `CH-20260720-${String(id).padStart(4, '0')}`,
+        numero: this.formatarNumeroTicket(id),
         titulo: novoChamado.titulo,
         solicitante: novoChamado.solicitante,
         categoria: novoChamado.categoria,
@@ -1732,9 +2105,9 @@ export class App implements OnInit {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novoChamado),
       });
-      this.toastr.success('Chamado aberto com vinculo de empresa.', 'Central de chamados');
+      this.toastr.success('Ticket aberto com vinculo de empresa.', 'Central de tickets');
     } catch {
-      this.toastr.info('Chamado criado localmente. API indisponivel para persistir agora.', 'Modo local');
+      this.toastr.info('Ticket criado localmente. API indisponivel para persistir agora.', 'Modo local');
     }
   }
 
@@ -1778,7 +2151,35 @@ export class App implements OnInit {
     this.atualizarChamado(chamado.id, { avaliacao });
   }
 
-  protected alternarLink(link: LinkMonitorado): void {
+  protected async alternarLink(link: LinkMonitorado): Promise<void> {
+    if (link.id && link.id > 0) {
+      const proximoDisponivel = !link.disponivel;
+
+      try {
+        const response = await fetch(`${this.apiUrl}/links/${link.id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            disponivel: proximoDisponivel,
+            detalhes: proximoDisponivel ? 'Link voltou a operar pelo monitoramento.' : 'Falha simulada pelo painel de monitoramento.',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Nao foi possivel atualizar o status do link.');
+        }
+
+        const linkAtualizado = this.mapearLink((await response.json()) as Record<string, unknown>);
+        this.links.update((links) => links.map((item) => (item.id === linkAtualizado.id ? linkAtualizado : item)));
+        await this.carregarChamados();
+        this.toastr.success(proximoDisponivel ? 'Link marcado como operante.' : 'Chamado automatico aberto para o link.', 'Monitoramento de links');
+        return;
+      } catch {
+        this.toastr.error('Nao foi possivel salvar o status no backend.', 'Monitoramento de links');
+        return;
+      }
+    }
+
     this.links.update((links) =>
       links.map((item) => {
         if (item.nome !== link.nome) {
@@ -1788,21 +2189,139 @@ export class App implements OnInit {
         if (item.disponivel) {
           const novoChamado = this.criarChamadoLink(item);
           this.chamados.update((chamados) => [novoChamado, ...chamados]);
-          return { ...item, disponivel: false, chamado: novoChamado.numero };
+          return { ...item, disponivel: false, pingMs: 0, chamado: novoChamado.numero };
         }
 
-        return { ...item, disponivel: true };
+        this.encerrarChamadoAutomaticoLink(item);
+        return { ...item, disponivel: true, pingMs: item.pingMs || 28, chamado: undefined };
       }),
     );
+    this.toastr.info('Status atualizado apenas localmente porque este link ainda nao existe no backend.', 'Modo local');
+  }
+
+  protected async salvarLinkMonitorado(link: LinkMonitorado, originalNome?: string): Promise<void> {
+    const nome = link.nome.trim();
+    const endereco = link.endereco.trim();
+
+    if (!nome || !endereco) {
+      this.toastr.warning('Informe o nome e o endereco do link.', 'Monitoramento de links');
+      return;
+    }
+
+    const novoLink: LinkMonitorado = {
+      ...link,
+      empresaId: this.sessao()?.empresaId,
+      nome,
+      firewall: link.firewall.trim() || (link.tipo === 'Site' ? 'DNS publico' : 'Nao informado'),
+      endereco,
+      cep: link.cep.trim(),
+      intervalo: Number(link.intervalo) || 30,
+      pingMs: Math.max(0, Number(link.pingMs) || 0),
+      latitude: Number(link.latitude) || -23.561,
+      longitude: Number(link.longitude) || -46.656,
+      disponivel: true,
+      chamado: undefined,
+    };
+
+    if (originalNome) {
+      const linkAtual = this.links().find((item) => item.nome === originalNome);
+      if (!linkAtual?.id || linkAtual.id <= 0) {
+        this.toastr.error('Este link ainda nao possui ID no backend. Recarregue os dados antes de editar.', 'Monitoramento de links');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${this.apiUrl}/links/${linkAtual.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.criarPayloadLink({ ...novoLink, id: linkAtual.id, disponivel: linkAtual.disponivel, chamado: linkAtual.chamado })),
+        });
+
+        if (!response.ok) {
+          throw new Error('Nao foi possivel atualizar o link.');
+        }
+
+        const linkSalvo = this.mapearLink((await response.json()) as Record<string, unknown>);
+        this.links.update((links) => links.map((item) => (item.id === linkSalvo.id ? linkSalvo : item)));
+        this.toastr.success('Link atualizado com sucesso.', 'Monitoramento de links');
+      } catch {
+        this.toastr.error('Nao foi possivel salvar a edicao no backend.', 'Monitoramento de links');
+      }
+      return;
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/links`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.criarPayloadLink(novoLink)),
+      });
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel cadastrar o link.');
+      }
+
+      const linkSalvo = this.mapearLink((await response.json()) as Record<string, unknown>);
+      this.links.update((links) => [linkSalvo, ...links]);
+      this.toastr.success('Link cadastrado para monitoramento.', 'Monitoramento de links');
+    } catch {
+      this.toastr.error('Nao foi possivel salvar o link no backend.', 'Monitoramento de links');
+    }
+  }
+
+  protected async excluirLinkMonitorado(link: LinkMonitorado): Promise<void> {
+    const removerLocal = () => {
+      this.links.update((links) => links.filter((item) => item.id !== link.id && item.nome !== link.nome));
+    };
+
+    if (!link.id || link.id <= 0) {
+      removerLocal();
+      this.toastr.info('Monitoramento removido da lista local.', 'Monitoramento de links');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/links/${link.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel excluir o link.');
+      }
+
+      removerLocal();
+      this.toastr.success('Monitoramento excluido com sucesso.', 'Monitoramento de links');
+    } catch {
+      this.toastr.error('Nao foi possivel excluir o monitoramento no backend.', 'Monitoramento de links');
+    }
+  }
+
+  private criarPayloadLink(link: LinkMonitorado): Record<string, unknown> {
+    return {
+      id: link.id && link.id > 0 ? link.id : 0,
+      empresaId: this.sessao()?.empresaId ?? link.empresaId,
+      nome: link.nome,
+      tipo: link.tipo,
+      local: link.local,
+      firewall: link.firewall,
+      endereco: link.endereco,
+      cep: link.cep,
+      intervaloLeituraSegundos: link.intervalo,
+      pingMs: link.pingMs,
+      latitude: link.latitude,
+      longitude: link.longitude,
+      disponivel: link.disponivel,
+      chamadoAbertoId: link.chamado?.match(/^#(\d+)$/) ? Number(link.chamado.slice(1)) : null,
+    };
   }
 
   private criarChamadoLink(link: LinkMonitorado): Chamado {
-    const id = Math.max(...this.chamados().map((chamado) => chamado.id)) + 1;
+    const id = Math.max(0, ...this.chamados().map((chamado) => chamado.id)) + 1;
 
     return {
       id,
       empresaId: this.sessao()?.empresaId,
-      numero: `CH-20260720-${String(id).padStart(4, '0')}`,
+      numero: this.formatarNumeroTicket(id),
       titulo: `Link indisponivel: ${link.nome}`,
       solicitante: 'Monitoramento de links',
       categoria: 'Infraestrutura',
@@ -1810,12 +2329,45 @@ export class App implements OnInit {
       tipo: 'Incidente',
       prioridade: 'Urgente',
       status: 'Aberto',
-      descricao: `Link indisponivel: ${link.nome} (${link.endereco}).`,
-      equipamento: `${link.firewall} | ${link.endereco} | leitura ${link.intervalo}s`,
+      descricao: `Link indisponivel: ${link.nome} (${link.endereco}). O monitoramento automatico abriu este chamado para o setor de TI.`,
+      equipamento: `${link.tipo} | ${link.local} | ${link.firewall} | ${link.endereco} | leitura ${link.intervalo}s`,
       anexos: [],
       origem: 'Monitoramento automatico',
-      mensagens: [],
+      mensagens: [
+        {
+          autor: 'Monitoramento de links',
+          perfil: 'Administrador',
+          texto: `Falha detectada no link ${link.nome}.`,
+          horario: 'Agora',
+        },
+      ],
     };
+  }
+
+  private encerrarChamadoAutomaticoLink(link: LinkMonitorado): void {
+    if (!link.chamado) {
+      return;
+    }
+
+    this.chamados.update((chamados) =>
+      chamados.map((chamado) =>
+        (chamado.numero === link.chamado || `#${chamado.id}` === link.chamado) && chamado.status !== 'Encerrado'
+          ? {
+              ...chamado,
+              status: 'Encerrado',
+              mensagens: [
+                ...chamado.mensagens,
+                {
+                  autor: 'Monitoramento de links',
+                  perfil: 'Administrador',
+                  texto: `Link ${link.nome} voltou a operar. Chamado encerrado automaticamente.`,
+                  horario: 'Agora',
+                },
+              ],
+            }
+          : chamado,
+      ),
+    );
   }
 
   private atualizarChamado(id: number, patch: Partial<Chamado>): void {

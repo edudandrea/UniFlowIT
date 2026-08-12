@@ -125,7 +125,7 @@ export class SaasAdminPage implements OnChanges {
     const titulos: Partial<Record<Pagina, string>> = {
       'saas-implantacoes': 'Implantacoes',
       'saas-inadimplencia': 'Inadimplencia',
-      'saas-chamados-globais': 'Chamados globais',
+      'saas-chamados-globais': 'Tickets globais',
       'saas-sla-plataforma': 'SLA da plataforma',
       'saas-incidentes': 'Incidentes',
       'saas-monitoramento': 'Monitoramento SaaS',
