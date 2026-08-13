@@ -20,9 +20,10 @@ services:
     build: ./UniFlowIT.Api
     container_name: uniflowit-api
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5151
       ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=uniflowit;Username=postgres;Password=uniflowit
+      Security__TokenSigningKey: uniflowit-local-development-token-key-2026
     ports:
       # O frontend chama http://localhost:5151/api (hardcoded em app.ts),
       # entao a API precisa ficar exposta nesta porta do host.
