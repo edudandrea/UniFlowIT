@@ -123,7 +123,7 @@ namespace UniFlowIT.Api.Data
                 entity.HasKey(item => item.Id);
                 entity.Property(item => item.NomeArquivo).HasMaxLength(240).IsRequired();
                 entity.Property(item => item.TipoConteudo).HasMaxLength(120);
-                entity.Property(item => item.Url).HasMaxLength(500);
+                entity.Property(item => item.Url).HasColumnType("text");
             });
 
             modelBuilder.Entity<ComunicacaoChamado>(entity =>

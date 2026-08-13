@@ -45,13 +45,28 @@
           <h2>Tickets por status</h2>
         </div>
       </div>
-      <div class="bar-list">
-        @for (item of chamadosPorStatus(); track item.label) {
-          <button type="button" (click)="navegarClick.emit('chamados')">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </button>
-        }
+      <div class="pie-dashboard">
+        <button type="button" class="pie-chart" (click)="navegarClick.emit('chamados')" aria-label="Abrir tickets por status">
+          <svg viewBox="0 0 100 100" role="img" aria-label="Tickets por status">
+            <circle class="pie-empty" cx="50" cy="50" r="42"></circle>
+            @for (slice of graficoStatus(); track slice.label) {
+              <path class="pie-slice" [attr.d]="slice.path" [attr.fill]="slice.color"></path>
+            }
+          </svg>
+          <span>
+            <strong>{{ totalGraficoStatus() }}</strong>
+            <small>tickets</small>
+          </span>
+        </button>
+        <div class="pie-legend">
+          @for (item of chamadosPorStatus(); track item.label) {
+            <button type="button" (click)="navegarClick.emit('chamados')">
+              <i [style.background]="corStatus(item.label)"></i>
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </button>
+          }
+        </div>
       </div>
     </section>
 
@@ -62,13 +77,28 @@
           <h2>Tickets por prioridade</h2>
         </div>
       </div>
-      <div class="bar-list">
-        @for (item of chamadosPorPrioridade(); track item.label) {
-          <button type="button" [class.critical]="item.critical" (click)="navegarClick.emit('chamados')">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </button>
-        }
+      <div class="pie-dashboard">
+        <button type="button" class="pie-chart" (click)="navegarClick.emit('chamados')" aria-label="Abrir tickets por prioridade">
+          <svg viewBox="0 0 100 100" role="img" aria-label="Tickets por prioridade">
+            <circle class="pie-empty" cx="50" cy="50" r="42"></circle>
+            @for (slice of graficoPrioridade(); track slice.label) {
+              <path class="pie-slice" [class.critical]="slice.critical" [attr.d]="slice.path" [attr.fill]="slice.color"></path>
+            }
+          </svg>
+          <span>
+            <strong>{{ totalGraficoPrioridade() }}</strong>
+            <small>tickets</small>
+          </span>
+        </button>
+        <div class="pie-legend">
+          @for (item of chamadosPorPrioridade(); track item.label) {
+            <button type="button" [class.critical]="item.critical" (click)="navegarClick.emit('chamados')">
+              <i [style.background]="corPrioridade(item.label)"></i>
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </button>
+          }
+        </div>
       </div>
     </section>
   </div>
@@ -113,13 +143,28 @@
           <h2>Indicadores de SLA</h2>
         </div>
       </div>
-      <div class="kpi-list">
-        @for (item of indicadoresSla(); track item.label) {
-          <div>
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </div>
-        }
+      <div class="pie-dashboard sla-pie-dashboard">
+        <button type="button" class="pie-chart" (click)="navegarClick.emit('chamados')" aria-label="Abrir indicadores de SLA">
+          <svg viewBox="0 0 100 100" role="img" aria-label="Indicadores de SLA">
+            <circle class="pie-empty" cx="50" cy="50" r="42"></circle>
+            @for (slice of graficoSla(); track slice.label) {
+              <path class="pie-slice" [class.critical]="slice.label === 'Criticos em aberto'" [attr.d]="slice.path" [attr.fill]="slice.color"></path>
+            }
+          </svg>
+          <span>
+            <strong>{{ totalGraficoSla() }}</strong>
+            <small>indice</small>
+          </span>
+        </button>
+        <div class="pie-legend">
+          @for (item of indicadoresSla(); track item.label) {
+            <button type="button" (click)="navegarClick.emit('chamados')">
+              <i [style.background]="corSla(item.label)"></i>
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </button>
+          }
+        </div>
       </div>
     </section>
 

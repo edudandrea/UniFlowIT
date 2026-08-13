@@ -302,6 +302,9 @@
           [chamadoSelecionado]="chamadoSelecionado()"
           [usuarioAtualId]="sessao()?.id"
           [usuarioAtualNome]="sessao()?.nome || ''"
+          [usuariosDigitandoChat]="usuariosDigitandoChat()"
+          [abrirChamadoModal]="abrirChamadoModal()"
+          [chamadosComAtualizacao]="ticketsComAtualizacao()"
           [novoChamado]="novoChamado"
           (abrirChamadoSubmit)="abrirChamado()"
           (selecionarChamadoClick)="selecionarChamado($event)"
@@ -311,8 +314,12 @@
           (cancelarChamadoClick)="cancelarChamado($event)"
           (enviarMensagemClick)="enviarMensagem($event)"
           (enviarComunicacaoClick)="enviarComunicacao($event)"
+          (digitandoChat)="registrarDigitandoChat($event)"
+          (anexarArquivosClick)="anexarArquivosChamado($event)"
+          (excluirAnexoClick)="excluirAnexoChamado($event)"
           (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
-          (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao)"
+          (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao, $event.comentario)"
+          (detalheModalAbertoChange)="atualizarEstadoModalChamado($event)"
         />
       }
 
@@ -326,6 +333,9 @@
           [chamadoSelecionado]="chamadosDesenvolvedorVisiveis()[0] || chamadoSelecionado()"
           [usuarioAtualId]="sessao()?.id"
           [usuarioAtualNome]="sessao()?.nome || ''"
+          [usuariosDigitandoChat]="usuariosDigitandoChat()"
+          [abrirChamadoModal]="abrirChamadoModal()"
+          [chamadosComAtualizacao]="ticketsComAtualizacao()"
           [novoChamado]="novoChamado"
           (abrirChamadoSubmit)="abrirChamadoDesenvolvedor()"
           (selecionarChamadoClick)="selecionarChamado($event)"
@@ -335,8 +345,12 @@
           (cancelarChamadoClick)="cancelarChamado($event)"
           (enviarMensagemClick)="enviarMensagem($event)"
           (enviarComunicacaoClick)="enviarComunicacao($event)"
+          (digitandoChat)="registrarDigitandoChat($event)"
+          (anexarArquivosClick)="anexarArquivosChamado($event)"
+          (excluirAnexoClick)="excluirAnexoChamado($event)"
           (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
-          (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao)"
+          (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao, $event.comentario)"
+          (detalheModalAbertoChange)="atualizarEstadoModalChamado($event)"
         />
       }
 
@@ -373,4 +387,32 @@
       }
     </section>
   </main>
+
+  @if (alertaTicket(); as alerta) {
+    <div class="modal-backdrop" (click)="cancelarAlertaTicket()"></div>
+    <section class="modal-panel ticket-alert-modal" role="dialog" aria-modal="true" aria-label="Nova atualizacao no ticket">
+      <header class="modal-header">
+        <div>
+        <p class="eyebrow">{{ alerta.tipo === 'chat' ? 'Nova mensagem no chat' : 'Nova comunicacao' }}</p>
+        <h2>{{ alerta.numero }} - {{ alerta.titulo }}</h2>
+        </div>
+      </header>
+
+      <div class="modal-form">
+        <div class="ticket-alert-visual" aria-hidden="true">
+          <span class="ticket-alert-icon"></span>
+        </div>
+        <p>
+          <strong>{{ alerta.autor }}</strong>
+          enviou {{ alerta.tipo === 'chat' ? 'uma nova mensagem no chat' : 'uma nova comunicacao' }}.
+        </p>
+        <p class="ticket-alert-preview">{{ alerta.texto }}</p>
+      </div>
+
+      <footer class="modal-actions">
+        <button type="button" (click)="cancelarAlertaTicket()">Cancelar</button>
+        <button type="button" class="primary" (click)="responderAlertaTicket()">Responder</button>
+      </footer>
+    </section>
+  }
 }

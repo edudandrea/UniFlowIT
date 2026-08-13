@@ -8,6 +8,7 @@ import { AdminSaasForm, AuthMode, LoginForm } from '../../models/uniflowit.model
   selector: 'app-login-page',
   imports: [CommonModule, FormsModule, NgxSpinnerModule],
   templateUrl: './login-page.html',
+  styleUrls: ['./login-page.scss'],
 })
 export class LoginPage {
   @Input({ required: true }) authMode!: AuthMode;
@@ -21,4 +22,3 @@ export class LoginPage {
   @Output() loginSubmit = new EventEmitter<void>();
   @Output() adminSaasSubmit = new EventEmitter<void>();
 }
-

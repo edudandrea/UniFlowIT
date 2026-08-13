@@ -48,10 +48,14 @@ export interface Sessao {
 }
 
 export interface Mensagem {
+  id?: number;
   autor: string;
   perfil: Perfil;
   texto: string;
   horario: string;
+  enviadoEm?: string;
+  timestamp?: number;
+  lida?: boolean;
   tipo?: 'Chat' | 'Mural';
 }
 
@@ -70,10 +74,14 @@ export interface Chamado {
   descricao: string;
   equipamento: string;
   anexos: string[];
+  anexosDetalhes?: AnexoChamado[];
   atendente?: string;
   origem?: string;
+  criadoEm?: string;
+  atualizadoEm?: string;
   mensagens: Mensagem[];
   avaliacao?: number;
+  avaliacaoComentario?: string;
 }
 
 export interface Artigo {
@@ -87,6 +95,14 @@ export interface Artigo {
   anexos?: string[];
   usuario?: string;
   usuarioId?: number;
+}
+
+export interface AnexoChamado {
+  id?: number;
+  nome: string;
+  url?: string;
+  tipo?: string;
+  tamanhoBytes?: number;
 }
 
 export interface CategoriaConhecimento {

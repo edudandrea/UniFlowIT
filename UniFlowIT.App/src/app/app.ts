@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostBinding, HostListener, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
+import { Component, HostBinding, HostListener, OnDestroy, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgxSpinnerModule, NgxSpinnerService } from 'ngx-spinner';
 import { ToastrService } from 'ngx-toastr';
@@ -48,7 +48,7 @@ import {
   styleUrl: './app.scss',
   encapsulation: ViewEncapsulation.None,
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   private readonly apiUrl = 'http://localhost:5151/api';
   private readonly temaStorageKey = 'uniflowit-theme';
 
@@ -82,8 +82,26 @@ export class App implements OnInit {
   protected authFeedback = signal('');
   protected carregandoAuth = signal(false);
   protected chamadoSelecionadoId = signal(1);
+  protected usuariosDigitandoChat = signal<string[]>([]);
+  protected alertaTicket = signal<{
+    chamadoId: number;
+    numero: string;
+    titulo: string;
+    tipo: 'comunicacao' | 'chat';
+    autor: string;
+    texto: string;
+  } | null>(null);
+  protected abrirChamadoModal = signal<{ id: number; aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat'; nonce: number } | null>(null);
+  protected ticketsComAtualizacao = signal<Set<number>>(new Set<number>());
   protected novaMensagem = '';
   protected avaliacaoSelecionada = 5;
+  private chamadosRealtimeTimer?: ReturnType<typeof setInterval>;
+  private digitandoRealtimeTimer?: ReturnType<typeof setInterval>;
+  private carregandoChamadosRealtime = false;
+  private ultimoEnvioDigitandoEm = 0;
+  private chamadoDetalheModalAberto = false;
+  private primeiraCargaChamadosConcluida = false;
+  private mensagensConhecidasTickets = new Set<string>();
 
   private async apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
     const token = this.sessao()?.token;
@@ -270,6 +288,7 @@ export class App implements OnInit {
     prioridade: 'Media' as Prioridade,
     descricao: '',
     anexos: '',
+    anexosDetalhes: [] as Array<{ nomeArquivo: string; tipoConteudo: string; tamanhoBytes: number; url: string }>,
   };
 
   protected chamados = signal<Chamado[]>([]);
@@ -394,6 +413,11 @@ export class App implements OnInit {
     await this.verificarAdministradorSaas();
   }
 
+  ngOnDestroy(): void {
+    this.pararAtualizacaoChamadosRealtime();
+    this.pararAtualizacaoDigitandoRealtime();
+  }
+
   protected alternarTema(): void {
     const proximoTema = this.tema() === 'dark' ? 'light' : 'dark';
     this.tema.set(proximoTema);
@@ -423,11 +447,7 @@ export class App implements OnInit {
       return chamadosEmpresa.filter((chamado) => chamado.status === 'Aberto' || chamado.atendente === this.sessao()?.nome);
     }
 
-    return chamadosEmpresa.filter(
-      (chamado) =>
-        chamado.status === 'Aberto' &&
-        (chamado.solicitanteUsuarioId === this.sessao()?.id || chamado.solicitante === this.sessao()?.nome),
-    );
+    return chamadosEmpresa.filter((chamado) => this.usuarioEhSolicitanteChamado(chamado));
   });
 
   protected chamadosDesenvolvedorVisiveis = computed(() => {
@@ -455,6 +475,7 @@ export class App implements OnInit {
 
   protected metricas = computed(() => {
     const chamados = this.chamadosVisiveis();
+
     return {
       abertos: chamados.filter((item) => item.status === 'Aberto').length,
       atendimento: chamados.filter((item) => item.status === 'Em atendimento').length,
@@ -596,7 +617,9 @@ export class App implements OnInit {
         this.empresaSelecionadaId.set(data.empresaId);
       }
       this.novoChamado.solicitante = data.nome;
+      this.resetarAlertasTickets();
       await this.carregarDadosSistema();
+      this.iniciarAtualizacaoChamadosRealtime();
       this.toastr.success(`Bem-vindo, ${data.nome}.`, 'Login realizado');
     } catch {
       this.authFeedback.set('Nao foi possivel conectar na API. Verifique se ela esta rodando em localhost:5151.');
@@ -639,6 +662,8 @@ export class App implements OnInit {
       this.existeAdministradorSaas.set(true);
       this.loginForm.email = data.email;
       this.authFeedback.set('Administrador SaaS criado com sucesso.');
+      this.resetarAlertasTickets();
+      this.iniciarAtualizacaoChamadosRealtime();
       this.toastr.success('Administrador SaaS criado com sucesso.', 'Primeiro acesso');
     } catch {
       this.authFeedback.set('Nao foi possivel conectar na API para criar o Administrador SaaS.');
@@ -851,6 +876,9 @@ export class App implements OnInit {
   }
 
   protected sair(): void {
+    this.pararAtualizacaoChamadosRealtime();
+    this.pararAtualizacaoDigitandoRealtime();
+    this.resetarAlertasTickets();
     this.sessao.set(null);
     this.authFeedback.set('');
     this.perfil.set('Usuario');
@@ -1714,6 +1742,7 @@ export class App implements OnInit {
 
   private async carregarChamados(): Promise<void> {
     try {
+      const selecionadoAtual = this.chamadoSelecionadoId();
       const params = new URLSearchParams({
         perfil: this.perfil(),
         empresaId: String(this.sessao()?.empresaId ?? ''),
@@ -1727,11 +1756,151 @@ export class App implements OnInit {
       }
 
       const chamados = (await response.json()) as Array<Record<string, unknown>>;
-      this.chamados.set(chamados.map((chamado) => this.mapearChamado(chamado)));
-      this.chamadoSelecionadoId.set(this.chamados()[0]?.id ?? 1);
+      const chamadosMapeados = chamados.map((chamado) => this.mapearChamado(chamado));
+      this.detectarNovasMensagensRelevantes(this.chamados(), chamadosMapeados);
+      this.chamados.set(chamadosMapeados);
+      this.chamadoSelecionadoId.set(chamadosMapeados.some((chamado) => chamado.id === selecionadoAtual)
+        ? selecionadoAtual
+        : chamadosMapeados[0]?.id ?? 1);
     } catch {
       return;
     }
+  }
+
+  private detectarNovasMensagensRelevantes(chamadosAnteriores: Chamado[], chamadosAtuais: Chamado[]): void {
+    const mensagensAnteriores = new Set(
+      chamadosAnteriores.flatMap((chamado) => chamado.mensagens.map((mensagem) => this.chaveMensagemTicket(chamado, mensagem))),
+    );
+    const mensagensAtuais = new Set(
+      chamadosAtuais.flatMap((chamado) => chamado.mensagens.map((mensagem) => this.chaveMensagemTicket(chamado, mensagem))),
+    );
+
+    if (!this.primeiraCargaChamadosConcluida) {
+      this.primeiraCargaChamadosConcluida = true;
+      this.mensagensConhecidasTickets = mensagensAtuais;
+      return;
+    }
+
+    const mensagensJaConhecidas = new Set([...this.mensagensConhecidasTickets, ...mensagensAnteriores]);
+    const usuarioAtual = this.sessao();
+    const novasMensagens = chamadosAtuais
+      .filter((chamado) => this.usuarioPodeReceberAlertaChamado(chamado))
+      .flatMap((chamado) =>
+        chamado.mensagens
+          .filter((mensagem) => this.mensagemDeveGerarAlerta(chamado, mensagem, usuarioAtual))
+          .map((mensagem) => ({ chamado, mensagem, chave: this.chaveMensagemTicket(chamado, mensagem) })),
+      )
+      .filter((item) => !mensagensJaConhecidas.has(item.chave))
+      .sort((a, b) => (b.mensagem.timestamp ?? 0) - (a.mensagem.timestamp ?? 0) || (b.mensagem.id ?? 0) - (a.mensagem.id ?? 0));
+
+    this.mensagensConhecidasTickets = mensagensAtuais;
+
+    if (!novasMensagens.length) {
+      return;
+    }
+
+    this.ticketsComAtualizacao.update((atuais) => new Set([...atuais, ...novasMensagens.map((item) => item.chamado.id)]));
+    const novaMensagem = novasMensagens[0];
+
+    if ((this.chamadoDetalheModalAberto && this.chamadoSelecionadoId() === novaMensagem.chamado.id) || this.alertaTicket()) {
+      return;
+    }
+
+    this.alertaTicket.set({
+      chamadoId: novaMensagem.chamado.id,
+      numero: novaMensagem.chamado.numero,
+      titulo: novaMensagem.chamado.titulo || novaMensagem.chamado.categoria,
+      tipo: novaMensagem.mensagem.tipo === 'Mural' ? 'comunicacao' : 'chat',
+      autor: novaMensagem.mensagem.autor,
+      texto: novaMensagem.mensagem.texto,
+    });
+  }
+
+  private chaveMensagemTicket(chamado: Chamado, mensagem: Chamado['mensagens'][number]): string {
+    return [
+      chamado.id,
+      mensagem.id ?? '',
+      mensagem.enviadoEm ?? '',
+      mensagem.timestamp ?? '',
+      mensagem.tipo ?? 'Chat',
+      mensagem.autor,
+      mensagem.texto,
+    ].join('|');
+  }
+
+  private usuarioPodeReceberAlertaChamado(chamado: Chamado): boolean {
+    const usuario = this.sessao();
+    if (!usuario) {
+      return false;
+    }
+
+    if (this.usuarioEhSolicitanteChamado(chamado)) {
+      return true;
+    }
+
+    if (this.perfil() === 'Administrador') {
+      return true;
+    }
+
+    const atendente = (chamado.atendente ?? '').trim().toLocaleLowerCase('pt-BR');
+    const usuarioNome = usuario.nome.trim().toLocaleLowerCase('pt-BR');
+    return (this.perfil() === 'Atendente' || this.perfil() === 'Administrador') && !!atendente && atendente === usuarioNome;
+  }
+
+  private mensagemDeveGerarAlerta(chamado: Chamado, mensagem: Chamado['mensagens'][number], usuarioAtual: Sessao | null): boolean {
+    if (!usuarioAtual || mensagem.autor === usuarioAtual.nome || mensagem.autor === usuarioAtual.email) {
+      return false;
+    }
+
+    if (this.usuarioEhSolicitanteChamado(chamado)) {
+      return true;
+    }
+
+    const solicitante = chamado.solicitante.trim().toLocaleLowerCase('pt-BR');
+    const autor = mensagem.autor.trim().toLocaleLowerCase('pt-BR');
+    return mensagem.perfil === 'Usuario' || autor === solicitante;
+  }
+
+  private iniciarAtualizacaoChamadosRealtime(): void {
+    this.pararAtualizacaoChamadosRealtime();
+    this.iniciarAtualizacaoDigitandoRealtime();
+    this.chamadosRealtimeTimer = setInterval(() => {
+      if (!this.sessao() || this.carregandoChamadosRealtime) {
+        return;
+      }
+
+      this.carregandoChamadosRealtime = true;
+      void this.carregarChamados().finally(() => {
+        this.carregandoChamadosRealtime = false;
+      });
+    }, 4000);
+  }
+
+  private pararAtualizacaoChamadosRealtime(): void {
+    if (!this.chamadosRealtimeTimer) {
+      return;
+    }
+
+    clearInterval(this.chamadosRealtimeTimer);
+    this.chamadosRealtimeTimer = undefined;
+    this.carregandoChamadosRealtime = false;
+  }
+
+  private iniciarAtualizacaoDigitandoRealtime(): void {
+    this.pararAtualizacaoDigitandoRealtime();
+    this.digitandoRealtimeTimer = setInterval(() => {
+      void this.carregarUsuariosDigitandoChat();
+    }, 900);
+  }
+
+  private pararAtualizacaoDigitandoRealtime(): void {
+    if (!this.digitandoRealtimeTimer) {
+      return;
+    }
+
+    clearInterval(this.digitandoRealtimeTimer);
+    this.digitandoRealtimeTimer = undefined;
+    this.usuariosDigitandoChat.set([]);
   }
 
   private async carregarCategorias(): Promise<void> {
@@ -1957,6 +2126,31 @@ export class App implements OnInit {
     const equipamento = chamado['equipamentoRelacionado'] as Record<string, unknown> | undefined;
     const anexos = Array.isArray(chamado['anexos']) ? chamado['anexos'] as Array<Record<string, unknown>> : [];
     const comunicacoes = Array.isArray(chamado['comunicacoes']) ? chamado['comunicacoes'] as Array<Record<string, unknown>> : [];
+    const anexosDetalhes = anexos.map((anexo) => ({
+      id: anexo['id'] == null ? undefined : Number(anexo['id']),
+      nome: String(anexo['nomeArquivo'] ?? anexo['url'] ?? 'Anexo'),
+      url: String(anexo['url'] ?? ''),
+      tipo: String(anexo['tipoConteudo'] ?? ''),
+      tamanhoBytes: Number(anexo['tamanhoBytes'] ?? 0),
+    }));
+    const mensagens = comunicacoes
+      .map((mensagem) => {
+        const enviadoEm = String(mensagem['enviadoEm'] ?? '');
+        const timestamp = this.timestampMensagem(enviadoEm);
+
+        return {
+          id: mensagem['id'] == null ? undefined : Number(mensagem['id']),
+          autor: String(mensagem['autorNome'] ?? ''),
+          perfil: this.normalizarPerfil(mensagem['autorPerfil']),
+          texto: String(mensagem['mensagem'] ?? ''),
+          horario: this.formatarHorarioMensagem(enviadoEm),
+          enviadoEm,
+          timestamp,
+          lida: Boolean(mensagem['lida'] ?? false),
+          tipo: mensagem['tipo'] === 'Chat' ? 'Chat' as const : 'Mural' as const,
+        };
+      })
+      .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0) || (a.id ?? 0) - (b.id ?? 0));
 
     return {
       id: Number(chamado['id']),
@@ -1974,18 +2168,33 @@ export class App implements OnInit {
       equipamento: equipamento
         ? `${String(equipamento['hostname'] ?? 'Portal Web')} | ${String(equipamento['sistemaOperacional'] ?? '')} | ${String(equipamento['ip'] ?? '')} | ${String(equipamento['navegador'] ?? '')}`
         : 'Equipamento nao informado',
-      anexos: anexos.map((anexo) => String(anexo['nomeArquivo'] ?? anexo['url'] ?? 'Anexo')),
+      anexos: anexosDetalhes.map((anexo) => anexo.nome),
+      anexosDetalhes,
       atendente: chamado['atendenteNome'] ? String(chamado['atendenteNome']) : undefined,
       origem: chamado['origemAutomacao'] ? String(chamado['origemAutomacao']) : undefined,
+      criadoEm: String(chamado['criadoEm'] ?? ''),
+      atualizadoEm: String(chamado['atualizadoEm'] ?? ''),
       avaliacao: chamado['avaliacaoNota'] == null ? undefined : Number(chamado['avaliacaoNota']),
-      mensagens: comunicacoes.map((mensagem) => ({
-        autor: String(mensagem['autorNome'] ?? ''),
-        perfil: this.normalizarPerfil(mensagem['autorPerfil']),
-        texto: String(mensagem['mensagem'] ?? ''),
-        horario: String(mensagem['enviadoEm'] ?? '').slice(11, 16) || 'Agora',
-        tipo: mensagem['tipo'] === 'Chat' ? 'Chat' : 'Mural',
-      })),
+      avaliacaoComentario: String(chamado['avaliacaoComentario'] ?? ''),
+      mensagens,
     };
+  }
+
+  private timestampMensagem(enviadoEm: string): number {
+    const timestamp = Date.parse(enviadoEm);
+    return Number.isFinite(timestamp) ? timestamp : Date.now();
+  }
+
+  private formatarHorarioMensagem(enviadoEm: string): string {
+    const timestamp = Date.parse(enviadoEm);
+    if (!Number.isFinite(timestamp)) {
+      return 'Agora';
+    }
+
+    return new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(timestamp));
   }
 
   private formatarNumeroTicket(id: number, numero = ''): string {
@@ -2131,6 +2340,49 @@ export class App implements OnInit {
 
   protected selecionarChamado(id: number): void {
     this.chamadoSelecionadoId.set(id);
+    this.limparAtualizacaoTicket(id);
+  }
+
+  protected atualizarEstadoModalChamado(aberto: boolean): void {
+    this.chamadoDetalheModalAberto = aberto;
+  }
+
+  protected responderAlertaTicket(): void {
+    const alerta = this.alertaTicket();
+    if (!alerta) {
+      return;
+    }
+
+    this.alertaTicket.set(null);
+    this.paginaAtiva.set('chamados');
+    this.chamadoSelecionadoId.set(alerta.chamadoId);
+    this.limparAtualizacaoTicket(alerta.chamadoId);
+    this.abrirChamadoModal.set({
+      id: alerta.chamadoId,
+      aba: alerta.tipo === 'chat' ? 'chat' : 'comunicacao',
+      nonce: Date.now(),
+    });
+  }
+
+  protected cancelarAlertaTicket(): void {
+    this.alertaTicket.set(null);
+  }
+
+  private limparAtualizacaoTicket(id: number): void {
+    this.ticketsComAtualizacao.update((atuais) => {
+      const proximos = new Set(atuais);
+      proximos.delete(id);
+      return proximos;
+    });
+  }
+
+  private resetarAlertasTickets(): void {
+    this.alertaTicket.set(null);
+    this.abrirChamadoModal.set(null);
+    this.ticketsComAtualizacao.set(new Set<number>());
+    this.chamadoDetalheModalAberto = false;
+    this.primeiraCargaChamadosConcluida = false;
+    this.mensagensConhecidasTickets = new Set<string>();
   }
 
   protected async abrirChamado(): Promise<void> {
@@ -2146,6 +2398,9 @@ export class App implements OnInit {
       .split(',')
       .map((anexo) => anexo.trim())
       .filter(Boolean);
+    const anexosDetalhes = this.novoChamado.anexosDetalhes.length
+      ? this.novoChamado.anexosDetalhes
+      : anexos.map((anexo) => ({ nomeArquivo: anexo, tipoConteudo: '', tamanhoBytes: 0, url: '' }));
     const id = Math.max(0, ...this.chamados().map((chamado) => chamado.id)) + 1;
     const descricao = this.novoChamado.descricao || 'Chamado aberto pelo portal UniFlowIT.';
     const novoChamado = {
@@ -2160,7 +2415,7 @@ export class App implements OnInit {
       descricao,
       origem,
       equipamentoRelacionado: this.criarEquipamentoCapturado(),
-      anexos: anexos.map((anexo) => ({ nomeArquivo: anexo, tipoConteudo: '', tamanhoBytes: 0, url: '' })),
+      anexos: anexosDetalhes,
     };
 
     this.chamados.update((chamados) => [
@@ -2179,7 +2434,15 @@ export class App implements OnInit {
         descricao,
         equipamento: this.capturarEquipamento(),
         anexos,
+        anexosDetalhes: anexosDetalhes.map((anexo) => ({
+          nome: anexo.nomeArquivo,
+          tipo: anexo.tipoConteudo,
+          tamanhoBytes: anexo.tamanhoBytes,
+          url: anexo.url,
+        })),
         origem,
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString(),
         mensagens: [
           {
             autor: novoChamado.solicitante,
@@ -2197,6 +2460,7 @@ export class App implements OnInit {
     this.novoChamado.titulo = '';
     this.novoChamado.descricao = '';
     this.novoChamado.anexos = '';
+    this.novoChamado.anexosDetalhes = [];
 
     try {
       await this.apiFetch(`${this.apiUrl}/chamados`, {
@@ -2238,18 +2502,19 @@ export class App implements OnInit {
         throw new Error('Nao foi possivel assumir o ticket.');
       }
 
+      await this.carregarChamados();
       this.toastr.success(`Ticket assumido por ${atendente}.`, 'Tickets');
     } catch {
       this.toastr.error('Nao foi possivel registrar o atendente no backend.', 'Tickets');
     }
   }
 
-  protected encerrarChamado(chamado: Chamado): void {
-    this.atualizarChamado(chamado.id, { status: 'Encerrado' });
+  protected async encerrarChamado(chamado: Chamado): Promise<void> {
+    await this.atualizarStatusChamadoBackend(chamado, 'Encerrado', 'encerrar');
   }
 
-  protected cancelarChamado(chamado: Chamado): void {
-    this.atualizarChamado(chamado.id, { status: 'Cancelado' });
+  protected async cancelarChamado(chamado: Chamado): Promise<void> {
+    await this.atualizarStatusChamadoBackend(chamado, 'Cancelado', 'cancelar');
   }
 
   protected async salvarDadosChamado(chamadoEditado: Partial<Chamado> & { id: number }): Promise<void> {
@@ -2301,9 +2566,29 @@ export class App implements OnInit {
         throw new Error('Nao foi possivel salvar o ticket.');
       }
 
+      await this.carregarChamados();
       this.toastr.success('Dados do ticket salvos com sucesso.', 'Tickets');
     } catch {
       this.toastr.error('Nao foi possivel salvar os dados do ticket no backend.', 'Tickets');
+    }
+  }
+
+  private async atualizarStatusChamadoBackend(chamado: Chamado, status: Chamado['status'], acao: 'encerrar' | 'cancelar'): Promise<void> {
+    this.atualizarChamado(chamado.id, { status });
+
+    if (chamado.id <= 0) {
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/${acao}`, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error('Status nao persistido.');
+      }
+
+      await this.carregarChamados();
+    } catch {
+      this.toastr.error('Nao foi possivel atualizar o status do ticket no backend.', 'Tickets');
     }
   }
 
@@ -2325,10 +2610,13 @@ export class App implements OnInit {
       mensagens: [
         ...chamado.mensagens,
         {
+          id: -Date.now(),
           autor,
           perfil,
           texto,
-          horario: 'Agora',
+          horario: this.formatarHorarioMensagem(new Date().toISOString()),
+          enviadoEm: new Date().toISOString(),
+          timestamp: Date.now(),
           tipo,
         },
       ],
@@ -2355,13 +2643,177 @@ export class App implements OnInit {
       if (!response.ok) {
         throw new Error('Nao foi possivel registrar a mensagem.');
       }
+
+      await this.carregarChamados();
     } catch {
       this.toastr.error(tipo === 'Mural' ? 'Recado nao foi salvo no backend.' : 'Mensagem do chat nao foi salva no backend.', 'Tickets');
     }
   }
 
-  protected avaliarChamado(chamado: Chamado, avaliacao = this.avaliacaoSelecionada): void {
-    this.atualizarChamado(chamado.id, { avaliacao });
+  protected async registrarDigitandoChat(chamadoId: number): Promise<void> {
+    if (!this.sessao() || chamadoId <= 0) {
+      return;
+    }
+
+    const agora = Date.now();
+    if (agora - this.ultimoEnvioDigitandoEm < 900) {
+      return;
+    }
+
+    this.ultimoEnvioDigitandoEm = agora;
+
+    try {
+      await this.apiFetch(`${this.apiUrl}/chamados/${chamadoId}/digitando`, { method: 'POST' });
+    } catch {
+      return;
+    }
+  }
+
+  private async carregarUsuariosDigitandoChat(): Promise<void> {
+    const chamado = this.chamadoSelecionado();
+    if (!this.sessao() || !chamado || chamado.id <= 0) {
+      this.usuariosDigitandoChat.set([]);
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/digitando`);
+      if (!response.ok) {
+        this.usuariosDigitandoChat.set([]);
+        return;
+      }
+
+      const usuarios = await response.json() as string[];
+      this.usuariosDigitandoChat.set(Array.isArray(usuarios) ? usuarios.filter(Boolean) : []);
+    } catch {
+      this.usuariosDigitandoChat.set([]);
+    }
+  }
+
+  protected async anexarArquivosChamado(evento: { chamado: Chamado; arquivos: File[] }): Promise<void> {
+    const chamado = evento.chamado;
+    const arquivos = evento.arquivos;
+    if (!arquivos.length || chamado.status === 'Encerrado' || chamado.status === 'Cancelado') {
+      this.toastr.warning('Tickets encerrados nao recebem novos anexos.', 'Tickets');
+      return;
+    }
+
+    const anexos = await Promise.all(arquivos.map(async (arquivo) => ({
+      nomeArquivo: arquivo.name,
+      tipoConteudo: arquivo.type,
+      tamanhoBytes: arquivo.size,
+      url: await this.arquivoParaDataUrl(arquivo),
+    })));
+
+    this.atualizarChamado(chamado.id, {
+      anexos: [...chamado.anexos, ...anexos.map((anexo) => anexo.nomeArquivo)],
+      anexosDetalhes: [
+        ...(chamado.anexosDetalhes ?? []),
+        ...anexos.map((anexo) => ({
+          nome: anexo.nomeArquivo,
+          tipo: anexo.tipoConteudo,
+          tamanhoBytes: anexo.tamanhoBytes,
+          url: anexo.url,
+        })),
+      ],
+    });
+
+    if (chamado.id <= 0) {
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/anexos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(anexos),
+      });
+
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel anexar os arquivos.');
+      }
+
+      await this.carregarChamados();
+      this.toastr.success('Anexos adicionados ao ticket.', 'Tickets');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Nao foi possivel anexar os arquivos.';
+      this.toastr.error(mensagem, 'Tickets');
+      await this.carregarChamados();
+    }
+  }
+
+  protected async excluirAnexoChamado(evento: { chamado: Chamado; anexoId?: number; nome: string }): Promise<void> {
+    const chamado = evento.chamado;
+    const removerLocal = (): void => {
+      this.atualizarChamado(chamado.id, {
+        anexos: chamado.anexos.filter((anexo) => anexo !== evento.nome),
+        anexosDetalhes: (chamado.anexosDetalhes ?? []).filter((anexo) => anexo.id !== evento.anexoId && anexo.nome !== evento.nome),
+      });
+    };
+
+    if (!evento.anexoId || chamado.id <= 0) {
+      removerLocal();
+      this.toastr.success('Anexo removido do ticket.', 'Tickets');
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/anexos/${evento.anexoId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel excluir o anexo.');
+      }
+
+      removerLocal();
+      await this.carregarChamados();
+      this.toastr.success('Anexo excluido do ticket.', 'Tickets');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Nao foi possivel excluir o anexo.';
+      this.toastr.error(mensagem, 'Tickets');
+    }
+  }
+
+  private arquivoParaDataUrl(arquivo: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('Nao foi possivel ler o arquivo.'));
+      reader.readAsDataURL(arquivo);
+    });
+  }
+
+  protected async avaliarChamado(chamado: Chamado, avaliacao = this.avaliacaoSelecionada, comentario = ''): Promise<void> {
+    const nota = Math.min(5, Math.max(1, avaliacao));
+    this.atualizarChamado(chamado.id, { avaliacao: nota, avaliacaoComentario: comentario });
+
+    if (chamado.id <= 0) {
+      this.toastr.info('Avaliacao registrada apenas localmente.', 'Tickets');
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/avaliar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nota,
+          comentario,
+        }),
+      });
+
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel salvar a avaliacao.');
+      }
+
+      await this.carregarChamados();
+      this.toastr.success('Avaliacao registrada com sucesso.', 'Tickets');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Nao foi possivel salvar a avaliacao.';
+      this.toastr.error(mensagem, 'Tickets');
+      await this.carregarChamados();
+    }
   }
 
   protected avisarMovimentoKanbanInvalido(): void {
@@ -2610,7 +3062,19 @@ export class App implements OnInit {
     return this.perfil() === 'Usuario'
       && chamado.status === 'Encerrado'
       && Boolean(usuario)
-      && (chamado.solicitanteUsuarioId === usuario?.id || chamado.solicitante === usuario?.nome);
+      && this.usuarioEhSolicitanteChamado(chamado);
+  }
+
+  private usuarioEhSolicitanteChamado(chamado: Chamado): boolean {
+    const usuario = this.sessao();
+    if (!usuario) {
+      return false;
+    }
+
+    const solicitante = chamado.solicitante.trim().toLocaleLowerCase('pt-BR');
+    return chamado.solicitanteUsuarioId === usuario.id
+      || solicitante === usuario.nome.trim().toLocaleLowerCase('pt-BR')
+      || solicitante === usuario.email.trim().toLocaleLowerCase('pt-BR');
   }
 
   private capturarEquipamento(): string {

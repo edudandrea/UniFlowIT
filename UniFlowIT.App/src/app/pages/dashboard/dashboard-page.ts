@@ -8,10 +8,20 @@ interface DashboardCard {
   tone: 'blue' | 'red' | 'amber' | 'green' | 'cyan' | 'purple' | 'gray';
 }
 
+interface PieSlice {
+  label: string;
+  value: number;
+  color: string;
+  path: string;
+  percent: number;
+  critical?: boolean;
+}
+
 @Component({
   selector: 'app-dashboard-page',
   imports: [CommonModule],
   templateUrl: './dashboard-page.html',
+  styleUrls: ['./dashboard-page.scss'],
 })
 export class DashboardPage {
   @Input() empresaNome = 'Empresa nao identificada';
@@ -90,6 +100,74 @@ export class DashboardPage {
       value: this.chamados.filter((chamado) => chamado.prioridade === label).length,
       critical: label === 'Urgente' || label === 'Alta',
     }));
+  }
+
+  protected graficoStatus(): PieSlice[] {
+    return this.criarFatias(
+      this.chamadosPorStatus().map((item, index) => ({
+        ...item,
+        color: ['#38bdf8', '#8b5cf6', '#10b981', '#64748b'][index],
+      })),
+    );
+  }
+
+  protected graficoPrioridade(): PieSlice[] {
+    return this.criarFatias(
+      this.chamadosPorPrioridade().map((item, index) => ({
+        ...item,
+        color: ['#ef4444', '#f59e0b', '#38bdf8', '#10b981'][index],
+      })),
+    );
+  }
+
+  protected totalGraficoStatus(): number {
+    return this.chamadosPorStatus().reduce((total, item) => total + item.value, 0);
+  }
+
+  protected totalGraficoPrioridade(): number {
+    return this.chamadosPorPrioridade().reduce((total, item) => total + item.value, 0);
+  }
+
+  protected graficoSla(): PieSlice[] {
+    return this.criarFatias(
+      this.indicadoresSla().map((item, index) => ({
+        label: item.label,
+        value: this.valorIndicadorSla(item.value),
+        color: ['#2563eb', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b'][index],
+      })),
+    );
+  }
+
+  protected totalGraficoSla(): number {
+    return this.indicadoresSla().reduce((total, item) => total + this.valorIndicadorSla(item.value), 0);
+  }
+
+  protected corStatus(label: string): string {
+    return ({
+      Aberto: '#38bdf8',
+      'Em atendimento': '#8b5cf6',
+      Encerrado: '#10b981',
+      Cancelado: '#64748b',
+    } as Record<string, string>)[label] ?? '#38bdf8';
+  }
+
+  protected corPrioridade(label: string): string {
+    return ({
+      Urgente: '#ef4444',
+      Alta: '#f59e0b',
+      Media: '#38bdf8',
+      Baixa: '#10b981',
+    } as Record<string, string>)[label] ?? '#38bdf8';
+  }
+
+  protected corSla(label: string): string {
+    return ({
+      'Primeira resposta': '#2563eb',
+      Resolucao: '#10b981',
+      'Criticos em aberto': '#ef4444',
+      'Resolucao primeiro contato': '#8b5cf6',
+      'Taxa de reabertura': '#f59e0b',
+    } as Record<string, string>)[label] ?? '#38bdf8';
   }
 
   protected chamadosAtencao(): Chamado[] {
@@ -178,5 +256,54 @@ export class DashboardPage {
     const semTecnico = chamado.atendente ? 0 : 2;
     const aberto = chamado.status === 'Aberto' ? 1 : 0;
     return prioridade + semTecnico + aberto;
+  }
+
+  private criarFatias(items: Array<{ label: string; value: number; color: string; critical?: boolean }>): PieSlice[] {
+    const total = items.reduce((soma, item) => soma + item.value, 0);
+    if (!total) {
+      return [];
+    }
+
+    let anguloAtual = -90;
+    return items
+      .filter((item) => item.value > 0)
+      .map((item) => {
+        const angulo = (item.value / total) * 360;
+        const inicio = anguloAtual;
+        const fim = anguloAtual + Math.min(angulo, 359.99);
+        anguloAtual += angulo;
+
+        return {
+          ...item,
+          percent: Math.round((item.value / total) * 100),
+          path: this.descreverFatiaPizza(50, 50, 42, inicio, fim),
+        };
+      });
+  }
+
+  private descreverFatiaPizza(cx: number, cy: number, raio: number, inicio: number, fim: number): string {
+    const inicioExterno = this.polarParaCartesiano(cx, cy, raio, fim);
+    const fimExterno = this.polarParaCartesiano(cx, cy, raio, inicio);
+    const arcoGrande = fim - inicio <= 180 ? '0' : '1';
+
+    return [
+      `M ${cx} ${cy}`,
+      `L ${inicioExterno.x} ${inicioExterno.y}`,
+      `A ${raio} ${raio} 0 ${arcoGrande} 0 ${fimExterno.x} ${fimExterno.y}`,
+      'Z',
+    ].join(' ');
+  }
+
+  private valorIndicadorSla(valor: string): number {
+    const numero = Number.parseFloat(valor.replace('%', '').replace(',', '.'));
+    return Number.isFinite(numero) ? numero : 0;
+  }
+
+  private polarParaCartesiano(cx: number, cy: number, raio: number, angulo: number): { x: string; y: string } {
+    const radianos = (angulo * Math.PI) / 180;
+    return {
+      x: (cx + raio * Math.cos(radianos)).toFixed(3),
+      y: (cy + raio * Math.sin(radianos)).toFixed(3),
+    };
   }
 }

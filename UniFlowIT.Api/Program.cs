@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using System.Net.Mail;
 using System.Text.Json.Serialization;
 using UniFlowIT.Api.Data;
@@ -6,6 +7,7 @@ using UniFlowIT.Api.Models;
 using UniFlowIT.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+var ticketTypingStates = new ConcurrentDictionary<string, TypingState>();
 
 builder.Services.AddCors(options =>
 {
@@ -545,7 +547,7 @@ app.MapGet("/api/chamados", async (AppDbContext db, HttpContext http) =>
     var auth = Auth(http);
     var query = db.Chamados
         .Include(chamado => chamado.Anexos)
-        .Include(chamado => chamado.Comunicacoes)
+        .Include(chamado => chamado.Comunicacoes.OrderBy(mensagem => mensagem.EnviadoEm).ThenBy(mensagem => mensagem.Id))
         .AsQueryable();
 
     if (!IsSaas(auth))
@@ -564,8 +566,10 @@ app.MapGet("/api/chamados", async (AppDbContext db, HttpContext http) =>
     }
     else if (IsUsuario(auth))
     {
-        query = query.Where(chamado => chamado.SolicitanteUsuarioId == auth.UserId);
-        query = query.Where(chamado => chamado.Status == StatusChamado.Aberto);
+        query = query.Where(chamado =>
+            chamado.SolicitanteUsuarioId == auth.UserId
+            || chamado.Solicitante == auth.Nome
+            || chamado.Solicitante == auth.Email);
     }
 
     var chamados = await query
@@ -712,11 +716,6 @@ app.MapPost("/api/chamados", async (AppDbContext db, HttpContext http, CriarCham
 app.MapPut("/api/chamados/{id:int}", async (AppDbContext db, HttpContext http, int id, EditarChamadoRequest request) =>
 {
     var auth = Auth(http);
-    if (IsUsuario(auth))
-    {
-        return Results.Forbid();
-    }
-
     var chamado = await db.Chamados.FindAsync(id);
     if (chamado is null)
     {
@@ -726,6 +725,21 @@ app.MapPut("/api/chamados/{id:int}", async (AppDbContext db, HttpContext http, i
     if (!PodeAcessarChamado(auth, chamado))
     {
         return Results.Forbid();
+    }
+
+    if (IsUsuario(auth))
+    {
+        if (!UsuarioEhSolicitanteChamado(auth, chamado) || chamado.Status is StatusChamado.Encerrado or StatusChamado.Cancelado)
+        {
+            return Results.Forbid();
+        }
+
+        chamado.Titulo = request.Titulo.Trim();
+        chamado.Descricao = request.Descricao.Trim();
+        chamado.AtualizadoEm = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return Results.Ok(chamado);
     }
 
     chamado.Titulo = request.Titulo.Trim();
@@ -803,10 +817,83 @@ app.MapPost("/api/chamados/{id:int}/mensagens", async (AppDbContext db, HttpCont
     return Results.Created($"/api/chamados/{id}/mensagens/{mensagem.Id}", mensagem);
 });
 
-app.MapPost("/api/chamados/{id:int}/encerrar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Encerrado));
-app.MapPost("/api/chamados/{id:int}/cancelar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Cancelado));
+app.MapPost("/api/chamados/{id:int}/anexos", async (AppDbContext db, HttpContext http, int id, List<AnexoChamado> request) =>
+{
+    var auth = Auth(http);
+    var chamado = await db.Chamados
+        .Include(item => item.Anexos)
+        .FirstOrDefaultAsync(item => item.Id == id);
 
-app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, HttpContext http, int id, AvaliarChamadoRequest request) =>
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
+    if (chamado.Status is StatusChamado.Encerrado or StatusChamado.Cancelado)
+    {
+        return Results.BadRequest(new { message = "Tickets encerrados nao recebem novos anexos." });
+    }
+
+    var anexos = request
+        .Where(anexo => !string.IsNullOrWhiteSpace(anexo.NomeArquivo))
+        .Select(anexo => new AnexoChamado
+        {
+            NomeArquivo = anexo.NomeArquivo.Trim(),
+            TipoConteudo = anexo.TipoConteudo.Trim(),
+            TamanhoBytes = anexo.TamanhoBytes,
+            Url = anexo.Url.Trim(),
+            EnviadoEm = DateTime.UtcNow
+        })
+        .ToList();
+
+    if (anexos.Count == 0)
+    {
+        return Results.BadRequest(new { message = "Nenhum anexo valido enviado." });
+    }
+
+    chamado.Anexos.AddRange(anexos);
+    chamado.AtualizadoEm = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(chamado.Anexos.OrderBy(anexo => anexo.EnviadoEm));
+});
+
+app.MapDelete("/api/chamados/{id:int}/anexos/{anexoId:int}", async (AppDbContext db, HttpContext http, int id, int anexoId) =>
+{
+    var auth = Auth(http);
+    var chamado = await db.Chamados
+        .Include(item => item.Anexos)
+        .FirstOrDefaultAsync(item => item.Id == id);
+
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
+    var anexo = chamado.Anexos.FirstOrDefault(item => item.Id == anexoId);
+    if (anexo is null)
+    {
+        return Results.NotFound();
+    }
+
+    db.AnexosChamados.Remove(anexo);
+    chamado.AtualizadoEm = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
+app.MapPost("/api/chamados/{id:int}/digitando", async (AppDbContext db, HttpContext http, int id) =>
 {
     var auth = Auth(http);
     var chamado = await db.Chamados.FindAsync(id);
@@ -820,8 +907,64 @@ app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, HttpContex
         return Results.Forbid();
     }
 
+    var key = $"{id}:{auth.UserId}";
+    ticketTypingStates[key] = new TypingState(id, auth.UserId, auth.Nome, DateTime.UtcNow.AddSeconds(3));
+    return Results.NoContent();
+});
+
+app.MapGet("/api/chamados/{id:int}/digitando", async (AppDbContext db, HttpContext http, int id) =>
+{
+    var auth = Auth(http);
+    var chamado = await db.Chamados.FindAsync(id);
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
+    var agora = DateTime.UtcNow;
+    foreach (var item in ticketTypingStates)
+    {
+        if (item.Value.ExpiraEm <= agora)
+        {
+            ticketTypingStates.TryRemove(item.Key, out _);
+        }
+    }
+
+    var digitando = ticketTypingStates.Values
+        .Where(item => item.ChamadoId == id && item.UsuarioId != auth.UserId && item.ExpiraEm > agora)
+        .Select(item => item.UsuarioNome)
+        .Distinct()
+        .ToList();
+
+    return Results.Ok(digitando);
+});
+
+app.MapPost("/api/chamados/{id:int}/encerrar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Encerrado));
+app.MapPost("/api/chamados/{id:int}/cancelar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Cancelado));
+
+app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, HttpContext http, int id, AvaliarChamadoRequest request) =>
+{
+    var auth = Auth(http);
+    var chamado = await db.Chamados.FindAsync(id);
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado)
+        || chamado.Status != StatusChamado.Encerrado
+        || !UsuarioEhSolicitanteChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
     chamado.AvaliacaoNota = Math.Clamp(request.Nota, 1, 5);
-    chamado.AvaliacaoComentario = request.Comentario;
+    chamado.AvaliacaoComentario = request.Comentario?.Trim();
     chamado.AtualizadoEm = DateTime.UtcNow;
 
     await db.SaveChangesAsync();
@@ -1345,10 +1488,17 @@ static bool PodeAcessarChamado(AuthSession auth, Chamado chamado)
 
     if (IsUsuario(auth))
     {
-        return chamado.SolicitanteUsuarioId == auth.UserId;
+        return UsuarioEhSolicitanteChamado(auth, chamado);
     }
 
     return true;
+}
+
+static bool UsuarioEhSolicitanteChamado(AuthSession auth, Chamado chamado)
+{
+    return chamado.SolicitanteUsuarioId == auth.UserId
+        || string.Equals(chamado.Solicitante, auth.Nome, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(chamado.Solicitante, auth.Email, StringComparison.OrdinalIgnoreCase);
 }
 
 static async Task<List<int>> EmpresasPermitidas(AppDbContext db, AuthSession auth)
@@ -1462,3 +1612,5 @@ static string NormalizarTenantSlug(string value)
     var slug = value.Trim().ToLowerInvariant();
     return string.Concat(slug.Select(character => char.IsLetterOrDigit(character) ? character : '-')).Trim('-');
 }
+
+internal sealed record TypingState(int ChamadoId, int UsuarioId, string UsuarioNome, DateTime ExpiraEm);

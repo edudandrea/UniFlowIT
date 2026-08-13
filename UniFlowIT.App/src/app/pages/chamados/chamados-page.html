@@ -22,8 +22,29 @@
     <div>
       <p class="eyebrow">{{ modoDesenvolvedor ? 'Suporte da plataforma' : perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
       <h2>{{ modoDesenvolvedor ? 'Tickets para o desenvolvedor' : perfil === 'Usuario' ? 'Meus tickets abertos' : 'Painel de tickets' }}</h2>
+      <small class="ticket-period-summary">{{ periodoTicketsLabel() }}: {{ chamadosFiltrados().length }} tickets</small>
     </div>
     <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo ticket' }}</button>
+  </div>
+
+  <div class="ticket-filter-bar">
+    <label class="ticket-search-field">
+      <span>Pesquisa</span>
+      <input
+        name="filtroTickets"
+        [(ngModel)]="filtroTickets"
+        placeholder="Numero, assunto, prioridade ou atendente"
+      />
+    </label>
+    <label>
+      <span>Data inicial</span>
+      <input type="date" name="filtroDataInicio" [(ngModel)]="filtroDataInicio" />
+    </label>
+    <label>
+      <span>Data final</span>
+      <input type="date" name="filtroDataFim" [(ngModel)]="filtroDataFim" />
+    </label>
+    <button type="button" (click)="limparFiltrosTickets()">Semana atual</button>
   </div>
 
   <div class="kanban-board" aria-label="Kanban de tickets">
@@ -41,12 +62,16 @@
             <article
               class="kanban-card"
               [class.selected]="chamadoSelecionado?.id === chamado.id"
+              [class.has-update]="chamadoTemAtualizacao(chamado)"
               [draggable]="podeEditarChamado() && chamado.status !== 'Encerrado'"
               (dragstart)="iniciarArraste(chamado)"
               (click)="abrirDetalheChamado(chamado)"
             >
               <div class="kanban-card-top">
                 <strong>{{ chamado.numero }}</strong>
+                @if (chamadoTemAtualizacao(chamado)) {
+                  <span class="ticket-update-badge">Nova resposta</span>
+                }
                 <span
                   class="status-pill priority-status"
                   [class.low]="chamado.prioridade === 'Baixa'"
@@ -103,6 +128,11 @@
         <input name="titulo" [(ngModel)]="novoChamado.titulo" required />
       </label>
 
+      <label class="full">
+        <span>Descricao do ticket</span>
+        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" [placeholder]="modoDesenvolvedor ? 'Descreva o erro, tela afetada, passos para reproduzir e impacto para a empresa' : 'Descreva o problema, impacto e mensagens de erro'"></textarea>
+      </label>
+
       <label>
         <span>Solicitante</span>
         <input name="solicitante" [(ngModel)]="novoChamado.solicitante" required />
@@ -133,11 +163,6 @@
           <option>Solicitacao</option>
           <option>Alteracao</option>
         </select>
-      </label>
-
-      <label class="full">
-        <span>Descricao do ticket</span>
-        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" [placeholder]="modoDesenvolvedor ? 'Descreva o erro, tela afetada, passos para reproduzir e impacto para a empresa' : 'Descreva o problema, impacto e mensagens de erro'"></textarea>
       </label>
 
       <div class="upload-field full">
@@ -184,6 +209,10 @@
     <div class="ticket-modal-body">
       <div class="tabs ticket-tabs">
         <button type="button" [class.active]="abaDetalhe === 'dados'" (click)="definirAbaDetalhe('dados')">Dados</button>
+        <button type="button" [class.active]="abaDetalhe === 'anexos'" (click)="definirAbaDetalhe('anexos')">Anexos</button>
+        @if (chamadoEncerrado()) {
+          <button type="button" [class.active]="abaDetalhe === 'avaliacao'" (click)="definirAbaDetalhe('avaliacao')">Avaliacao</button>
+        }
         <button type="button" [class.active]="abaDetalhe === 'comunicacao'" (click)="definirAbaDetalhe('comunicacao')">Comunicacao</button>
         <button type="button" [class.active]="abaDetalhe === 'chat'" (click)="definirAbaDetalhe('chat')">Chat</button>
       </div>
@@ -191,55 +220,68 @@
       @if (abaDetalhe === 'dados') {
         <div class="ticket-detail-content">
           <div class="detail-hero">
-            <div>
+            <div class="ticket-state-summary">
               <span class="status" [class.urgent]="chamadoSelecionado.prioridade === 'Urgente'">{{ statusVisual(chamadoSelecionado.status) }}</span>
+              <span class="ticket-info-pill">
+                <small>Proprietario</small>
+                <strong>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</strong>
+              </span>
+              <span class="ticket-info-pill">
+                <small>Equipamento</small>
+                <strong>{{ chamadoSelecionado.equipamento }}</strong>
+              </span>
               <p class="description">{{ chamadoSelecionado.descricao }}</p>
             </div>
             <small>{{ chamadoSelecionado.prioridade }}</small>
           </div>
 
-          @if (podeEditarChamado()) {
-            <form class="ticket-edit-form" (ngSubmit)="salvarEdicaoChamado()">
-              <label class="full">
+          @if (podeEditarConteudoChamado()) {
+            <form id="ticketEditForm" class="ticket-edit-form" (ngSubmit)="salvarEdicaoChamado()">
+              <label class="ticket-title-field">
                 <span>Titulo</span>
                 <input name="tituloEdicao" [(ngModel)]="chamadoEdicao.titulo" required />
               </label>
 
-              <label>
+              <label class="ticket-description-field full">
+                <span>Descricao</span>
+                <textarea name="descricaoEdicao" [(ngModel)]="chamadoEdicao.descricao" rows="4"></textarea>
+              </label>
+
+              <label class="ticket-requester-field">
                 <span>Solicitante</span>
                 <input name="solicitanteEdicao" [value]="chamadoSelecionado.solicitante" disabled />
               </label>
 
-              <label>
+              <label class="ticket-third-field">
                 <span>Categoria</span>
-                <select name="categoriaEdicao" [ngModel]="chamadoEdicao.categoria" (ngModelChange)="definirCategoriaEdicao($event)">
+                <select name="categoriaEdicao" [ngModel]="chamadoEdicao.categoria" (ngModelChange)="definirCategoriaEdicao($event)" [disabled]="!podeEditarChamado()">
                   @for (categoria of categorias; track categoria.id ?? categoria.nome) {
                     <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
                   }
                 </select>
               </label>
 
-              <label>
+              <label class="ticket-third-field">
                 <span>Subcategoria</span>
-                <select name="subcategoriaEdicao" [(ngModel)]="chamadoEdicao.subcategoria">
+                <select name="subcategoriaEdicao" [(ngModel)]="chamadoEdicao.subcategoria" [disabled]="!podeEditarChamado()">
                   @for (subcategoria of subcategoriasEdicao(); track subcategoria) {
                     <option [ngValue]="subcategoria">{{ subcategoria }}</option>
                   }
                 </select>
               </label>
 
-              <label>
+              <label class="ticket-third-field">
                 <span>Tipo</span>
-                <select name="tipoEdicao" [(ngModel)]="chamadoEdicao.tipo">
+                <select name="tipoEdicao" [(ngModel)]="chamadoEdicao.tipo" [disabled]="!podeEditarChamado()">
                   <option>Incidente</option>
                   <option>Solicitacao</option>
                   <option>Alteracao</option>
                 </select>
               </label>
 
-              <label>
+              <label class="ticket-half-field">
                 <span>Prioridade</span>
-                <select name="prioridadeEdicao" [(ngModel)]="chamadoEdicao.prioridade">
+                <select name="prioridadeEdicao" [(ngModel)]="chamadoEdicao.prioridade" [disabled]="!podeEditarChamado()">
                   <option>Baixa</option>
                   <option>Media</option>
                   <option>Alta</option>
@@ -247,9 +289,9 @@
                 </select>
               </label>
 
-              <label>
+              <label class="ticket-half-field">
                 <span>Status</span>
-                <select name="statusEdicao" [(ngModel)]="chamadoEdicao.status" [disabled]="chamadoSelecionado.status === 'Encerrado'">
+                <select name="statusEdicao" [(ngModel)]="chamadoEdicao.status" [disabled]="!podeEditarChamado() || chamadoSelecionado.status === 'Encerrado'">
                   <option>Aberto</option>
                   <option>Em atendimento</option>
                   <option>Aguardando retorno</option>
@@ -258,25 +300,6 @@
                 </select>
               </label>
 
-              <label class="full">
-                <span>Descricao</span>
-                <textarea name="descricaoEdicao" [(ngModel)]="chamadoEdicao.descricao" rows="4"></textarea>
-              </label>
-
-              <div class="details read-only-details full">
-                <div>
-                  <dt>Atendente</dt>
-                  <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
-                </div>
-                <div>
-                  <dt>Equipamento</dt>
-                  <dd>{{ chamadoSelecionado.equipamento }}</dd>
-                </div>
-              </div>
-
-              <div class="form-actions full">
-                <button class="primary" type="submit">Salvar dados do ticket</button>
-              </div>
             </form>
           } @else {
             <dl class="details">
@@ -288,74 +311,169 @@
                 <dt>Tipo</dt>
                 <dd>{{ chamadoSelecionado.tipo }}</dd>
               </div>
-              <div>
-                <dt>Atendente</dt>
-                <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
-              </div>
-              <div>
-                <dt>Equipamento</dt>
-                <dd>{{ chamadoSelecionado.equipamento }}</dd>
-              </div>
             </dl>
           }
 
-          <div class="attachments">
-            <strong>Anexos</strong>
-            @if (chamadoSelecionado.anexos.length) {
-              @for (anexo of chamadoSelecionado.anexos; track anexo) {
-                <span>{{ anexo }}</span>
-              }
-            } @else {
-              <small>Nenhum anexo enviado</small>
+          <footer class="ticket-detail-footer">
+            @if (perfil !== 'Usuario') {
+              <div class="actions">
+                @if (chamadoSelecionado.status === 'Aberto') {
+                  <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Assumir ticket</button>
+                }
+                <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
+                <button type="button" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
+                <button type="button" class="remote-button">Acesso remoto</button>
+              </div>
             }
-          </div>
 
-          @if (perfil !== 'Usuario') {
-            <div class="actions">
-              @if (chamadoSelecionado.status === 'Aberto') {
-                <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Assumir ticket</button>
+            @if (podeEditarConteudoChamado()) {
+              <button class="primary save-ticket-button" type="submit" form="ticketEditForm">Salvar dados do ticket</button>
+            }
+          </footer>
+
+        </div>
+      }
+
+      @if (abaDetalhe === 'anexos') {
+        <div class="ticket-detail-content attachments-tab-content">
+          <section class="ticket-attachments">
+            <header>
+              <div>
+                <strong>Anexos enviados</strong>
+                <small>{{ (chamadoSelecionado.anexosDetalhes?.length ?? chamadoSelecionado.anexos.length) }} arquivo(s)</small>
+              </div>
+              @if (podeAnexarChamado()) {
+                <label class="attachment-upload-button">
+                  <input type="file" multiple (change)="selecionarAnexosChamado($event)" />
+                  Adicionar anexos
+                </label>
+              } @else {
+                <small class="locked-attachments">Ticket encerrado para anexos</small>
               }
-              <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
-              <button type="button" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
-              <button type="button" class="remote-button">Acesso remoto</button>
-            </div>
-          }
+            </header>
+            @if ((chamadoSelecionado.anexosDetalhes?.length ?? 0) > 0) {
+              <div class="attachment-list">
+                @for (anexo of chamadoSelecionado.anexosDetalhes ?? []; track anexo.nome + anexo.url + anexo.tamanhoBytes) {
+                  <article class="attachment-item">
+                    <div>
+                      <span>{{ anexo.nome }}</span>
+                      <small>{{ anexo.tipo || 'Arquivo' }} - {{ tamanhoAnexo(anexo.tamanhoBytes) }}</small>
+                    </div>
+                    <div class="attachment-actions">
+                      <button type="button" [disabled]="!anexo.url" (click)="visualizarAnexo(anexo)">Visualizar</button>
+                      @if (anexo.url) {
+                        <a [href]="anexo.url" [download]="anexo.nome">Baixar</a>
+                      } @else {
+                        <button type="button" disabled>Sem arquivo</button>
+                      }
+                      <button type="button" class="danger" (click)="excluirAnexo(anexo)">Excluir</button>
+                    </div>
+                  </article>
+                }
+              </div>
+            } @else if (chamadoSelecionado.anexos.length) {
+              <div class="attachment-list">
+                @for (anexo of chamadoSelecionado.anexos; track anexo) {
+                  <article class="attachment-item">
+                    <div>
+                      <span>{{ anexo }}</span>
+                      <small>Arquivo anexado</small>
+                    </div>
+                    <div class="attachment-actions">
+                      <button type="button" disabled>Sem arquivo</button>
+                      <button type="button" disabled>Baixar</button>
+                      <button type="button" class="danger" (click)="excluirAnexo({ nome: anexo })">Excluir</button>
+                    </div>
+                  </article>
+                }
+              </div>
+            } @else {
+              <p>Nenhum anexo enviado neste ticket.</p>
+            }
+          </section>
+        </div>
+      }
 
-          @if (perfil === 'Usuario' && chamadoSelecionado.status === 'Encerrado') {
-            <div class="rating">
-              <label>
-                <span>Avaliacao</span>
-                <select [(ngModel)]="avaliacaoSelecionada" name="avaliacao">
-                  <option [ngValue]="5">5 - Excelente</option>
-                  <option [ngValue]="4">4 - Bom</option>
-                  <option [ngValue]="3">3 - Regular</option>
-                  <option [ngValue]="2">2 - Ruim</option>
-                  <option [ngValue]="1">1 - Critico</option>
-                </select>
-              </label>
+      @if (abaDetalhe === 'avaliacao' && chamadoEncerrado()) {
+        <div class="ticket-detail-content">
+          <section class="ticket-rating-panel">
+            <header>
+              <div>
+                <p class="eyebrow">Avaliacao do atendimento</p>
+                <h3>{{ chamadoSelecionado.avaliacao ? descricaoAvaliacao(chamadoSelecionado.avaliacao) : 'Sem avaliacao registrada' }}</h3>
+                <small>
+                  @if (podeEditarAvaliacaoChamado()) {
+                    Registre ou atualize sua experiencia com o atendimento deste ticket.
+                  } @else {
+                    Avaliacao preenchida pelo usuario solicitante do ticket.
+                  }
+                </small>
+              </div>
+              @if (chamadoSelecionado.avaliacao) {
+                <span class="rating-score">{{ chamadoSelecionado.avaliacao }}/5</span>
+              }
+            </header>
+
+            <div class="star-rating" role="radiogroup" aria-label="Nota de atendimento">
+              @for (nota of [1, 2, 3, 4, 5]; track nota) {
+                <button
+                  type="button"
+                  class="star-button"
+                  [class.active]="nota <= avaliacaoSelecionada"
+                  [disabled]="!podeEditarAvaliacaoChamado()"
+                  [attr.aria-label]="nota + ' estrela - ' + descricaoAvaliacao(nota)"
+                  (click)="definirAvaliacao(nota)"
+                >
+                  ★
+                </button>
+              }
+              <strong>{{ descricaoAvaliacao() }}</strong>
+            </div>
+
+            <label class="rating-comment">
+              <span>Descricao da satisfacao</span>
+              <textarea
+                name="avaliacaoComentario"
+                [(ngModel)]="avaliacaoComentario"
+                rows="5"
+                [disabled]="!podeEditarAvaliacaoChamado()"
+                placeholder="Descreva sua satisfacao com o atendimento"
+              ></textarea>
+            </label>
+
+            <footer>
               @if (podeReabrirChamado()) {
-                <button type="button" class="primary" (click)="reabrirChamado()">Reabrir ticket</button>
+                <button type="button" (click)="reabrirChamado()">Reabrir ticket</button>
               }
-              <button type="button" class="primary" (click)="avaliarChamadoClick.emit({ chamado: chamadoSelecionado, avaliacao: avaliacaoSelecionada })">Avaliar</button>
-            </div>
-          }
+              @if (podeEditarAvaliacaoChamado()) {
+                <button type="button" class="primary" (click)="salvarAvaliacaoChamado()">Salvar avaliacao</button>
+              }
+            </footer>
+          </section>
         </div>
       }
 
       @if (abaDetalhe === 'comunicacao') {
         <div class="mural-panel">
-          @if (perfil !== 'Usuario') {
-            <div class="mural-composer">
-              <label>
-                <span>Recado para o usuario</span>
-                <textarea [(ngModel)]="novoComunicado" name="novoComunicado" rows="4" placeholder="Escreva uma comunicacao formal para ficar registrada no mural"></textarea>
-              </label>
-              <button type="button" class="primary" (click)="publicarComunicado()">Publicar recado</button>
+          <div class="mural-composer">
+            <label>
+              <span>{{ perfil === 'Usuario' ? 'Recado para o atendimento' : 'Recado para o usuario' }}</span>
+              <textarea [(ngModel)]="novoComunicado" name="novoComunicado" rows="4" placeholder="Escreva uma comunicacao formal para ficar registrada no mural"></textarea>
+            </label>
+            <button type="button" class="primary" (click)="publicarComunicado()">Publicar recado</button>
+          </div>
+
+          <div class="communication-pagination">
+            <span>Exibindo os {{ comunicacoesMuralPaginadas().length }} comunicados mais recentes de {{ comunicacoesMural().length }}</span>
+            <div>
+              <button type="button" [disabled]="paginaComunicados === 0" (click)="alterarPaginaComunicados(-1)">Mais recentes</button>
+              <small>Pagina {{ paginaComunicados + 1 }} de {{ totalPaginasComunicados() }}</small>
+              <button type="button" [disabled]="paginaComunicados + 1 >= totalPaginasComunicados()" (click)="alterarPaginaComunicados(1)">Anteriores</button>
             </div>
-          }
+          </div>
 
           <div class="communication-timeline">
-            @for (mensagem of comunicacoesMural(); track mensagem.horario + mensagem.texto) {
+            @for (mensagem of comunicacoesMuralPaginadas(); track trackMensagem($index, mensagem)) {
               <article>
                 <div>
                   <strong>{{ mensagem.autor }}</strong>
@@ -372,22 +490,39 @@
 
       @if (abaDetalhe === 'chat') {
         <div class="chat-panel ticket-chat-panel">
-          <div class="chat whatsapp-chat">
-            @for (mensagem of mensagensChat(); track mensagem.horario + mensagem.texto) {
-              <div class="message" [class.mine]="mensagem.perfil === perfil">
+          <div class="chat whatsapp-chat" #chatMessages>
+            @for (mensagem of mensagensChat(); track trackMensagem($index, mensagem)) {
+              <div class="message" [class.mine]="mensagemEhMinha(mensagem)">
                 <div>
                   <strong>{{ mensagem.autor }}</strong>
                   <small>{{ mensagem.horario }}</small>
                 </div>
                 <p>{{ mensagem.texto }}</p>
+                @if (mensagemEhMinha(mensagem)) {
+                  <span class="message-state" [class.read]="statusMensagem(mensagem) === 'Lida'">
+                    <span aria-hidden="true">{{ statusMensagem(mensagem) === 'Enviando' ? '✓' : '✓✓' }}</span>
+                    {{ statusMensagem(mensagem) }}
+                  </span>
+                }
               </div>
             } @empty {
               <p class="empty-state">Inicie a conversa com a equipe tecnica.</p>
             }
+
+            @if (digitandoRemoto || usuariosDigitandoChat.length) {
+              <div class="message typing-message">
+                <strong>{{ autorDigitando() }}</strong>
+                <span class="typing-dots" aria-label="Digitando">
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                </span>
+              </div>
+            }
           </div>
 
           <div class="composer whatsapp-composer">
-            <input [(ngModel)]="novaMensagem" name="mensagem" placeholder="Escreva uma mensagem" (keyup.enter)="enviarMensagem()" />
+            <input [(ngModel)]="novaMensagem" name="mensagem" placeholder="Escreva uma mensagem" (input)="registrarDigitacaoChat()" (keyup.enter)="enviarMensagem()" />
             <button type="button" class="primary" (click)="enviarMensagem()">Enviar</button>
           </div>
         </div>
