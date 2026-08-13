@@ -35,6 +35,8 @@ namespace UniFlowIT.Api.Models
         public string? InscricaoMunicipal { get; set; }
         public string? InscricaoEstadual { get; set; }
         public string? LogoUrl { get; set; }
+        public int? EmpresaContratanteId { get; set; }
+        public string TipoUnidade { get; set; } = "Contratante";
         public bool Ativo { get; set; } = true;
         public bool AcessoBloqueado { get; set; }
         public string? MotivoBloqueio { get; set; }

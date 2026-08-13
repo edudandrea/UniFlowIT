@@ -16,13 +16,18 @@ export class EmpresasPage {
   @Input() empresaFiltro = '';
   @Input() empresaModalAberto = false;
   @Input() empresaEditando = false;
+  @Input() modoCadastro = 'Administrador SaaS';
 
   protected pesquisaInformada(): boolean {
     return Boolean(this.empresaFiltro.trim());
   }
 
   protected podeAbrirDetalhes(): boolean {
-    return this.pesquisaInformada() && Boolean(this.empresaSelecionada?.id);
+    return Boolean(this.empresaSelecionada?.id);
+  }
+
+  protected podeAlterarTipoUnidade(): boolean {
+    return this.modoCadastro !== 'Administrador SaaS' && this.novaEmpresa.tipoUnidade !== 'Contratante';
   }
 
   @Output() empresaTabChange = new EventEmitter<EmpresaTab>();

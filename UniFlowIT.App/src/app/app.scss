@@ -263,7 +263,7 @@ button:disabled {
   position: sticky;
   top: 0;
   height: 100dvh;
-  padding: 22px 16px;
+  padding: 18px 16px;
   background:
     linear-gradient(180deg, rgb(37 99 235 / 0.12), transparent 34%),
     var(--blue-950);
@@ -275,7 +275,7 @@ button:disabled {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
   padding: 8px;
   border: 1px solid rgb(203 213 225 / 0.12);
   border-radius: 14px;
@@ -305,7 +305,7 @@ button:disabled {
 
 .nav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding-top: 8px;
   border-top: 1px solid rgb(203 213 225 / 0.12);
 }
@@ -339,8 +339,8 @@ button:disabled {
 
 .nav-group {
   display: grid;
-  gap: 4px;
-  margin: 4px 0;
+  gap: 3px;
+  margin: 2px 0;
 }
 
 .nav-parent {
@@ -2378,7 +2378,7 @@ button,
 
 .brand {
   min-height: 66px;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   padding: 0 2px;
   border-radius: 0;
   background: transparent;
@@ -2408,12 +2408,12 @@ button,
 }
 
 .nav {
-  gap: 6px;
+  gap: 3px;
   padding: 0;
 }
 
 .nav-group {
-  gap: 6px;
+  gap: 3px;
   margin: 0;
   padding: 0;
   border-radius: 0;
@@ -2423,12 +2423,12 @@ button,
 .nav button,
 .nav-children button,
 .nav-parent {
-  min-height: 44px;
+  min-height: 40px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: #cbd5e1;
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: 0.92rem;
   font-weight: 760;
   box-shadow: none;
@@ -3996,6 +3996,10 @@ app-root.theme-light :is(input, select, textarea):-webkit-autofill:focus {
   padding-bottom: 14px;
 }
 
+.company-form-section header .unit-toggle-field {
+  margin-left: auto;
+}
+
 .company-form-section header h3 {
   margin: 0;
   color: var(--text);
@@ -4055,74 +4059,24 @@ app-root.theme-light :is(input, select, textarea):-webkit-autofill:focus {
   grid-column: span 2;
 }
 
-.contact-fields {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.contact-fields label:nth-child(1),
-.contact-fields label:nth-child(2),
 .fiscal-fields label:not(.span-all) {
   grid-column: span 2;
 }
 
-.contact-fields .small-field {
-  grid-column: span 1;
-}
-
-.access-fields {
-  grid-template-columns: minmax(260px, 0.6fr) minmax(0, 1fr);
-}
-
-app-root.theme-dark .company-form-section {
-  background:
-    radial-gradient(circle at 100% 0, rgb(45 140 255 / 0.09), transparent 28%),
-    #0b1828;
-}
-
-app-root.theme-light .company-form-section {
-  background:
-    radial-gradient(circle at 100% 0, rgb(45 140 255 / 0.08), transparent 28%),
-    #f5f9fd;
-}
-
-app-root.theme-dark .company-form-section :is(input, select, textarea):disabled {
-  background: #081525;
-  color: #eef5fb;
-}
-
-app-root.theme-light .company-form-section :is(input, select, textarea):disabled {
-  background: #edf4fb;
-  color: #26384d;
-}
-
-app-root.theme-dark .company-form-section :is(input, select, textarea):hover:not(:disabled) {
-  background: #0d1f34;
-}
-
-app-root.theme-light .company-form-section :is(input, select, textarea):hover:not(:disabled) {
-  background: #e7f0f8;
-}
+app-root.theme-dark .company-form-section{background:radial-gradient(circle at 100% 0,rgb(45 140 255 / .09),transparent 28%),#0b1828}app-root.theme-light .company-form-section{background:radial-gradient(circle at 100% 0,rgb(45 140 255 / .08),transparent 28%),#f5f9fd}
 
 @media (max-width: 1180px) {
-  .company-fields,
-  .contact-fields {
+  .company-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .access-fields {
-    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 700px) {
-  .company-fields,
-  .contact-fields {
+  .company-fields {
     grid-template-columns: 1fr;
   }
 
-  .company-fields .span-2,
-  .contact-fields label:nth-child(1),
-  .contact-fields label:nth-child(2),
+  .company-fields :is(.span-2, .field-type),
   .fiscal-fields label:not(.span-all) {
     grid-column: span 1;
   }
@@ -4193,9 +4147,8 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
   grid-column: span 3;
 }
 
-.company-fields .field-wide,
-.company-form .field-wide,
 .company-fields .span-2,
+.company-fields .field-half,
 .company-form .span-2 {
   grid-column: span 6;
 }
@@ -4222,13 +4175,11 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
   grid-column: span 1;
 }
 
-.identity-fields .field-small:nth-last-child(2) {
-  grid-column: 1 / span 3;
-}
-
-.identity-fields .field-small:last-child {
+:is(.company-fields, .company-form-grid) .field-type {
   grid-column: span 3;
 }
+
+.identity-fields .identity-name{grid-column:span 6}.identity-fields :is(.identity-doc,.identity-date,.identity-fiscal){grid-column:span 3}.unit-toggle-field{display:grid;gap:5px;justify-items:end}.unit-toggle-field>span{font-size:.68rem;font-weight:900;color:var(--text-muted);text-transform:uppercase}.unit-pill-toggle{min-width:132px;height:36px;border-radius:999px;border:1px solid var(--border-strong);background:var(--field-bg);color:var(--text);font-weight:950;text-transform:uppercase}.unit-pill-toggle.is-matriz{background:var(--primary);color:white}.unit-pill-toggle:disabled{opacity:.68;cursor:not-allowed}.address-grid label:first-child{grid-column:span 10}.address-grid label:nth-child(2){grid-column:span 2}.address-grid label:is(:nth-child(3),:nth-child(4)){grid-column:span 3}.address-grid label:nth-child(5){grid-column:span 4}.address-grid label:nth-child(6){grid-column:span 2}.address-grid label:is(:nth-child(7),:nth-child(8)){grid-column:span 3}.address-grid label:nth-child(9){grid-column:span 6}
 
 .access-fields {
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -4358,15 +4309,8 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
     grid-column: span 3;
   }
 
-  .identity-fields .field-small:nth-last-child(2),
-  .identity-fields .field-small:last-child {
-    grid-column: span 3;
-  }
-
   .company-fields .span-2,
   .company-form .span-2,
-  .company-fields .field-wide,
-  .company-form .field-wide,
   .access-fields .span-2 {
     grid-column: span 6;
   }
@@ -4383,8 +4327,6 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
   .company-form label,
   .company-fields .span-2,
   .company-form .span-2,
-  .company-fields .field-wide,
-  .company-form .field-wide,
   .company-fields .field-small,
   .company-form .field-small,
   .company-fields .field-medium,
@@ -4393,8 +4335,6 @@ app-root.theme-light .company-form-section :is(input, select, textarea):hover:no
   .company-form .field-compact,
   .company-fields .field-tiny,
   .company-form .field-tiny,
-  .identity-fields .field-small:nth-last-child(2),
-  .identity-fields .field-small:last-child,
   .company-form .status-toggle-field,
   .access-fields .status-toggle-field,
   .access-fields .span-2 {
@@ -5190,6 +5130,13 @@ app-root.theme-light .platform-health span {
   font-weight: 850;
 }
 
+.modal-block-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .company-form-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -5197,33 +5144,7 @@ app-root.theme-light .platform-health span {
   align-items: end;
 }
 
-.company-form-grid label {
-  min-width: 0;
-}
-
-.company-form-grid .field-full {
-  grid-column: 1 / -1;
-}
-
-.company-form-grid .field-half {
-  grid-column: span 6;
-}
-
-.company-form-grid .field-third {
-  grid-column: span 4;
-}
-
-.company-form-grid .field-medium {
-  grid-column: span 4;
-}
-
-.company-form-grid .field-small {
-  grid-column: span 3;
-}
-
-.company-form-grid .field-tiny {
-  grid-column: span 2;
-}
+.company-form-grid label{min-width:0}.company-form-grid .field-full{grid-column:1/-1}.company-form-grid .field-half{grid-column:span 6}.company-form-grid :is(.field-third,.field-medium){grid-column:span 4}.company-form-grid .field-small{grid-column:span 3}.company-form-grid .field-tiny{grid-column:span 2}
 
 .company-create-form .modal-actions {
   margin-top: 0;
@@ -5244,7 +5165,8 @@ app-root.theme-light .platform-health span {
     grid-template-columns: 1fr;
   }
 
-  .company-form-grid :is(.field-full, .field-half, .field-third, .field-medium, .field-small, .field-tiny) {
+  .company-form-grid :is(.field-full, .field-half, .field-type, .field-third, .field-medium, .field-small, .field-tiny),
+  .address-grid label {
     grid-column: 1 / -1;
   }
 }
@@ -5590,4 +5512,30 @@ app-root .password-control::before {
   top: 50% !important;
   bottom: auto !important;
   transform: translateY(-50%) !important;
+}
+
+app-root .sidebar .nav {
+  display: grid !important;
+  align-content: start !important;
+  grid-auto-rows: min-content !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+
+app-root .sidebar :is(.nav > button, .nav > .nav-group) {
+  margin: 0 !important;
+}
+
+app-root .sidebar :is(.nav button, .nav-parent) {
+  min-height: 38px !important;
+  padding-block: 0 !important;
+}
+
+app-root .sidebar .nav-children {
+  gap: 3px !important;
+}
+
+app-root .sidebar .nav-children button {
+  min-height: 32px !important;
+  padding-left: 10px !important;
 }

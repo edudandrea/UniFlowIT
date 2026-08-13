@@ -10,15 +10,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(builder.Configuration.GetSection("Security:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200", "http://127.0.0.1:4200"])
             .AllowAnyHeader()
             .AllowAnyMethod());
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024;
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddOpenApi();
+builder.Services.AddSingleton<AuthTokenService>();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -31,13 +36,56 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 app.UseCors();
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
+    context.Response.Headers.TryAdd("Referrer-Policy", "no-referrer");
+    context.Response.Headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    context.Response.Headers.TryAdd("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+    await next();
+});
+
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Path.StartsWithSegments("/api")
+        || context.Request.Path.StartsWithSegments("/api/auth/bootstrap-status")
+        || context.Request.Path.StartsWithSegments("/api/auth/login")
+        || context.Request.Path.StartsWithSegments("/api/auth/criar-administrador-saas"))
+    {
+        await next();
+        return;
+    }
+
+    var token = context.Request.Headers.Authorization.ToString();
+    token = token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? token["Bearer ".Length..].Trim() : null;
+    var tokenService = context.RequestServices.GetRequiredService<AuthTokenService>();
+    if (!tokenService.TryValidate(token, out var session))
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+
+    var db = context.RequestServices.GetRequiredService<AppDbContext>();
+    var usuarioAtivo = await db.Users
+        .Include(user => user.Empresa)
+        .AnyAsync(user => user.Id == session.UserId
+            && user.Email == session.Email
+            && user.Role == session.Role
+            && user.Ativo
+            && (user.Empresa == null || user.Empresa.Ativo && !user.Empresa.AcessoBloqueado));
+
+    if (!usuarioAtivo)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+
+    context.Items["AuthSession"] = session;
+    await next();
+});
 
 app.MapGet("/", () => Results.Ok(new { name = "UniFlowIT.Api", phase = "Fase 1 - Central de tickets" }));
 
@@ -47,7 +95,7 @@ app.MapGet("/api/auth/bootstrap-status", async (AppDbContext db) =>
     return Results.Ok(new { existeAdministradorSaas });
 });
 
-app.MapPost("/api/auth/criar-administrador-saas", async (AppDbContext db, CriarAdministradorSaasRequest request) =>
+app.MapPost("/api/auth/criar-administrador-saas", async (AppDbContext db, AuthTokenService tokenService, CriarAdministradorSaasRequest request) =>
 {
     var existeAdministradorSaas = await db.Users.AnyAsync(user => user.Role.ToLower() == "administradorsaas");
     if (existeAdministradorSaas)
@@ -75,10 +123,10 @@ app.MapPost("/api/auth/criar-administrador-saas", async (AppDbContext db, CriarA
     db.Users.Add(usuario);
     await db.SaveChangesAsync();
 
-    return Results.Created($"/api/usuarios/{usuario.Id}", CriarAuthResponse(usuario));
+    return Results.Created($"/api/usuarios/{usuario.Id}", CriarAuthResponse(usuario, tokenService));
 });
 
-app.MapPost("/api/auth/login", async (AppDbContext db, LoginRequest request) =>
+app.MapPost("/api/auth/login", async (AppDbContext db, AuthTokenService tokenService, LoginRequest request) =>
 {
     var email = request.Email.Trim().ToLowerInvariant();
     var usuario = await db.Users
@@ -95,24 +143,59 @@ app.MapPost("/api/auth/login", async (AppDbContext db, LoginRequest request) =>
         return Results.Forbid();
     }
 
-    return Results.Ok(CriarAuthResponse(usuario));
+    return Results.Ok(CriarAuthResponse(usuario, tokenService));
 });
 
-app.MapGet("/api/empresas", async (AppDbContext db) =>
+app.MapGet("/api/empresas", async (AppDbContext db, HttpContext http, int? contratanteId, bool somenteContratantes = false) =>
 {
-    var empresas = await db.Empresas
-        .OrderBy(empresa => empresa.Nome)
-        .ToListAsync();
+    var auth = Auth(http);
+    var query = db.Empresas.AsQueryable();
+
+    if (IsSaas(auth) && somenteContratantes)
+    {
+        query = query.Where(empresa => empresa.EmpresaContratanteId == null);
+    }
+
+    if (IsSaas(auth) && contratanteId.HasValue)
+    {
+        query = query.Where(empresa => empresa.Id == contratanteId || empresa.EmpresaContratanteId == contratanteId);
+    }
+    else if (!IsSaas(auth))
+    {
+        if (!auth.EmpresaId.HasValue)
+        {
+            return Results.Forbid();
+        }
+
+        query = query.Where(empresa => empresa.Id == auth.EmpresaId || empresa.EmpresaContratanteId == auth.EmpresaId);
+    }
+
+    var empresas = await query.OrderBy(empresa => empresa.Nome).ToListAsync();
 
     return Results.Ok(empresas);
 });
 
-app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request) =>
+app.MapPost("/api/empresas", async (AppDbContext db, HttpContext http, CriarEmpresaRequest request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
     var erroValidacao = ValidarEmpresaRequest(request);
     if (erroValidacao is not null)
     {
         return Results.BadRequest(new { message = erroValidacao });
+    }
+
+    if (!IsSaas(auth))
+    {
+        request.EmpresaContratanteId = auth.EmpresaId;
+        request.Ativo = true;
+        request.AcessoBloqueado = false;
+        request.MotivoBloqueio = null;
+        request.BloqueadoEm = null;
     }
 
     var slug = NormalizarTenantSlug(request.TenantSlug);
@@ -141,6 +224,8 @@ app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request
         InscricaoMunicipal = request.InscricaoMunicipal,
         InscricaoEstadual = request.InscricaoEstadual,
         LogoUrl = request.LogoUrl,
+        EmpresaContratanteId = request.EmpresaContratanteId,
+        TipoUnidade = NormalizarTipoUnidade(request.TipoUnidade, request.EmpresaContratanteId),
         Ativo = request.Ativo,
         AcessoBloqueado = request.AcessoBloqueado,
         MotivoBloqueio = request.MotivoBloqueio,
@@ -154,8 +239,14 @@ app.MapPost("/api/empresas", async (AppDbContext db, CriarEmpresaRequest request
     return Results.Created($"/api/empresas/{empresa.Id}", empresa);
 });
 
-app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, int id, CriarEmpresaRequest request) =>
+app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, HttpContext http, int id, CriarEmpresaRequest request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
     var erroValidacao = ValidarEmpresaRequest(request);
     if (erroValidacao is not null)
     {
@@ -166,6 +257,20 @@ app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, int id, CriarEmpres
     if (empresa is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth))
+    {
+        if (!auth.EmpresaId.HasValue || empresa.Id != auth.EmpresaId && empresa.EmpresaContratanteId != auth.EmpresaId)
+        {
+            return Results.Forbid();
+        }
+
+        request.EmpresaContratanteId = empresa.Id == auth.EmpresaId ? null : auth.EmpresaId;
+        request.Ativo = empresa.Ativo;
+        request.AcessoBloqueado = empresa.AcessoBloqueado;
+        request.MotivoBloqueio = empresa.MotivoBloqueio;
+        request.BloqueadoEm = empresa.BloqueadoEm;
     }
 
     var slug = NormalizarTenantSlug(request.TenantSlug);
@@ -192,6 +297,8 @@ app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, int id, CriarEmpres
     empresa.InscricaoMunicipal = request.InscricaoMunicipal;
     empresa.InscricaoEstadual = request.InscricaoEstadual;
     empresa.LogoUrl = request.LogoUrl;
+    empresa.EmpresaContratanteId = request.EmpresaContratanteId;
+    empresa.TipoUnidade = NormalizarTipoUnidade(request.TipoUnidade, request.EmpresaContratanteId);
     empresa.Ativo = request.Ativo;
     empresa.AcessoBloqueado = request.AcessoBloqueado;
     empresa.MotivoBloqueio = request.MotivoBloqueio;
@@ -201,15 +308,26 @@ app.MapPut("/api/empresas/{id:int}", async (AppDbContext db, int id, CriarEmpres
     return Results.Ok(empresa);
 });
 
-app.MapGet("/api/usuarios", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/usuarios", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
     var query = db.Users
         .Include(user => user.Empresa)
         .AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(user => user.EmpresaId == empresaId);
+    }
+    else if (!IsSaas(auth))
+    {
+        var empresasPermitidas = await EmpresasPermitidas(db, auth);
+        query = query.Where(user => user.EmpresaId.HasValue && empresasPermitidas.Contains(user.EmpresaId.Value));
     }
 
     var usuarios = await query
@@ -230,8 +348,14 @@ app.MapGet("/api/usuarios", async (AppDbContext db, int? empresaId) =>
     return Results.Ok(usuarios);
 });
 
-app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request) =>
+app.MapPost("/api/usuarios", async (AppDbContext db, HttpContext http, CriarUsuarioRequest request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
     if (request.EmpresaId <= 0)
     {
         return Results.BadRequest(new { message = "Selecione a empresa contratante." });
@@ -246,6 +370,12 @@ app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request
     if (!PasswordService.IsStrong(request.Senha))
     {
         return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+    }
+
+    var empresasPermitidas = IsSaas(auth) ? null : await EmpresasPermitidas(db, auth);
+    if (empresasPermitidas is not null && !empresasPermitidas.Contains(request.EmpresaId))
+    {
+        return Results.Forbid();
     }
 
     var empresaExiste = await db.Empresas.AnyAsync(empresa => empresa.Id == request.EmpresaId);
@@ -286,8 +416,14 @@ app.MapPost("/api/usuarios", async (AppDbContext db, CriarUsuarioRequest request
     });
 });
 
-app.MapPut("/api/usuarios/{id:int}", async (AppDbContext db, int id, AtualizarUsuarioRequest request) =>
+app.MapPut("/api/usuarios/{id:int}", async (AppDbContext db, HttpContext http, int id, AtualizarUsuarioRequest request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && auth.UserId != id)
+    {
+        return Results.Forbid();
+    }
+
     var usuario = await db.Users
         .Include(user => user.Empresa)
         .FirstOrDefaultAsync(user => user.Id == id);
@@ -295,6 +431,22 @@ app.MapPut("/api/usuarios/{id:int}", async (AppDbContext db, int id, AtualizarUs
     if (usuario is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && auth.UserId != id)
+    {
+        var empresasPermitidas = await EmpresasPermitidas(db, auth);
+        if (!usuario.EmpresaId.HasValue || !empresasPermitidas.Contains(usuario.EmpresaId.Value) || !empresasPermitidas.Contains(request.EmpresaId))
+        {
+            return Results.Forbid();
+        }
+    }
+
+    if (!IsSaas(auth) && auth.UserId == id)
+    {
+        request.EmpresaId = usuario.EmpresaId ?? 0;
+        request.Role = usuario.Role;
+        request.Ativo = usuario.Ativo;
     }
 
     if (usuario.Role == "AdministradorSaas")
@@ -343,8 +495,14 @@ app.MapPut("/api/usuarios/{id:int}", async (AppDbContext db, int id, AtualizarUs
     });
 });
 
-app.MapPut("/api/usuarios/{id:int}/senha", async (AppDbContext db, int id, AlterarSenhaRequest request) =>
+app.MapPut("/api/usuarios/{id:int}/senha", async (AppDbContext db, HttpContext http, int id, AlterarSenhaRequest request) =>
 {
+    var auth = Auth(http);
+    if (auth.UserId != id && !IsSaas(auth))
+    {
+        return Results.Forbid();
+    }
+
     var usuario = await db.Users.FindAsync(id);
     if (usuario is null)
     {
@@ -367,27 +525,31 @@ app.MapPut("/api/usuarios/{id:int}/senha", async (AppDbContext db, int id, Alter
     return Results.NoContent();
 });
 
-app.MapGet("/api/chamados", async (AppDbContext db, string? perfil, int? empresaId, int? usuarioId, int? atendenteId, string? solicitante) =>
+app.MapGet("/api/chamados", async (AppDbContext db, HttpContext http) =>
 {
+    var auth = Auth(http);
     var query = db.Chamados
         .Include(chamado => chamado.Anexos)
         .Include(chamado => chamado.Comunicacoes)
         .AsQueryable();
 
-    if (!string.Equals(perfil, "AdministradorSaas", StringComparison.OrdinalIgnoreCase) && empresaId.HasValue)
+    if (!IsSaas(auth))
     {
-        query = query.Where(chamado => chamado.EmpresaId == empresaId);
+        if (!auth.EmpresaId.HasValue)
+        {
+            return Results.Forbid();
+        }
+
+        query = query.Where(chamado => chamado.EmpresaId == auth.EmpresaId);
     }
 
-    if (string.Equals(perfil, "Atendente", StringComparison.OrdinalIgnoreCase))
+    if (IsAtendente(auth))
     {
-        query = query.Where(chamado => chamado.Status == StatusChamado.Aberto || chamado.AtendenteId == atendenteId);
+        query = query.Where(chamado => chamado.Status == StatusChamado.Aberto || chamado.AtendenteId == auth.UserId);
     }
-    else if (string.Equals(perfil, "Usuario", StringComparison.OrdinalIgnoreCase))
+    else if (IsUsuario(auth))
     {
-        query = usuarioId.HasValue
-            ? query.Where(chamado => chamado.SolicitanteUsuarioId == usuarioId)
-            : query.Where(chamado => chamado.Solicitante == solicitante);
+        query = query.Where(chamado => chamado.SolicitanteUsuarioId == auth.UserId);
         query = query.Where(chamado => chamado.Status == StatusChamado.Aberto);
     }
 
@@ -398,23 +560,34 @@ app.MapGet("/api/chamados", async (AppDbContext db, string? perfil, int? empresa
     return Results.Ok(chamados);
 });
 
-app.MapGet("/api/chamados/{id:int}", async (AppDbContext db, int id) =>
+app.MapGet("/api/chamados/{id:int}", async (AppDbContext db, HttpContext http, int id) =>
 {
+    var auth = Auth(http);
     var chamado = await db.Chamados
         .Include(item => item.Anexos)
         .Include(item => item.Comunicacoes.OrderBy(mensagem => mensagem.EnviadoEm))
         .FirstOrDefaultAsync(item => item.Id == id);
 
-    return chamado is null ? Results.NotFound() : Results.Ok(chamado);
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    return PodeAcessarChamado(auth, chamado) ? Results.Ok(chamado) : Results.Forbid();
 });
 
-app.MapGet("/api/categorias-chamado", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/categorias-chamado", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.CategoriasChamados.AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(categoria => categoria.EmpresaId == empresaId);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(categoria => categoria.EmpresaId == auth.EmpresaId);
     }
 
     var categorias = await query
@@ -424,8 +597,15 @@ app.MapGet("/api/categorias-chamado", async (AppDbContext db, int? empresaId) =>
     return Results.Ok(categorias);
 });
 
-app.MapPost("/api/categorias-chamado", async (AppDbContext db, CategoriaChamado categoria) =>
+app.MapPost("/api/categorias-chamado", async (AppDbContext db, HttpContext http, CategoriaChamado categoria) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
+    categoria.EmpresaId = IsSaas(auth) ? categoria.EmpresaId : auth.EmpresaId;
     if (categoria.EmpresaId.HasValue)
     {
         var empresaExiste = await db.Empresas.AnyAsync(empresa => empresa.Id == categoria.EmpresaId.Value);
@@ -446,12 +626,23 @@ app.MapPost("/api/categorias-chamado", async (AppDbContext db, CategoriaChamado 
     return Results.Created($"/api/categorias-chamado/{categoria.Id}", categoria);
 });
 
-app.MapPut("/api/categorias-chamado/{id:int}", async (AppDbContext db, int id, CategoriaChamado request) =>
+app.MapPut("/api/categorias-chamado/{id:int}", async (AppDbContext db, HttpContext http, int id, CategoriaChamado request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth))
+    {
+        return Results.Forbid();
+    }
+
     var categoria = await db.CategoriasChamados.FindAsync(id);
     if (categoria is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && categoria.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     categoria.Nome = request.Nome.Trim();
@@ -464,8 +655,13 @@ app.MapPut("/api/categorias-chamado/{id:int}", async (AppDbContext db, int id, C
     return Results.Ok(categoria);
 });
 
-app.MapPost("/api/chamados", async (AppDbContext db, CriarChamadoRequest request) =>
+app.MapPost("/api/chamados", async (AppDbContext db, HttpContext http, CriarChamadoRequest request) =>
 {
+    var auth = Auth(http);
+    request.EmpresaId = IsSaas(auth) ? request.EmpresaId : auth.EmpresaId;
+    request.SolicitanteUsuarioId = auth.UserId;
+    request.Solicitante = auth.Nome;
+
     if (request.EmpresaId.HasValue)
     {
         var empresaExiste = await db.Empresas.AnyAsync(empresa => empresa.Id == request.EmpresaId.Value);
@@ -498,16 +694,60 @@ app.MapPost("/api/chamados", async (AppDbContext db, CriarChamadoRequest request
     return Results.Created($"/api/chamados/{chamado.Id}", chamado);
 });
 
-app.MapPost("/api/chamados/{id:int}/capturar", async (AppDbContext db, int id, Users atendente) =>
+app.MapPut("/api/chamados/{id:int}", async (AppDbContext db, HttpContext http, int id, EditarChamadoRequest request) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
     var chamado = await db.Chamados.FindAsync(id);
     if (chamado is null)
     {
         return Results.NotFound();
     }
 
-    chamado.AtendenteId = atendente.Id;
-    chamado.AtendenteNome = atendente.Nome;
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
+    chamado.Titulo = request.Titulo.Trim();
+    chamado.Categoria = request.Categoria.Trim();
+    chamado.Subcategoria = request.Subcategoria.Trim();
+    chamado.Tipo = request.Tipo;
+    chamado.Prioridade = request.Prioridade;
+    chamado.Status = request.Status;
+    chamado.Descricao = request.Descricao.Trim();
+    chamado.AtualizadoEm = DateTime.UtcNow;
+    chamado.EncerradoEm = request.Status is StatusChamado.Encerrado or StatusChamado.Cancelado ? DateTime.UtcNow : null;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(chamado);
+});
+
+app.MapPost("/api/chamados/{id:int}/capturar", async (AppDbContext db, HttpContext http, int id) =>
+{
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
+    var chamado = await db.Chamados.FindAsync(id);
+    if (chamado is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
+    }
+
+    chamado.AtendenteId = auth.UserId;
+    chamado.AtendenteNome = auth.Nome;
     chamado.Status = StatusChamado.EmAtendimento;
     chamado.AtualizadoEm = DateTime.UtcNow;
 
@@ -515,21 +755,28 @@ app.MapPost("/api/chamados/{id:int}/capturar", async (AppDbContext db, int id, U
     return Results.Ok(chamado);
 });
 
-app.MapPost("/api/chamados/{id:int}/mensagens", async (AppDbContext db, int id, CriarMensagemRequest request) =>
+app.MapPost("/api/chamados/{id:int}/mensagens", async (AppDbContext db, HttpContext http, int id, CriarMensagemRequest request) =>
 {
-    var chamadoExiste = await db.Chamados.AnyAsync(item => item.Id == id);
-    if (!chamadoExiste)
+    var auth = Auth(http);
+    var chamado = await db.Chamados.FindAsync(id);
+    if (chamado is null)
     {
         return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
     }
 
     var mensagem = new ComunicacaoChamado
     {
         ChamadoId = id,
-        AutorId = request.AutorId,
-        AutorNome = request.AutorNome,
-        AutorPerfil = request.AutorPerfil,
-        Mensagem = request.Mensagem
+        AutorId = auth.UserId,
+        AutorNome = auth.Nome,
+        AutorPerfil = auth.Role,
+        Mensagem = request.Mensagem.Trim(),
+        Tipo = request.Tipo == "Mural" ? "Mural" : "Chat"
     };
 
     db.ComunicacoesChamados.Add(mensagem);
@@ -541,15 +788,21 @@ app.MapPost("/api/chamados/{id:int}/mensagens", async (AppDbContext db, int id, 
     return Results.Created($"/api/chamados/{id}/mensagens/{mensagem.Id}", mensagem);
 });
 
-app.MapPost("/api/chamados/{id:int}/encerrar", async (AppDbContext db, int id) => await AtualizarStatusChamado(db, id, StatusChamado.Encerrado));
-app.MapPost("/api/chamados/{id:int}/cancelar", async (AppDbContext db, int id) => await AtualizarStatusChamado(db, id, StatusChamado.Cancelado));
+app.MapPost("/api/chamados/{id:int}/encerrar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Encerrado));
+app.MapPost("/api/chamados/{id:int}/cancelar", async (AppDbContext db, HttpContext http, int id) => await AtualizarStatusChamado(db, Auth(http), id, StatusChamado.Cancelado));
 
-app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, int id, AvaliarChamadoRequest request) =>
+app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, HttpContext http, int id, AvaliarChamadoRequest request) =>
 {
+    var auth = Auth(http);
     var chamado = await db.Chamados.FindAsync(id);
     if (chamado is null)
     {
         return Results.NotFound();
+    }
+
+    if (!PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
     }
 
     chamado.AvaliacaoNota = Math.Clamp(request.Nota, 1, 5);
@@ -560,13 +813,18 @@ app.MapPost("/api/chamados/{id:int}/avaliar", async (AppDbContext db, int id, Av
     return Results.Ok(chamado);
 });
 
-app.MapGet("/api/categorias-conhecimento", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/categorias-conhecimento", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.CategoriasConhecimento.AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(item => item.EmpresaId == empresaId || item.EmpresaId == null);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(item => item.EmpresaId == auth.EmpresaId || item.EmpresaId == null);
     }
 
     var categorias = await query
@@ -576,8 +834,15 @@ app.MapGet("/api/categorias-conhecimento", async (AppDbContext db, int? empresaI
     return Results.Ok(categorias);
 });
 
-app.MapPost("/api/categorias-conhecimento", async (AppDbContext db, CategoriaConhecimento categoria) =>
+app.MapPost("/api/categorias-conhecimento", async (AppDbContext db, HttpContext http, CategoriaConhecimento categoria) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
+    categoria.EmpresaId = IsSaas(auth) ? categoria.EmpresaId : auth.EmpresaId;
     categoria.Nome = categoria.Nome.Trim();
     categoria.CriadoEm = DateTime.UtcNow;
 
@@ -597,13 +862,24 @@ app.MapPost("/api/categorias-conhecimento", async (AppDbContext db, CategoriaCon
     return Results.Created($"/api/categorias-conhecimento/{categoria.Id}", categoria);
 });
 
-app.MapPut("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, int id, CategoriaConhecimento request) =>
+app.MapPut("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, HttpContext http, int id, CategoriaConhecimento request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
     var categoria = await db.CategoriasConhecimento.FindAsync(id);
 
     if (categoria is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && categoria.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     var nomeAnterior = categoria.Nome;
@@ -627,13 +903,24 @@ app.MapPut("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, int 
     return Results.Ok(categoria);
 });
 
-app.MapDelete("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, HttpContext http, int id) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
     var categoria = await db.CategoriasConhecimento.FindAsync(id);
 
     if (categoria is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && categoria.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     var possuiConhecimento = await db.BaseConhecimento
@@ -650,14 +937,19 @@ app.MapDelete("/api/categorias-conhecimento/{id:int}", async (AppDbContext db, i
     return Results.NoContent();
 });
 
-app.MapGet("/api/base-conhecimento", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/base-conhecimento", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.BaseConhecimento
         .Where(item => item.Publicado);
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(item => item.EmpresaId == empresaId || item.EmpresaId == null);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(item => item.EmpresaId == auth.EmpresaId || item.EmpresaId == null);
     }
 
     var artigos = await query
@@ -668,8 +960,19 @@ app.MapGet("/api/base-conhecimento", async (AppDbContext db, int? empresaId) =>
     return Results.Ok(artigos);
 });
 
-app.MapPost("/api/base-conhecimento", async (AppDbContext db, ArtigoConhecimento artigo) =>
+app.MapPost("/api/base-conhecimento", async (AppDbContext db, HttpContext http, ArtigoConhecimento artigo) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
+    artigo.EmpresaId = IsSaas(auth) ? artigo.EmpresaId : auth.EmpresaId;
+    artigo.UsuarioCriadorId = auth.UserId;
+    artigo.UsuarioCriador = auth.Nome;
+    artigo.Titulo = artigo.Titulo.Trim();
+    artigo.Categoria = artigo.Categoria.Trim();
     artigo.AtualizadoEm = DateTime.UtcNow;
     db.BaseConhecimento.Add(artigo);
     await db.SaveChangesAsync();
@@ -677,8 +980,14 @@ app.MapPost("/api/base-conhecimento", async (AppDbContext db, ArtigoConhecimento
     return Results.Created($"/api/base-conhecimento/{artigo.Id}", artigo);
 });
 
-app.MapPut("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id, ArtigoConhecimento request) =>
+app.MapPut("/api/base-conhecimento/{id:int}", async (AppDbContext db, HttpContext http, int id, ArtigoConhecimento request) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
     var artigo = await db.BaseConhecimento.FindAsync(id);
 
     if (artigo is null)
@@ -686,7 +995,12 @@ app.MapPut("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id, Ar
         return Results.NotFound();
     }
 
-    artigo.EmpresaId = request.EmpresaId;
+    if (!IsSaas(auth) && artigo.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
+    }
+
+    artigo.EmpresaId = IsSaas(auth) ? request.EmpresaId : auth.EmpresaId;
     artigo.Titulo = request.Titulo.Trim();
     artigo.Categoria = request.Categoria.Trim();
     artigo.Conteudo = request.Conteudo;
@@ -701,13 +1015,24 @@ app.MapPut("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id, Ar
     return Results.Ok(artigo);
 });
 
-app.MapDelete("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/base-conhecimento/{id:int}", async (AppDbContext db, HttpContext http, int id) =>
 {
+    var auth = Auth(http);
+    if (!IsSaas(auth) && !IsCompanyAdmin(auth) && !IsAtendente(auth))
+    {
+        return Results.Forbid();
+    }
+
     var artigo = await db.BaseConhecimento.FindAsync(id);
 
     if (artigo is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && artigo.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     artigo.Publicado = false;
@@ -717,13 +1042,18 @@ app.MapDelete("/api/base-conhecimento/{id:int}", async (AppDbContext db, int id)
     return Results.NoContent();
 });
 
-app.MapGet("/api/equipamentos/envios", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/equipamentos/envios", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.ControleEquipamentos.AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(item => item.EmpresaId == empresaId);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(item => item.EmpresaId == auth.EmpresaId);
     }
 
     var envios = await query
@@ -733,8 +1063,15 @@ app.MapGet("/api/equipamentos/envios", async (AppDbContext db, int? empresaId) =
     return Results.Ok(envios);
 });
 
-app.MapPost("/api/equipamentos/envios", async (AppDbContext db, ControleEquipamento envio) =>
+app.MapPost("/api/equipamentos/envios", async (AppDbContext db, HttpContext http, ControleEquipamento envio) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
+    envio.EmpresaId = IsSaas(auth) ? envio.EmpresaId : auth.EmpresaId;
     envio.CriadoEm = DateTime.UtcNow;
     db.ControleEquipamentos.Add(envio);
     await db.SaveChangesAsync();
@@ -742,13 +1079,18 @@ app.MapPost("/api/equipamentos/envios", async (AppDbContext db, ControleEquipame
     return Results.Created($"/api/equipamentos/envios/{envio.Id}", envio);
 });
 
-app.MapGet("/api/equipamentos/inventario", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/equipamentos/inventario", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.InventarioEquipamentos.AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(item => item.EmpresaId == empresaId);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(item => item.EmpresaId == auth.EmpresaId);
     }
 
     var inventario = await query
@@ -759,8 +1101,15 @@ app.MapGet("/api/equipamentos/inventario", async (AppDbContext db, int? empresaI
     return Results.Ok(inventario);
 });
 
-app.MapPost("/api/equipamentos/inventario", async (AppDbContext db, InventarioEquipamento equipamento) =>
+app.MapPost("/api/equipamentos/inventario", async (AppDbContext db, HttpContext http, InventarioEquipamento equipamento) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
+    equipamento.EmpresaId = IsSaas(auth) ? equipamento.EmpresaId : auth.EmpresaId;
     equipamento.UltimaLeituraEm = DateTime.UtcNow;
     db.InventarioEquipamentos.Add(equipamento);
     await db.SaveChangesAsync();
@@ -768,13 +1117,18 @@ app.MapPost("/api/equipamentos/inventario", async (AppDbContext db, InventarioEq
     return Results.Created($"/api/equipamentos/inventario/{equipamento.Id}", equipamento);
 });
 
-app.MapGet("/api/links", async (AppDbContext db, int? empresaId) =>
+app.MapGet("/api/links", async (AppDbContext db, HttpContext http, int? empresaId) =>
 {
+    var auth = Auth(http);
     var query = db.LinksMonitorados.AsQueryable();
 
-    if (empresaId.HasValue)
+    if (IsSaas(auth) && empresaId.HasValue)
     {
         query = query.Where(item => item.EmpresaId == empresaId);
+    }
+    else if (!IsSaas(auth))
+    {
+        query = query.Where(item => item.EmpresaId == auth.EmpresaId);
     }
 
     var links = await query
@@ -784,8 +1138,15 @@ app.MapGet("/api/links", async (AppDbContext db, int? empresaId) =>
     return Results.Ok(links);
 });
 
-app.MapPost("/api/links", async (AppDbContext db, LinkMonitorado link) =>
+app.MapPost("/api/links", async (AppDbContext db, HttpContext http, LinkMonitorado link) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
+    link.EmpresaId = IsSaas(auth) ? link.EmpresaId : auth.EmpresaId;
     link.UltimaLeituraEm = DateTime.UtcNow;
     db.LinksMonitorados.Add(link);
     await db.SaveChangesAsync();
@@ -793,15 +1154,26 @@ app.MapPost("/api/links", async (AppDbContext db, LinkMonitorado link) =>
     return Results.Created($"/api/links/{link.Id}", link);
 });
 
-app.MapPut("/api/links/{id:int}", async (AppDbContext db, int id, LinkMonitorado request) =>
+app.MapPut("/api/links/{id:int}", async (AppDbContext db, HttpContext http, int id, LinkMonitorado request) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
     var link = await db.LinksMonitorados.FindAsync(id);
     if (link is null)
     {
         return Results.NotFound();
     }
 
-    link.EmpresaId = request.EmpresaId;
+    if (!IsSaas(auth) && link.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
+    }
+
+    link.EmpresaId = IsSaas(auth) ? request.EmpresaId : auth.EmpresaId;
     link.Nome = request.Nome.Trim();
     link.Tipo = request.Tipo.Trim();
     link.Local = request.Local.Trim();
@@ -818,12 +1190,23 @@ app.MapPut("/api/links/{id:int}", async (AppDbContext db, int id, LinkMonitorado
     return Results.Ok(link);
 });
 
-app.MapDelete("/api/links/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/links/{id:int}", async (AppDbContext db, HttpContext http, int id) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
     var link = await db.LinksMonitorados.FindAsync(id);
     if (link is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && link.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     db.LinksMonitorados.Remove(link);
@@ -831,12 +1214,23 @@ app.MapDelete("/api/links/{id:int}", async (AppDbContext db, int id) =>
     return Results.NoContent();
 });
 
-app.MapPost("/api/links/{id:int}/status", async (AppDbContext db, int id, AtualizarStatusLinkRequest request) =>
+app.MapPost("/api/links/{id:int}/status", async (AppDbContext db, HttpContext http, int id, AtualizarStatusLinkRequest request) =>
 {
+    var auth = Auth(http);
+    if (IsUsuario(auth))
+    {
+        return Results.Forbid();
+    }
+
     var link = await db.LinksMonitorados.FindAsync(id);
     if (link is null)
     {
         return Results.NotFound();
+    }
+
+    if (!IsSaas(auth) && link.EmpresaId != auth.EmpresaId)
+    {
+        return Results.Forbid();
     }
 
     link.Disponivel = request.Disponivel;
@@ -882,12 +1276,17 @@ app.MapPost("/api/links/{id:int}/status", async (AppDbContext db, int id, Atuali
 
 app.Run();
 
-static async Task<IResult> AtualizarStatusChamado(AppDbContext db, int id, StatusChamado status)
+static async Task<IResult> AtualizarStatusChamado(AppDbContext db, AuthSession auth, int id, StatusChamado status)
 {
     var chamado = await db.Chamados.FindAsync(id);
     if (chamado is null)
     {
         return Results.NotFound();
+    }
+
+    if (IsUsuario(auth) || !PodeAcessarChamado(auth, chamado))
+    {
+        return Results.Forbid();
     }
 
     chamado.Status = status;
@@ -905,7 +1304,53 @@ static async Task<string> GerarNumeroChamado(AppDbContext db)
     return $"#TK-{totalChamados + 1:000}";
 }
 
-static AuthResponse CriarAuthResponse(Users usuario)
+static AuthSession Auth(HttpContext http)
+{
+    return http.Items.TryGetValue("AuthSession", out var session) && session is AuthSession auth
+        ? auth
+        : throw new UnauthorizedAccessException("Sessao autenticada ausente.");
+}
+
+static bool IsSaas(AuthSession auth) => string.Equals(auth.Role, "AdministradorSaas", StringComparison.OrdinalIgnoreCase);
+static bool IsCompanyAdmin(AuthSession auth) => string.Equals(auth.Role, "Administrador", StringComparison.OrdinalIgnoreCase);
+static bool IsAtendente(AuthSession auth) => string.Equals(auth.Role, "Atendente", StringComparison.OrdinalIgnoreCase);
+static bool IsUsuario(AuthSession auth) => string.Equals(auth.Role, "Usuario", StringComparison.OrdinalIgnoreCase);
+
+static bool PodeAcessarChamado(AuthSession auth, Chamado chamado)
+{
+    if (IsSaas(auth))
+    {
+        return true;
+    }
+
+    if (chamado.EmpresaId != auth.EmpresaId)
+    {
+        return false;
+    }
+
+    if (IsUsuario(auth))
+    {
+        return chamado.SolicitanteUsuarioId == auth.UserId;
+    }
+
+    return true;
+}
+
+static async Task<List<int>> EmpresasPermitidas(AppDbContext db, AuthSession auth)
+{
+    if (!auth.EmpresaId.HasValue)
+    {
+        return [];
+    }
+
+    var empresaId = auth.EmpresaId.Value;
+    return await db.Empresas
+        .Where(empresa => empresa.Id == empresaId || empresa.EmpresaContratanteId == empresaId)
+        .Select(empresa => empresa.Id)
+        .ToListAsync();
+}
+
+static AuthResponse CriarAuthResponse(Users usuario, AuthTokenService tokenService)
 {
     return new AuthResponse
     {
@@ -916,7 +1361,7 @@ static AuthResponse CriarAuthResponse(Users usuario)
         Role = usuario.Role,
         EmpresaNome = usuario.Empresa?.Nome,
         TenantSlug = usuario.Empresa?.TenantSlug,
-        Token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+        Token = tokenService.Create(usuario)
     };
 }
 
@@ -946,7 +1391,36 @@ static string? ValidarEmpresaRequest(CriarEmpresaRequest request)
         return "Informe um e-mail valido.";
     }
 
+    var tipoUnidade = string.IsNullOrWhiteSpace(request.TipoUnidade)
+        ? request.EmpresaContratanteId.HasValue ? "Filial" : "Contratante"
+        : request.TipoUnidade.Trim();
+    if (!string.IsNullOrWhiteSpace(tipoUnidade)
+        && !new[] { "Contratante", "Matriz", "Filial" }.Contains(tipoUnidade, StringComparer.OrdinalIgnoreCase))
+    {
+        return "Tipo de empresa invalido.";
+    }
+
+    if (!string.Equals(tipoUnidade, "Contratante", StringComparison.OrdinalIgnoreCase)
+        && !request.EmpresaContratanteId.HasValue)
+    {
+        return "Informe a empresa contratante da matriz ou filial.";
+    }
+
     return null;
+}
+
+static string NormalizarTipoUnidade(string? tipoUnidade, int? empresaContratanteId)
+{
+    if (string.IsNullOrWhiteSpace(tipoUnidade))
+    {
+        return empresaContratanteId.HasValue ? "Filial" : "Contratante";
+    }
+
+    return tipoUnidade.Trim().Equals("Matriz", StringComparison.OrdinalIgnoreCase)
+        ? "Matriz"
+        : tipoUnidade.Trim().Equals("Filial", StringComparison.OrdinalIgnoreCase)
+            ? "Filial"
+            : "Contratante";
 }
 
 static bool EmailValido(string email)

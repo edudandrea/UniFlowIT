@@ -32,6 +32,8 @@ namespace UniFlowIT.Api.Data
                 entity.Property(item => item.TenantSlug).HasMaxLength(80).IsRequired();
                 entity.Property(item => item.Cnpj).HasMaxLength(20);
                 entity.Property(item => item.Email).HasMaxLength(160);
+                entity.Property(item => item.TipoUnidade).HasMaxLength(30).HasDefaultValue("Contratante");
+                entity.HasIndex(item => item.EmpresaContratanteId);
                 entity.HasIndex(item => item.TenantSlug).IsUnique();
             });
 
@@ -130,6 +132,7 @@ namespace UniFlowIT.Api.Data
                 entity.HasKey(item => item.Id);
                 entity.Property(item => item.AutorNome).HasMaxLength(160).IsRequired();
                 entity.Property(item => item.AutorPerfil).HasMaxLength(40).IsRequired();
+                entity.Property(item => item.Tipo).HasMaxLength(20).HasDefaultValue("Mural").IsRequired();
                 entity.Property(item => item.Mensagem).IsRequired();
             });
 

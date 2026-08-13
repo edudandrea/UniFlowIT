@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj": {}
+    "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj": {}
   },
   "projects": {
-    "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj": {
+    "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
+        "projectUniqueName": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
         "projectName": "UniFlowIT.Api",
-        "projectPath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
+        "projectPath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
         "packagesPath": "C:\\Users\\Eduardo\\.nuget\\packages\\",
-        "outputPath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\obj\\",
+        "outputPath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Eduardo\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -46,10 +46,6 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
-            "Microsoft.AspNetCore.OpenApi": {
-              "target": "Package",
-              "version": "[10.0.9, )"
-            },
             "Microsoft.EntityFrameworkCore.Design": {
               "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
               "suppressParent": "All",

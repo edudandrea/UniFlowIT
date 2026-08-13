@@ -49,6 +49,17 @@ namespace UniFlowIT.Api.Models
         public string Comentario { get; set; } = string.Empty;
     }
 
+    public class EditarChamadoRequest
+    {
+        public string Titulo { get; set; } = string.Empty;
+        public string Categoria { get; set; } = string.Empty;
+        public string Subcategoria { get; set; } = string.Empty;
+        public TipoChamado Tipo { get; set; }
+        public PrioridadeChamado Prioridade { get; set; }
+        public StatusChamado Status { get; set; }
+        public string Descricao { get; set; } = string.Empty;
+    }
+
     public class EquipamentoCapturado
     {
         public string Hostname { get; set; } = string.Empty;
@@ -87,6 +98,7 @@ namespace UniFlowIT.Api.Models
     {
         Aberto,
         EmAtendimento,
+        AguardandoRetorno,
         Encerrado,
         Cancelado
     }

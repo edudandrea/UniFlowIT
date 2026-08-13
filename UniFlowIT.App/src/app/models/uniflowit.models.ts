@@ -33,7 +33,7 @@ export type Pagina =
   | 'saas-seguranca'
   | 'saas-administradores';
 export type EmpresaTab = 'pesquisa' | 'detalhes';
-export type StatusChamado = 'Aberto' | 'Em atendimento' | 'Encerrado' | 'Cancelado';
+export type StatusChamado = 'Aberto' | 'Em atendimento' | 'Aguardando retorno' | 'Encerrado' | 'Cancelado';
 export type Prioridade = 'Baixa' | 'Media' | 'Alta' | 'Urgente';
 
 export interface Sessao {
@@ -44,6 +44,7 @@ export interface Sessao {
   empresaId?: number;
   empresaNome?: string;
   tenantSlug?: string;
+  token: string;
 }
 
 export interface Mensagem {
@@ -51,6 +52,7 @@ export interface Mensagem {
   perfil: Perfil;
   texto: string;
   horario: string;
+  tipo?: 'Chat' | 'Mural';
 }
 
 export interface Chamado {
@@ -166,6 +168,8 @@ export interface EmpresaLista {
   inscricaoMunicipal?: string;
   inscricaoEstadual?: string;
   logoUrl?: string;
+  empresaContratanteId?: number | null;
+  tipoUnidade?: 'Contratante' | 'Matriz' | 'Filial';
   ativo: boolean;
   acessoBloqueado: boolean;
   motivoBloqueio?: string;

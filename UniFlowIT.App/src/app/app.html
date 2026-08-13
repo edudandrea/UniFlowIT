@@ -51,10 +51,6 @@
           <button type="button" class="nav-usuarios" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">
             <span class="nav-icon" aria-hidden="true"></span><span>Usuarios</span>
           </button>
-          <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span>
-          </button>
-
           <div class="nav-group">
             <button type="button" class="nav-parent nav-comercial" [class.open]="comercialAberto()" (click)="alternarComercial()">
               <span class="nav-icon" aria-hidden="true"></span>
@@ -83,26 +79,27 @@
               <button type="button" [class.active]="paginaAtiva() === 'financeiro-despesas'" (click)="navegar('financeiro-despesas')">Despesas</button>
             </div>
           </div>
-        } @else if (perfil() === 'Administrador') {
+        } @else if (perfil() === 'Administrador' || perfil() === 'Atendente') {
           <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Dashboard</span></button>
           <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
-          <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')"><span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span></button>
-          <div class="nav-group">
-            <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
-              <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
-              <span>Cadastro</span>
-            </button>
-            <div class="nav-children" [class.open]="cadastroAberto()">
-              <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
-              <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
+          @if (perfil() === 'Administrador') {
+            <div class="nav-group">
+              <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
+                <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
+                <span>Cadastro</span>
+              </button>
+              <div class="nav-children" [class.open]="cadastroAberto()">
+                <button type="button" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">Empresas</button>
+                <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
+                <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
+              </div>
             </div>
-          </div>
+          }
           <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')"><span class="nav-icon" aria-hidden="true"></span><span>Base de Conhecimentos</span></button>
           <button type="button" class="nav-equipamentos" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')"><span class="nav-icon" aria-hidden="true"></span><span>Equipamentos</span></button>
           <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links-dashboard'" (click)="navegar('links-dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Monitoramento</span></button>
         } @else {
           <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
-          <button type="button" class="nav-dev-support" [class.active]="paginaAtiva() === 'chamados-desenvolvedor'" (click)="navegar('chamados-desenvolvedor')"><span class="nav-icon" aria-hidden="true"></span><span>Suporte plataforma</span></button>
         }
       </nav>
 
@@ -128,7 +125,7 @@
 
         <div class="topbar-actions">
           <div class="session-box account-box">
-          <button type="button" class="account-trigger" (click)="alternarMenuConta()" aria-label="Abrir menu da conta">
+          <button type="button" class="account-trigger" (click)="alternarMenuConta($event)" aria-label="Abrir menu da conta">
             <span class="account-avatar">
               @if (fotoPerfilUrl()) {
                 <img [src]="fotoPerfilUrl()" alt="Foto do colaborador" />
@@ -150,6 +147,7 @@
                 <span>Modo {{ tema() === 'dark' ? 'escuro' : 'claro' }}</span>
                 <span class="theme-switch" [class.light]="tema() === 'light'" aria-hidden="true"><i></i></span>
               </button>
+              <button type="button" (click)="abrirSuporte()">Suporte</button>
               <button type="button" (click)="abrirEditarPerfil()">Editar perfil</button>
               <button type="button" (click)="abrirAlterarSenha()">Alterar senha</button>
               <button type="button" class="danger" (click)="sair()">Sair</button>
@@ -207,7 +205,7 @@
         </section>
       }
 
-      @if (perfil() === 'Administrador' && paginaAtiva() === 'dashboard') {
+      @if ((perfil() === 'Administrador' || perfil() === 'Atendente') && paginaAtiva() === 'dashboard') {
         <app-dashboard-page
           [empresaNome]="empresaDashboardNome()"
           [chamados]="chamadosVisiveis()"
@@ -218,8 +216,9 @@
         />
       }
 
-      @if (perfil() === 'AdministradorSaas' && paginaAtiva() === 'cadastro-empresas') {
+      @if ((perfil() === 'AdministradorSaas' || perfil() === 'Administrador') && paginaAtiva() === 'cadastro-empresas') {
         <app-empresas-page
+          [modoCadastro]="perfil() === 'AdministradorSaas' ? 'Administrador SaaS' : 'Matriz e filiais'"
           [empresasFiltradas]="empresasFiltradas()"
           [empresaSelecionada]="empresaSelecionada()"
           [novaEmpresa]="novaEmpresa"
@@ -245,7 +244,7 @@
           [novoUsuario]="novoUsuario"
           [usuarioModalAberto]="usuarioModalAberto()"
           [usuarioEditando]="usuarioEditando()"
-          [travarEmpresa]="perfil() === 'Administrador'"
+          [travarEmpresa]="false"
           [somenteAdministradorEmpresa]="perfil() === 'AdministradorSaas'"
           (novoUsuarioClick)="abrirNovoUsuario()"
           (editarUsuarioClick)="editarUsuario($event)"
@@ -301,13 +300,18 @@
           [categorias]="categoriasAtivas()"
           [chamadosVisiveis]="chamadosVisiveis()"
           [chamadoSelecionado]="chamadoSelecionado()"
+          [usuarioAtualId]="sessao()?.id"
+          [usuarioAtualNome]="sessao()?.nome || ''"
           [novoChamado]="novoChamado"
           (abrirChamadoSubmit)="abrirChamado()"
           (selecionarChamadoClick)="selecionarChamado($event)"
+          (salvarChamadoClick)="salvarDadosChamado($event)"
           (capturarChamadoClick)="capturarChamado($event)"
           (encerrarChamadoClick)="encerrarChamado($event)"
           (cancelarChamadoClick)="cancelarChamado($event)"
           (enviarMensagemClick)="enviarMensagem($event)"
+          (enviarComunicacaoClick)="enviarComunicacao($event)"
+          (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
           (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao)"
         />
       }
@@ -320,13 +324,18 @@
           [categorias]="categoriasDesenvolvedor()"
           [chamadosVisiveis]="chamadosDesenvolvedorVisiveis()"
           [chamadoSelecionado]="chamadosDesenvolvedorVisiveis()[0] || chamadoSelecionado()"
+          [usuarioAtualId]="sessao()?.id"
+          [usuarioAtualNome]="sessao()?.nome || ''"
           [novoChamado]="novoChamado"
           (abrirChamadoSubmit)="abrirChamadoDesenvolvedor()"
           (selecionarChamadoClick)="selecionarChamado($event)"
+          (salvarChamadoClick)="salvarDadosChamado($event)"
           (capturarChamadoClick)="capturarChamado($event)"
           (encerrarChamadoClick)="encerrarChamado($event)"
           (cancelarChamadoClick)="cancelarChamado($event)"
           (enviarMensagemClick)="enviarMensagem($event)"
+          (enviarComunicacaoClick)="enviarComunicacao($event)"
+          (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
           (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao)"
         />
       }

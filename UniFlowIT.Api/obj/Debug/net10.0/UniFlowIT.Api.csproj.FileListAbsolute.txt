@@ -1,20 +1,16 @@
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\appsettings.Development.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\appsettings.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.staticwebassets.endpoints.json
-D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.exe
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.deps.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.runtimeconfig.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.dll
 D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.pdb
-D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\Microsoft.AspNetCore.OpenApi.dll
-D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\Microsoft.OpenApi.dll
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.csproj.AssemblyReference.cache
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\rpswa.dswa.cache.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.GeneratedMSBuildEditorConfig.editorconfig
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.AssemblyInfoInputs.cache
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.AssemblyInfo.cs
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.csproj.CoreCompileInputs.cache
-D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.MvcApplicationPartsAssemblyInfo.cs
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\UniFlowIT.Api.MvcApplicationPartsAssemblyInfo.cache
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\rjimswa.dswa.cache.json
 D:\Dev\UniFlowIT\UniFlowIT.Api\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
@@ -129,3 +125,4 @@ D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.deps.json
 D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.runtimeconfig.json
 D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.dll
 D:\Dev\UniFlowIT\.agents\api-build-check\UniFlowIT.Api.pdb
+D:\Dev\UniFlowIT\uniflowit.api\bin\Debug\net10.0\UniFlowIT.Api.exe

@@ -8,6 +8,7 @@ namespace UniFlowIT.Api.Models
         public string AutorNome { get; set; } = string.Empty;
         public string AutorPerfil { get; set; } = "Usuario";
         public string Mensagem { get; set; } = string.Empty;
+        public string Tipo { get; set; } = "Mural";
         public DateTime EnviadoEm { get; set; } = DateTime.UtcNow;
         public bool Lida { get; set; }
     }
@@ -18,5 +19,6 @@ namespace UniFlowIT.Api.Models
         public string AutorNome { get; set; } = string.Empty;
         public string AutorPerfil { get; set; } = "Usuario";
         public string Mensagem { get; set; } = string.Empty;
+        public string Tipo { get; set; } = "Mural";
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniFlowIT.Api.Data;
@@ -11,9 +12,11 @@ using UniFlowIT.Api.Data;
 namespace UniFlowIT.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812204718_AddTicketCommunicationType")]
+    partial class AddTicketCommunicationType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -450,9 +453,6 @@ namespace UniFlowIT.Api.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
-                    b.Property<int?>("EmpresaContratanteId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Endereco")
                         .IsRequired()
                         .HasColumnType("text");
@@ -501,16 +501,7 @@ namespace UniFlowIT.Api.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
-                    b.Property<string>("TipoUnidade")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasDefaultValue("Contratante");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("EmpresaContratanteId");
 
                     b.HasIndex("TenantSlug")
                         .IsUnique();

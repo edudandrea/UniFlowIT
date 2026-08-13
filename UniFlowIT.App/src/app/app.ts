@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostBinding, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
+import { Component, HostBinding, HostListener, OnInit, ViewEncapsulation, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgxSpinnerModule, NgxSpinnerService } from 'ngx-spinner';
 import { ToastrService } from 'ngx-toastr';
@@ -85,6 +85,23 @@ export class App implements OnInit {
   protected novaMensagem = '';
   protected avaliacaoSelecionada = 5;
 
+  private async apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    const token = this.sessao()?.token;
+    const headers = new Headers(init.headers);
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(input, { ...init, headers });
+    if (response.status === 401) {
+      this.sessao.set(null);
+      this.authFeedback.set('Sessao expirada. Entre novamente.');
+    }
+
+    return response;
+  }
+
   protected loginForm = {
     email: '',
     senha: '',
@@ -127,6 +144,8 @@ export class App implements OnInit {
     inscricaoMunicipal: '',
     inscricaoEstadual: '',
     logoUrl: '',
+    empresaContratanteId: null,
+    tipoUnidade: 'Contratante',
     ativo: true,
     acessoBloqueado: false,
     motivoBloqueio: '',
@@ -223,6 +242,8 @@ export class App implements OnInit {
       inscricaoMunicipal: '',
       inscricaoEstadual: '',
       logoUrl: '',
+      empresaContratanteId: null,
+      tipoUnidade: 'Contratante',
       ativo: true,
       acessoBloqueado: false,
       motivoBloqueio: '',
@@ -354,6 +375,14 @@ export class App implements OnInit {
     return this.tema() === 'light';
   }
 
+  @HostListener('document:click', ['$event'])
+  protected fecharMenuContaAoClicarFora(event: MouseEvent): void {
+    const alvo = event.target as HTMLElement | null;
+    if (!alvo?.closest('.account-box')) {
+      this.contaMenuAberto.set(false);
+    }
+  }
+
   async ngOnInit(): Promise<void> {
     this.carregarTema();
 
@@ -452,7 +481,7 @@ export class App implements OnInit {
       case 'saas-dashboard':
         return 'Dashboard SaaS';
       case 'cadastro-empresas':
-        return 'Empresas contratantes';
+        return this.perfil() === 'AdministradorSaas' ? 'Empresas contratantes' : 'Empresas e filiais';
       case 'cadastro-usuarios':
         return 'Usuarios por empresa';
       case 'dados-empresariais':
@@ -521,18 +550,20 @@ export class App implements OnInit {
 
   protected empresasFiltradas = computed(() => {
     const filtro = this.empresaFiltro().trim().toLowerCase();
+    const empresas = this.empresasVisiveisCadastroEmpresa();
     if (!filtro) {
-      return this.empresas();
+      return empresas;
     }
 
-    return this.empresas().filter((empresa) =>
+    return empresas.filter((empresa) =>
       [empresa.razaoSocial, empresa.nomeFantasia, empresa.cnpj, empresa.email, empresa.telefone]
         .some((valor) => valor.toLowerCase().includes(filtro)),
     );
   });
 
   protected empresaSelecionada = computed(() => {
-    return this.empresas().find((empresa) => empresa.id === this.empresaSelecionadaId()) ?? this.empresas()[0];
+    const empresas = this.empresasVisiveisCadastroEmpresa();
+    return empresas.find((empresa) => empresa.id === this.empresaSelecionadaId()) ?? empresas[0] ?? this.empresas()[0];
   });
 
   protected async login(): Promise<void> {
@@ -541,7 +572,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/auth/login`, {
+      const response = await this.apiFetch(`${this.apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.loginForm),
@@ -556,7 +587,7 @@ export class App implements OnInit {
       const data = (await response.json()) as Sessao;
       this.sessao.set(data);
       this.perfil.set(data.role);
-      this.paginaAtiva.set(data.role === 'AdministradorSaas' ? 'saas-dashboard' : data.role === 'Administrador' ? 'dashboard' : 'chamados');
+      this.paginaAtiva.set(data.role === 'AdministradorSaas' ? 'saas-dashboard' : data.role === 'Administrador' || data.role === 'Atendente' ? 'dashboard' : 'chamados');
       this.cadastroAberto.set(false);
       this.comercialAberto.set(false);
       this.administracaoSaasAberto.set(false);
@@ -588,7 +619,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/auth/criar-administrador-saas`, {
+      const response = await this.apiFetch(`${this.apiUrl}/auth/criar-administrador-saas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.adminSaasForm),
@@ -620,10 +651,17 @@ export class App implements OnInit {
 
   protected async criarEmpresa(): Promise<void> {
     this.spinner.show('uniflowit');
-    const dataCadastro = this.novaEmpresa.dataCadastro || new Date().toISOString().slice(0, 10);
+    const dataCadastro = this.novaEmpresa.dataCadastro || this.dataLocalHoje();
     const nomeBase = this.novaEmpresa.nomeFantasia || this.novaEmpresa.razaoSocial || this.novaEmpresa.nome || 'empresa';
     const tenantSlug = this.novaEmpresa.tenantSlug || this.gerarTenantSlug(nomeBase);
     const cnpj = this.formatarCnpj(this.novaEmpresa.cnpj);
+    const editandoEmpresaPropria = this.perfil() !== 'AdministradorSaas' && this.novaEmpresa.id === this.sessao()?.empresaId;
+    const empresaContratanteId = this.perfil() === 'AdministradorSaas' || editandoEmpresaPropria ? null : this.sessao()?.empresaId ?? null;
+    const tipoUnidade = this.perfil() === 'AdministradorSaas' || editandoEmpresaPropria
+      ? 'Contratante'
+      : this.novaEmpresa.tipoUnidade === 'Matriz'
+        ? 'Matriz'
+        : 'Filial';
 
     const telefone = this.formatarTelefone(this.novaEmpresa.telefone);
     const ativo = this.novaEmpresa.id ? this.novaEmpresa.ativo : true;
@@ -649,6 +687,8 @@ export class App implements OnInit {
       inscricaoMunicipal: this.novaEmpresa.inscricaoMunicipal,
       inscricaoEstadual: this.novaEmpresa.inscricaoEstadual,
       logoUrl: this.novaEmpresa.logoUrl,
+      empresaContratanteId,
+      tipoUnidade,
       ativo,
       acessoBloqueado: this.novaEmpresa.id ? !ativo : false,
       motivoBloqueio: ativo ? '' : this.novaEmpresa.motivoBloqueio || 'Empresa inativada pelo Administrador SaaS.',
@@ -664,7 +704,7 @@ export class App implements OnInit {
     let empresaPersistida: EmpresaLista | null = null;
 
     try {
-      const response = await fetch(`${this.apiUrl}/empresas${empresa.id ? `/${empresa.id}` : ''}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/empresas${empresa.id ? `/${empresa.id}` : ''}`, {
         method: empresa.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(empresa),
@@ -749,7 +789,7 @@ export class App implements OnInit {
     let salvou = false;
 
     try {
-      const response = await fetch(`${this.apiUrl}/usuarios${editando ? `/${id}` : ''}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/usuarios${editando ? `/${id}` : ''}`, {
         method: editando ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -821,8 +861,14 @@ export class App implements OnInit {
     this.contaMenuAberto.set(false);
   }
 
-  protected alternarMenuConta(): void {
+  protected alternarMenuConta(event?: MouseEvent): void {
+    event?.stopPropagation();
     this.contaMenuAberto.update((aberto) => !aberto);
+  }
+
+  protected abrirSuporte(): void {
+    this.contaMenuAberto.set(false);
+    this.navegar('chamados-desenvolvedor');
   }
 
   protected abrirEditarPerfil(): void {
@@ -886,7 +932,7 @@ export class App implements OnInit {
 
     this.spinner.show('uniflowit');
     try {
-      const response = await fetch(`${this.apiUrl}/usuarios/${sessao.id}/senha`, {
+      const response = await this.apiFetch(`${this.apiUrl}/usuarios/${sessao.id}/senha`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -942,8 +988,15 @@ export class App implements OnInit {
   }
 
   protected navegar(pagina: Pagina): void {
-    if (this.perfil() === 'Usuario' || this.perfil() === 'Atendente') {
+    if (this.perfil() === 'Usuario') {
       this.paginaAtiva.set(pagina === 'chamados-desenvolvedor' ? 'chamados-desenvolvedor' : 'chamados');
+      return;
+    }
+
+    const paginasAtendente: Pagina[] = ['dashboard', 'chamados', 'conhecimento', 'equipamentos', 'links-dashboard', 'chamados-desenvolvedor'];
+    if (this.perfil() === 'Atendente') {
+      this.paginaAtiva.set(paginasAtendente.includes(pagina) ? pagina : 'dashboard');
+      this.cadastroAberto.set(false);
       return;
     }
 
@@ -1230,7 +1283,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      await fetch(`${this.apiUrl}/categorias-chamado${this.categoriaForm.id ? `/${this.categoriaForm.id}` : ''}`, {
+      await this.apiFetch(`${this.apiUrl}/categorias-chamado${this.categoriaForm.id ? `/${this.categoriaForm.id}` : ''}`, {
         method: this.categoriaForm.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1344,7 +1397,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/categorias-conhecimento${editando ? `/${id}` : ''}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/categorias-conhecimento${editando ? `/${id}` : ''}`, {
         method: editando ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoria),
@@ -1383,7 +1436,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/categorias-conhecimento/${id}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/categorias-conhecimento/${id}`, {
         method: 'DELETE',
       });
 
@@ -1438,7 +1491,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/base-conhecimento${editando ? `/${id}` : ''}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/base-conhecimento${editando ? `/${id}` : ''}`, {
         method: editando ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1480,7 +1533,7 @@ export class App implements OnInit {
     this.spinner.show('uniflowit');
 
     try {
-      const response = await fetch(`${this.apiUrl}/base-conhecimento/${id}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/base-conhecimento/${id}`, {
         method: 'DELETE',
       });
 
@@ -1518,11 +1571,20 @@ export class App implements OnInit {
 
   protected empresasParaCadastroUsuario(): EmpresaLista[] {
     if (this.perfil() === 'AdministradorSaas') {
-      return this.empresas();
+      return this.empresas().filter((empresa) => !empresa.empresaContratanteId);
     }
 
-    const empresaId = this.sessao()?.empresaId;
-    return this.empresas().filter((empresa) => empresa.id === empresaId);
+    const contratanteId = this.sessao()?.empresaId;
+    return this.empresas().filter((empresa) => empresa.id === contratanteId || empresa.empresaContratanteId === contratanteId);
+  }
+
+  protected empresasVisiveisCadastroEmpresa(): EmpresaLista[] {
+    if (this.perfil() === 'AdministradorSaas') {
+      return this.empresas().filter((empresa) => !empresa.empresaContratanteId);
+    }
+
+    const contratanteId = this.sessao()?.empresaId;
+    return this.empresas().filter((empresa) => empresa.id === contratanteId || empresa.empresaContratanteId === contratanteId);
   }
 
   protected usuariosVisiveisCadastro(): UsuarioLista[] {
@@ -1530,8 +1592,8 @@ export class App implements OnInit {
       return this.usuarios();
     }
 
-    const empresaId = this.sessao()?.empresaId;
-    return this.usuarios().filter((usuario) => usuario.empresaId === empresaId);
+    const empresasPermitidas = new Set(this.empresasParaCadastroUsuario().map((empresa) => empresa.id));
+    return this.usuarios().filter((usuario) => empresasPermitidas.has(usuario.empresaId));
   }
 
   protected empresaDashboardNome(): string {
@@ -1597,7 +1659,7 @@ export class App implements OnInit {
       return this.novoUsuario.empresaId ? Number(this.novoUsuario.empresaId) : null;
     }
 
-    return Number(this.sessao()?.empresaId || this.novoUsuario.empresaId || this.empresas()[0]?.id || 1);
+    return this.novoUsuario.empresaId ? Number(this.novoUsuario.empresaId) : null;
   }
 
   private async carregarDadosSistema(): Promise<void> {
@@ -1616,7 +1678,7 @@ export class App implements OnInit {
 
   private async carregarEmpresas(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/empresas`);
+      const response = await this.apiFetch(`${this.apiUrl}/empresas${this.queryEmpresasCadastro()}`);
       if (!response.ok) {
         return;
       }
@@ -1630,7 +1692,7 @@ export class App implements OnInit {
 
   private async carregarUsuarios(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/usuarios${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/usuarios${this.queryEmpresaUsuarios()}`);
       if (!response.ok) {
         return;
       }
@@ -1659,7 +1721,7 @@ export class App implements OnInit {
         atendenteId: String(this.sessao()?.id ?? ''),
         solicitante: this.sessao()?.nome ?? '',
       });
-      const response = await fetch(`${this.apiUrl}/chamados?${params.toString()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/chamados?${params.toString()}`);
       if (!response.ok) {
         return;
       }
@@ -1674,7 +1736,7 @@ export class App implements OnInit {
 
   private async carregarCategorias(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/categorias-chamado${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/categorias-chamado${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1702,7 +1764,7 @@ export class App implements OnInit {
 
   private async carregarBaseConhecimento(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/base-conhecimento${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/base-conhecimento${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1716,7 +1778,7 @@ export class App implements OnInit {
 
   private async carregarCategoriasConhecimento(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/categorias-conhecimento${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/categorias-conhecimento${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1732,7 +1794,7 @@ export class App implements OnInit {
 
   private async carregarInventario(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/equipamentos/inventario${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/equipamentos/inventario${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1754,7 +1816,7 @@ export class App implements OnInit {
 
   private async carregarEnviosEquipamentos(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/equipamentos/envios${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/equipamentos/envios${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1775,7 +1837,7 @@ export class App implements OnInit {
 
   private async carregarLinks(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/links${this.queryEmpresa()}`);
+      const response = await this.apiFetch(`${this.apiUrl}/links${this.queryEmpresa()}`);
       if (!response.ok) {
         return;
       }
@@ -1852,6 +1914,8 @@ export class App implements OnInit {
       inscricaoMunicipal: String(empresa['inscricaoMunicipal'] ?? ''),
       inscricaoEstadual: String(empresa['inscricaoEstadual'] ?? ''),
       logoUrl: String(empresa['logoUrl'] ?? ''),
+      empresaContratanteId: empresa['empresaContratanteId'] == null ? null : Number(empresa['empresaContratanteId']),
+      tipoUnidade: this.normalizarTipoUnidade(empresa['tipoUnidade']),
       ativo: Boolean(empresa['ativo']),
       acessoBloqueado: Boolean(empresa['acessoBloqueado']),
       motivoBloqueio: String(empresa['motivoBloqueio'] ?? ''),
@@ -1862,6 +1926,27 @@ export class App implements OnInit {
 
   private queryEmpresa(): string {
     if (this.perfil() === 'AdministradorSaas' || !this.sessao()?.empresaId) {
+      return '';
+    }
+
+    return `?empresaId=${this.sessao()?.empresaId}`;
+  }
+
+  private queryEmpresasCadastro(): string {
+    if (this.perfil() === 'AdministradorSaas') {
+      return '?somenteContratantes=true';
+    }
+
+    const empresaId = this.sessao()?.empresaId;
+    return empresaId ? `?contratanteId=${empresaId}` : '';
+  }
+
+  private normalizarTipoUnidade(tipo: unknown): EmpresaLista['tipoUnidade'] {
+    return tipo === 'Matriz' || tipo === 'Filial' || tipo === 'Contratante' ? tipo : 'Contratante';
+  }
+
+  private queryEmpresaUsuarios(): string {
+    if (this.perfil() === 'AdministradorSaas' || this.perfil() === 'Administrador' || !this.sessao()?.empresaId) {
       return '';
     }
 
@@ -1898,6 +1983,7 @@ export class App implements OnInit {
         perfil: this.normalizarPerfil(mensagem['autorPerfil']),
         texto: String(mensagem['mensagem'] ?? ''),
         horario: String(mensagem['enviadoEm'] ?? '').slice(11, 16) || 'Agora',
+        tipo: mensagem['tipo'] === 'Chat' ? 'Chat' : 'Mural',
       })),
     };
   }
@@ -1961,6 +2047,10 @@ export class App implements OnInit {
       return 'Em atendimento';
     }
 
+    if (valor === 'AguardandoRetorno' || valor === 'Aguardando retorno') {
+      return 'Aguardando retorno';
+    }
+
     if (valor === 2 || valor === 'Encerrado') {
       return 'Encerrado';
     }
@@ -1982,7 +2072,7 @@ export class App implements OnInit {
 
   private async verificarAdministradorSaas(): Promise<void> {
     try {
-      const response = await fetch(`${this.apiUrl}/auth/bootstrap-status`);
+      const response = await this.apiFetch(`${this.apiUrl}/auth/bootstrap-status`);
       if (!response.ok) {
         return;
       }
@@ -2019,12 +2109,20 @@ export class App implements OnInit {
       inscricaoMunicipal: '',
       inscricaoEstadual: '',
       logoUrl: '',
+      empresaContratanteId: this.perfil() === 'AdministradorSaas' ? null : this.sessao()?.empresaId ?? null,
+      tipoUnidade: this.perfil() === 'AdministradorSaas' ? 'Contratante' : 'Filial',
       ativo: true,
       acessoBloqueado: false,
       motivoBloqueio: '',
       bloqueadoEm: '',
-      dataCadastro: '',
+      dataCadastro: this.dataLocalHoje(),
     };
+  }
+
+  private dataLocalHoje(): string {
+    const hoje = new Date();
+    hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
+    return hoje.toISOString().slice(0, 10);
   }
 
   protected selecionarPerfil(perfil: Perfil): void {
@@ -2088,6 +2186,7 @@ export class App implements OnInit {
             perfil: 'Usuario',
             texto: descricao,
             horario: 'Agora',
+            tipo: 'Mural',
           },
         ],
       },
@@ -2100,7 +2199,7 @@ export class App implements OnInit {
     this.novoChamado.anexos = '';
 
     try {
-      await fetch(`${this.apiUrl}/chamados`, {
+      await this.apiFetch(`${this.apiUrl}/chamados`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novoChamado),
@@ -2111,8 +2210,38 @@ export class App implements OnInit {
     }
   }
 
-  protected capturarChamado(chamado: Chamado): void {
-    this.atualizarChamado(chamado.id, { status: 'Em atendimento', atendente: 'Rafael Nunes' });
+  protected async capturarChamado(chamado: Chamado): Promise<void> {
+    const usuario = this.sessao();
+    const atendente = usuario?.nome ?? 'Atendente';
+    this.atualizarChamado(chamado.id, { status: 'Em atendimento', atendente });
+
+    if (chamado.id <= 0) {
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/capturar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: usuario?.id ?? 0,
+          nome: atendente,
+          login: usuario?.email ?? atendente,
+          email: usuario?.email ?? '',
+          role: usuario?.role ?? 'Atendente',
+          empresaId: usuario?.empresaId,
+          ativo: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel assumir o ticket.');
+      }
+
+      this.toastr.success(`Ticket assumido por ${atendente}.`, 'Tickets');
+    } catch {
+      this.toastr.error('Nao foi possivel registrar o atendente no backend.', 'Tickets');
+    }
   }
 
   protected encerrarChamado(chamado: Chamado): void {
@@ -2123,7 +2252,66 @@ export class App implements OnInit {
     this.atualizarChamado(chamado.id, { status: 'Cancelado' });
   }
 
-  protected enviarMensagem(textoMensagem?: string): void {
+  protected async salvarDadosChamado(chamadoEditado: Partial<Chamado> & { id: number }): Promise<void> {
+    const chamadoAtual = this.chamados().find((chamado) => chamado.id === chamadoEditado.id);
+    if (!chamadoAtual) {
+      return;
+    }
+
+    const patch: Partial<Chamado> = {
+      titulo: chamadoEditado.titulo ?? chamadoAtual.titulo,
+      categoria: chamadoEditado.categoria ?? chamadoAtual.categoria,
+      subcategoria: chamadoEditado.subcategoria ?? chamadoAtual.subcategoria,
+      tipo: chamadoEditado.tipo ?? chamadoAtual.tipo,
+      prioridade: chamadoEditado.prioridade ?? chamadoAtual.prioridade,
+      status: chamadoEditado.status ?? chamadoAtual.status,
+      descricao: chamadoEditado.descricao ?? chamadoAtual.descricao,
+    };
+
+    if (chamadoAtual.status === 'Encerrado' && patch.status !== 'Encerrado') {
+      if (!this.usuarioPodeReabrirChamado(chamadoAtual) || patch.status !== 'Aberto') {
+        this.toastr.warning('Tickets encerrados so podem ser reabertos pelo usuario solicitante.', 'Tickets');
+        return;
+      }
+    }
+
+    this.atualizarChamado(chamadoEditado.id, patch);
+
+    if (chamadoEditado.id <= 0) {
+      this.toastr.info('Dados do ticket atualizados apenas localmente.', 'Tickets');
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamadoEditado.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: patch.titulo,
+          categoria: patch.categoria,
+          subcategoria: patch.subcategoria,
+          tipo: patch.tipo,
+          prioridade: patch.prioridade,
+          status: this.statusParaApi(patch.status ?? chamadoAtual.status),
+          descricao: patch.descricao,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel salvar o ticket.');
+      }
+
+      this.toastr.success('Dados do ticket salvos com sucesso.', 'Tickets');
+    } catch {
+      this.toastr.error('Nao foi possivel salvar os dados do ticket no backend.', 'Tickets');
+    }
+  }
+
+  protected async enviarComunicacao(textoMensagem?: string): Promise<void> {
+    await this.enviarMensagem(textoMensagem, 'Mural');
+  }
+
+  protected async enviarMensagem(textoMensagem?: string, tipo: 'Chat' | 'Mural' = 'Chat'): Promise<void> {
     const texto = (textoMensagem ?? this.novaMensagem).trim();
     if (!texto) {
       return;
@@ -2131,7 +2319,7 @@ export class App implements OnInit {
 
     const chamado = this.chamadoSelecionado();
     const perfil = this.perfil();
-    const autor = perfil === 'Atendente' ? 'Rafael Nunes' : perfil === 'AdministradorSaas' ? 'Administrador SaaS' : perfil === 'Administrador' ? 'Administrador' : chamado.solicitante;
+    const autor = this.sessao()?.nome ?? (perfil === 'AdministradorSaas' ? 'Administrador SaaS' : perfil === 'Administrador' ? 'Administrador' : chamado.solicitante);
 
     this.atualizarChamado(chamado.id, {
       mensagens: [
@@ -2141,14 +2329,43 @@ export class App implements OnInit {
           perfil,
           texto,
           horario: 'Agora',
+          tipo,
         },
       ],
     });
     this.novaMensagem = '';
+
+    if (chamado.id <= 0) {
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamado.id}/mensagens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autorId: this.sessao()?.id ?? 0,
+          autorNome: autor,
+          autorPerfil: perfil,
+          mensagem: texto,
+          tipo,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel registrar a mensagem.');
+      }
+    } catch {
+      this.toastr.error(tipo === 'Mural' ? 'Recado nao foi salvo no backend.' : 'Mensagem do chat nao foi salva no backend.', 'Tickets');
+    }
   }
 
   protected avaliarChamado(chamado: Chamado, avaliacao = this.avaliacaoSelecionada): void {
     this.atualizarChamado(chamado.id, { avaliacao });
+  }
+
+  protected avisarMovimentoKanbanInvalido(): void {
+    this.toastr.warning('Mova o ticket apenas para a proxima etapa do fluxo.', 'Kanban de tickets');
   }
 
   protected async alternarLink(link: LinkMonitorado): Promise<void> {
@@ -2156,7 +2373,7 @@ export class App implements OnInit {
       const proximoDisponivel = !link.disponivel;
 
       try {
-        const response = await fetch(`${this.apiUrl}/links/${link.id}/status`, {
+        const response = await this.apiFetch(`${this.apiUrl}/links/${link.id}/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2231,7 +2448,7 @@ export class App implements OnInit {
       }
 
       try {
-        const response = await fetch(`${this.apiUrl}/links/${linkAtual.id}`, {
+        const response = await this.apiFetch(`${this.apiUrl}/links/${linkAtual.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.criarPayloadLink({ ...novoLink, id: linkAtual.id, disponivel: linkAtual.disponivel, chamado: linkAtual.chamado })),
@@ -2251,7 +2468,7 @@ export class App implements OnInit {
     }
 
     try {
-      const response = await fetch(`${this.apiUrl}/links`, {
+      const response = await this.apiFetch(`${this.apiUrl}/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.criarPayloadLink(novoLink)),
@@ -2281,7 +2498,7 @@ export class App implements OnInit {
     }
 
     try {
-      const response = await fetch(`${this.apiUrl}/links/${link.id}`, {
+      const response = await this.apiFetch(`${this.apiUrl}/links/${link.id}`, {
         method: 'DELETE',
       });
 
@@ -2339,6 +2556,7 @@ export class App implements OnInit {
           perfil: 'Administrador',
           texto: `Falha detectada no link ${link.nome}.`,
           horario: 'Agora',
+          tipo: 'Mural',
         },
       ],
     };
@@ -2362,6 +2580,7 @@ export class App implements OnInit {
                   perfil: 'Administrador',
                   texto: `Link ${link.nome} voltou a operar. Chamado encerrado automaticamente.`,
                   horario: 'Agora',
+                  tipo: 'Mural',
                 },
               ],
             }
@@ -2372,6 +2591,26 @@ export class App implements OnInit {
 
   private atualizarChamado(id: number, patch: Partial<Chamado>): void {
     this.chamados.update((chamados) => chamados.map((chamado) => (chamado.id === id ? { ...chamado, ...patch } : chamado)));
+  }
+
+  private statusParaApi(status: Chamado['status']): string {
+    if (status === 'Em atendimento') {
+      return 'EmAtendimento';
+    }
+
+    if (status === 'Aguardando retorno') {
+      return 'AguardandoRetorno';
+    }
+
+    return status;
+  }
+
+  private usuarioPodeReabrirChamado(chamado: Chamado): boolean {
+    const usuario = this.sessao();
+    return this.perfil() === 'Usuario'
+      && chamado.status === 'Encerrado'
+      && Boolean(usuario)
+      && (chamado.solicitanteUsuarioId === usuario?.id || chamado.solicitante === usuario?.nome);
   }
 
   private capturarEquipamento(): string {

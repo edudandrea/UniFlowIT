@@ -46,7 +46,7 @@
 
     <form class="modal-form user-modal-form" (ngSubmit)="salvarUsuarioSubmit.emit()">
       <label>
-        <span>Empresa contratante</span>
+        <span>Empresa</span>
         <select name="usuarioEmpresaModal" [(ngModel)]="novoUsuario.empresaId" [disabled]="travarEmpresa" required>
           <option [ngValue]="null" disabled>Selecione uma empresa</option>
           @for (empresa of empresas; track empresa.tenantSlug) {

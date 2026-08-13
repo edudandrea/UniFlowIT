@@ -26,41 +26,49 @@
     <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo ticket' }}</button>
   </div>
 
-  <div class="result-list tickets-list">
-    <div class="result-header">
-      <span>Ticket</span>
-      <span>Solicitante</span>
-      <span>Categoria</span>
-      <span>Prioridade</span>
-      <span>Status</span>
-      <span>Atendente</span>
-    </div>
+  <div class="kanban-board" aria-label="Kanban de tickets">
+    @for (coluna of colunasKanban; track coluna.status) {
+      <section class="kanban-column" (dragover)="permitirSoltar($event)" (drop)="soltarChamado(coluna.status)">
+        <header>
+          <div>
+            <span>{{ coluna.titulo }}</span>
+            <small>{{ chamadosPorStatus(coluna.status).length }} tickets</small>
+          </div>
+        </header>
 
-    @for (chamado of chamadosVisiveis; track chamado.id) {
-      <button type="button" class="result-row ticket-list-row" [class.selected]="chamadoSelecionado?.id === chamado.id" (click)="abrirDetalheChamado(chamado)">
-        <span>
-          <strong>{{ chamado.numero }}</strong>
-          <small>{{ chamado.titulo || chamado.tipo }}</small>
-        </span>
-        <span>{{ chamado.solicitante }}</span>
-        <span>
-          <strong>{{ chamado.categoria }}</strong>
-          <small>{{ chamado.subcategoria }}</small>
-        </span>
-        <span
-          class="status-pill priority-status"
-          [class.low]="chamado.prioridade === 'Baixa'"
-          [class.medium]="chamado.prioridade === 'Media'"
-          [class.high]="chamado.prioridade === 'Alta'"
-          [class.urgent]="chamado.prioridade === 'Urgente'"
-        >
-          {{ chamado.prioridade }}
-        </span>
-        <span class="status" [class.urgent]="chamado.prioridade === 'Urgente'">{{ chamado.status }}</span>
-        <span>{{ chamado.atendente || 'Sem proprietario' }}</span>
-      </button>
-    } @empty {
-      <p class="empty-state">Nenhum ticket aberto encontrado para este perfil.</p>
+        <div class="kanban-list">
+          @for (chamado of chamadosPorStatus(coluna.status); track chamado.id) {
+            <article
+              class="kanban-card"
+              [class.selected]="chamadoSelecionado?.id === chamado.id"
+              [draggable]="podeEditarChamado() && chamado.status !== 'Encerrado'"
+              (dragstart)="iniciarArraste(chamado)"
+              (click)="abrirDetalheChamado(chamado)"
+            >
+              <div class="kanban-card-top">
+                <strong>{{ chamado.numero }}</strong>
+                <span
+                  class="status-pill priority-status"
+                  [class.low]="chamado.prioridade === 'Baixa'"
+                  [class.medium]="chamado.prioridade === 'Media'"
+                  [class.high]="chamado.prioridade === 'Alta'"
+                  [class.urgent]="chamado.prioridade === 'Urgente'"
+                >
+                  {{ chamado.prioridade }}
+                </span>
+              </div>
+              <h3>{{ chamado.titulo || chamado.tipo }}</h3>
+              <p>{{ chamado.categoria }} / {{ chamado.subcategoria }}</p>
+              <footer>
+                <span>{{ chamado.solicitante }}</span>
+                <small>{{ chamado.atendente || 'Sem proprietario' }}</small>
+              </footer>
+            </article>
+          } @empty {
+            <p class="kanban-empty">Sem tickets nesta etapa.</p>
+          }
+        </div>
+      </section>
     }
   </div>
 </section>
@@ -184,30 +192,112 @@
         <div class="ticket-detail-content">
           <div class="detail-hero">
             <div>
-              <span class="status" [class.urgent]="chamadoSelecionado.prioridade === 'Urgente'">{{ chamadoSelecionado.status }}</span>
+              <span class="status" [class.urgent]="chamadoSelecionado.prioridade === 'Urgente'">{{ statusVisual(chamadoSelecionado.status) }}</span>
               <p class="description">{{ chamadoSelecionado.descricao }}</p>
             </div>
             <small>{{ chamadoSelecionado.prioridade }}</small>
           </div>
 
-          <dl class="details">
-            <div>
-              <dt>Solicitante</dt>
-              <dd>{{ chamadoSelecionado.solicitante }}</dd>
-            </div>
-            <div>
-              <dt>Tipo</dt>
-              <dd>{{ chamadoSelecionado.tipo }}</dd>
-            </div>
-            <div>
-              <dt>Atendente</dt>
-              <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
-            </div>
-            <div>
-              <dt>Equipamento</dt>
-              <dd>{{ chamadoSelecionado.equipamento }}</dd>
-            </div>
-          </dl>
+          @if (podeEditarChamado()) {
+            <form class="ticket-edit-form" (ngSubmit)="salvarEdicaoChamado()">
+              <label class="full">
+                <span>Titulo</span>
+                <input name="tituloEdicao" [(ngModel)]="chamadoEdicao.titulo" required />
+              </label>
+
+              <label>
+                <span>Solicitante</span>
+                <input name="solicitanteEdicao" [value]="chamadoSelecionado.solicitante" disabled />
+              </label>
+
+              <label>
+                <span>Categoria</span>
+                <select name="categoriaEdicao" [ngModel]="chamadoEdicao.categoria" (ngModelChange)="definirCategoriaEdicao($event)">
+                  @for (categoria of categorias; track categoria.id ?? categoria.nome) {
+                    <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>
+                <span>Subcategoria</span>
+                <select name="subcategoriaEdicao" [(ngModel)]="chamadoEdicao.subcategoria">
+                  @for (subcategoria of subcategoriasEdicao(); track subcategoria) {
+                    <option [ngValue]="subcategoria">{{ subcategoria }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>
+                <span>Tipo</span>
+                <select name="tipoEdicao" [(ngModel)]="chamadoEdicao.tipo">
+                  <option>Incidente</option>
+                  <option>Solicitacao</option>
+                  <option>Alteracao</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Prioridade</span>
+                <select name="prioridadeEdicao" [(ngModel)]="chamadoEdicao.prioridade">
+                  <option>Baixa</option>
+                  <option>Media</option>
+                  <option>Alta</option>
+                  <option>Urgente</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Status</span>
+                <select name="statusEdicao" [(ngModel)]="chamadoEdicao.status" [disabled]="chamadoSelecionado.status === 'Encerrado'">
+                  <option>Aberto</option>
+                  <option>Em atendimento</option>
+                  <option>Aguardando retorno</option>
+                  <option>Encerrado</option>
+                  <option>Cancelado</option>
+                </select>
+              </label>
+
+              <label class="full">
+                <span>Descricao</span>
+                <textarea name="descricaoEdicao" [(ngModel)]="chamadoEdicao.descricao" rows="4"></textarea>
+              </label>
+
+              <div class="details read-only-details full">
+                <div>
+                  <dt>Atendente</dt>
+                  <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
+                </div>
+                <div>
+                  <dt>Equipamento</dt>
+                  <dd>{{ chamadoSelecionado.equipamento }}</dd>
+                </div>
+              </div>
+
+              <div class="form-actions full">
+                <button class="primary" type="submit">Salvar dados do ticket</button>
+              </div>
+            </form>
+          } @else {
+            <dl class="details">
+              <div>
+                <dt>Solicitante</dt>
+                <dd>{{ chamadoSelecionado.solicitante }}</dd>
+              </div>
+              <div>
+                <dt>Tipo</dt>
+                <dd>{{ chamadoSelecionado.tipo }}</dd>
+              </div>
+              <div>
+                <dt>Atendente</dt>
+                <dd>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</dd>
+              </div>
+              <div>
+                <dt>Equipamento</dt>
+                <dd>{{ chamadoSelecionado.equipamento }}</dd>
+              </div>
+            </dl>
+          }
 
           <div class="attachments">
             <strong>Anexos</strong>
@@ -223,7 +313,7 @@
           @if (perfil !== 'Usuario') {
             <div class="actions">
               @if (chamadoSelecionado.status === 'Aberto') {
-                <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Capturar</button>
+                <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Assumir ticket</button>
               }
               <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
               <button type="button" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
@@ -243,6 +333,9 @@
                   <option [ngValue]="1">1 - Critico</option>
                 </select>
               </label>
+              @if (podeReabrirChamado()) {
+                <button type="button" class="primary" (click)="reabrirChamado()">Reabrir ticket</button>
+              }
               <button type="button" class="primary" (click)="avaliarChamadoClick.emit({ chamado: chamadoSelecionado, avaliacao: avaliacaoSelecionada })">Avaliar</button>
             </div>
           }
@@ -250,29 +343,43 @@
       }
 
       @if (abaDetalhe === 'comunicacao') {
-        <div class="communication-timeline">
-          @for (mensagem of chamadoSelecionado.mensagens; track mensagem.horario + mensagem.texto) {
-            <article>
-              <div>
-                <strong>{{ mensagem.autor }}</strong>
-                <small>{{ mensagem.perfil }} - {{ mensagem.horario }}</small>
-              </div>
-              <p>{{ mensagem.texto }}</p>
-            </article>
-          } @empty {
-            <p class="empty-state">Nenhuma comunicacao registrada para este ticket.</p>
+        <div class="mural-panel">
+          @if (perfil !== 'Usuario') {
+            <div class="mural-composer">
+              <label>
+                <span>Recado para o usuario</span>
+                <textarea [(ngModel)]="novoComunicado" name="novoComunicado" rows="4" placeholder="Escreva uma comunicacao formal para ficar registrada no mural"></textarea>
+              </label>
+              <button type="button" class="primary" (click)="publicarComunicado()">Publicar recado</button>
+            </div>
           }
+
+          <div class="communication-timeline">
+            @for (mensagem of comunicacoesMural(); track mensagem.horario + mensagem.texto) {
+              <article>
+                <div>
+                  <strong>{{ mensagem.autor }}</strong>
+                  <small>{{ mensagem.perfil }} - {{ mensagem.horario }}</small>
+                </div>
+                <p>{{ mensagem.texto }}</p>
+              </article>
+            } @empty {
+              <p class="empty-state">Nenhum recado registrado no mural deste ticket.</p>
+            }
+          </div>
         </div>
       }
 
       @if (abaDetalhe === 'chat') {
         <div class="chat-panel ticket-chat-panel">
           <div class="chat whatsapp-chat">
-            @for (mensagem of chamadoSelecionado.mensagens; track mensagem.horario + mensagem.texto) {
+            @for (mensagem of mensagensChat(); track mensagem.horario + mensagem.texto) {
               <div class="message" [class.mine]="mensagem.perfil === perfil">
-                <strong>{{ mensagem.autor }}</strong>
+                <div>
+                  <strong>{{ mensagem.autor }}</strong>
+                  <small>{{ mensagem.horario }}</small>
+                </div>
                 <p>{{ mensagem.texto }}</p>
-                <small>{{ mensagem.horario }}</small>
               </div>
             } @empty {
               <p class="empty-state">Inicie a conversa com a equipe tecnica.</p>
