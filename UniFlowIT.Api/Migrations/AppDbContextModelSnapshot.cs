@@ -90,6 +90,13 @@ namespace UniFlowIT.Api.Migrations
                     b.Property<bool>("Publicado")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasDefaultValue("Publicado");
+
                     b.PrimitiveCollection<string[]>("Tags")
                         .IsRequired()
                         .HasColumnType("text[]");
@@ -525,15 +532,46 @@ namespace UniFlowIT.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AgentId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("AgentVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("DataCompra")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)");
+
                     b.Property<int>("DiscoGb")
                         .HasColumnType("integer");
+
+                    b.Property<int>("DiscoLivreGb")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DiscosJson")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<int?>("EmpresaId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Filial")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Gpu")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Hostname")
                         .IsRequired()
@@ -542,10 +580,41 @@ namespace UniFlowIT.Api.Migrations
 
                     b.Property<string>("Ip")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Marca")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<int>("MemoriaGb")
                         .HasColumnType("integer");
+
+                    b.Property<int>("MemoriaLivreGb")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Modelo")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NotaFiscalNome")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<string>("NotaFiscalUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NumeroNotaFiscal")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("Online")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Patrimonio")
                         .IsRequired()
@@ -554,24 +623,62 @@ namespace UniFlowIT.Api.Migrations
 
                     b.Property<string>("Processador")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Responsavel")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int?>("ResponsavelUsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RustDeskId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("RustDeskPassword")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("SistemaOperacional")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime>("UltimaLeituraEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Unidade")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int?>("UnidadeEmpresaId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("UsuarioAtual")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
 
                     b.HasIndex("EmpresaId");
 
                     b.HasIndex("Hostname");
+
+                    b.HasIndex("Patrimonio");
 
                     b.ToTable("inventario_equipamentos", (string)null);
                 });

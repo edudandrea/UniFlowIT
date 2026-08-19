@@ -35,6 +35,7 @@ export type Pagina =
 export type EmpresaTab = 'pesquisa' | 'detalhes';
 export type StatusChamado = 'Aberto' | 'Em atendimento' | 'Aguardando retorno' | 'Encerrado' | 'Cancelado';
 export type Prioridade = 'Baixa' | 'Media' | 'Alta' | 'Urgente';
+export type StatusConhecimento = 'Publicado' | 'Em revisão' | 'Rascunho' | 'Arquivado';
 
 export interface Sessao {
   id: number;
@@ -95,6 +96,8 @@ export interface Artigo {
   anexos?: string[];
   usuario?: string;
   usuarioId?: number;
+  publico?: boolean;
+  status?: StatusConhecimento;
 }
 
 export interface AnexoChamado {
@@ -120,6 +123,8 @@ export interface ConhecimentoForm {
   anexos: string[];
   usuario: string;
   usuarioId?: number;
+  publico: boolean;
+  status: StatusConhecimento;
 }
 
 export interface CategoriaConhecimentoForm {
@@ -139,13 +144,46 @@ export interface EnvioEquipamento {
 }
 
 export interface Inventario {
+  id?: number;
   empresaId?: number;
   patrimonio: string;
   hostname: string;
+  marca?: string;
+  modelo?: string;
+  tipo?: 'Computador' | 'Notebook' | 'Impressora' | 'Perifericos' | 'Outros';
+  descricao?: string;
+  dataCompra?: string;
+  numeroNotaFiscal?: string;
+  notaFiscalNome?: string;
+  notaFiscalUrl?: string;
+  responsavelUsuarioId?: number;
+  responsavel?: string;
+  unidadeEmpresaId?: number;
+  unidade?: string;
+  online?: boolean;
   usuario: string;
   filial: string;
   sistema: string;
   memoria: string;
+  processador?: string;
+  gpu?: string;
+  memoriaLivreGb?: number;
+  discoGb?: number;
+  discoLivreGb?: number;
+  discos?: DiscoInventario[];
+  discosJson?: string;
+  ip?: string;
+  agentId?: string;
+  agentVersion?: string;
+  rustDeskId?: string;
+  rustDeskPassword?: string;
+}
+
+export interface DiscoInventario {
+  nome: string;
+  unidade: string;
+  totalGb: number;
+  livreGb: number;
 }
 
 export interface LinkMonitorado {

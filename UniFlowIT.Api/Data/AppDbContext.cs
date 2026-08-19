@@ -143,6 +143,7 @@ namespace UniFlowIT.Api.Data
                 entity.Property(item => item.Titulo).HasMaxLength(180).IsRequired();
                 entity.Property(item => item.Categoria).HasMaxLength(80).IsRequired();
                 entity.Property(item => item.UsuarioCriador).HasMaxLength(160);
+                entity.Property(item => item.Status).HasMaxLength(24).HasDefaultValue("Publicado").IsRequired();
                 entity.HasIndex(item => item.EmpresaId);
                 entity.HasOne(item => item.Empresa)
                     .WithMany()
@@ -184,8 +185,30 @@ namespace UniFlowIT.Api.Data
                 entity.HasKey(item => item.Id);
                 entity.Property(item => item.Patrimonio).HasMaxLength(80).IsRequired();
                 entity.Property(item => item.Hostname).HasMaxLength(120).IsRequired();
+                entity.Property(item => item.Marca).HasMaxLength(120);
+                entity.Property(item => item.Modelo).HasMaxLength(120);
+                entity.Property(item => item.Tipo).HasMaxLength(40).IsRequired();
+                entity.Property(item => item.Descricao).HasMaxLength(600);
+                entity.Property(item => item.NumeroNotaFiscal).HasMaxLength(80);
+                entity.Property(item => item.NotaFiscalNome).HasMaxLength(180);
+                entity.Property(item => item.NotaFiscalUrl).HasColumnType("text");
+                entity.Property(item => item.Responsavel).HasMaxLength(160).IsRequired();
+                entity.Property(item => item.Unidade).HasMaxLength(160);
+                entity.Property(item => item.UsuarioAtual).HasMaxLength(160);
+                entity.Property(item => item.Filial).HasMaxLength(160);
+                entity.Property(item => item.SistemaOperacional).HasMaxLength(160);
+                entity.Property(item => item.Processador).HasMaxLength(160);
+                entity.Property(item => item.Gpu).HasMaxLength(160);
+                entity.Property(item => item.DiscosJson).HasColumnType("text");
+                entity.Property(item => item.Ip).HasMaxLength(80);
+                entity.Property(item => item.AgentId).HasMaxLength(120);
+                entity.Property(item => item.AgentVersion).HasMaxLength(40);
+                entity.Property(item => item.RustDeskId).HasMaxLength(120);
+                entity.Property(item => item.RustDeskPassword).HasMaxLength(120);
                 entity.HasIndex(item => item.EmpresaId);
+                entity.HasIndex(item => item.AgentId);
                 entity.HasIndex(item => item.Hostname);
+                entity.HasIndex(item => item.Patrimonio);
                 entity.HasOne(item => item.Empresa)
                     .WithMany()
                     .HasForeignKey(item => item.EmpresaId)

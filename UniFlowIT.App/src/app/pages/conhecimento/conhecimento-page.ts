@@ -57,6 +57,10 @@ export class ConhecimentoPage {
       .map((nome) => categorias.find((categoria) => categoria.nome === nome) ?? { nome, ativo: true });
   }
 
+  protected get conhecimentosRestritos(): number {
+    return this.artigos.filter((artigo) => artigo.publico === false).length;
+  }
+
   protected artigosDaCategoria(categoria: string): Artigo[] {
     return this.artigos.filter((artigo) => artigo.categoria === categoria);
   }

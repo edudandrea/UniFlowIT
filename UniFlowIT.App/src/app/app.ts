@@ -26,6 +26,7 @@ import {
   ConhecimentoForm,
   DadosEmpresaSaas,
   DespesaSaas,
+  DiscoInventario,
   EmpresaForm,
   EmpresaLista,
   EmpresaTab,
@@ -38,8 +39,27 @@ import {
   PlanoSaas,
   Prioridade,
   Sessao,
+  StatusConhecimento,
   UsuarioLista,
 } from './models/uniflowit.models';
+
+interface NotificacaoChamado {
+  chamadoId: number;
+  mensagemId?: number;
+  titulo: string;
+  autor: string;
+  texto: string;
+  horario: string;
+  tipo: 'chat' | 'comunicacao';
+  lida: boolean;
+}
+
+interface ResultadoPesquisaGlobal {
+  titulo: string;
+  detalhe: string;
+  pagina: Pagina;
+  chamadoId?: number;
+}
 
 @Component({
   selector: 'app-root',
@@ -50,6 +70,7 @@ import {
 })
 export class App implements OnInit, OnDestroy {
   private readonly apiUrl = 'http://localhost:5151/api';
+  private readonly agentUrl = 'http://127.0.0.1:17891';
   private readonly temaStorageKey = 'uniflowit-theme';
 
   protected readonly perfis: Perfil[] = ['Usuario', 'Atendente', 'Administrador', 'AdministradorSaas'];
@@ -76,6 +97,9 @@ export class App implements OnInit, OnDestroy {
   protected categoriasConhecimentoModalAberto = signal(false);
   protected categoriaConhecimentoSelecionada = signal<string | null>(null);
   protected contaMenuAberto = signal(false);
+  protected notificacoesMenuAberto = signal(false);
+  protected alertasMenuAberto = signal(false);
+  protected pesquisaGlobal = '';
   protected perfilModalAberto = signal(false);
   protected senhaModalAberto = signal(false);
   protected existeAdministradorSaas = signal(true);
@@ -91,7 +115,7 @@ export class App implements OnInit, OnDestroy {
     autor: string;
     texto: string;
   } | null>(null);
-  protected abrirChamadoModal = signal<{ id: number; aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat'; nonce: number } | null>(null);
+  protected abrirChamadoModal = signal<{ id: number; aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat' | 'linha-do-tempo'; nonce: number } | null>(null);
   protected ticketsComAtualizacao = signal<Set<number>>(new Set<number>());
   protected novaMensagem = '';
   protected avaliacaoSelecionada = 5;
@@ -102,6 +126,8 @@ export class App implements OnInit, OnDestroy {
   private chamadoDetalheModalAberto = false;
   private primeiraCargaChamadosConcluida = false;
   private mensagensConhecidasTickets = new Set<string>();
+  private notificacoesLidas = signal<Set<string>>(new Set<string>(this.carregarNotificacoesLidas()));
+  private equipamentoAgentAtual: Partial<Inventario> | null = null;
 
   private async apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
     const token = this.sessao()?.token;
@@ -341,6 +367,8 @@ export class App implements OnInit, OnDestroy {
     descricao: '',
     anexos: [],
     usuario: '',
+    publico: true,
+    status: 'Publicado',
   };
 
   protected categoriaConhecimentoForm: CategoriaConhecimentoForm = {
@@ -354,8 +382,8 @@ export class App implements OnInit, OnDestroy {
   ];
 
   protected inventario: Inventario[] = [
-    { empresaId: 1, patrimonio: 'UNI-NB-1042', hostname: 'NB-CPS-1042', usuario: 'ana.sales', filial: 'Campinas', sistema: 'Windows 11 Pro', memoria: '16 GB' },
-    { empresaId: 1, patrimonio: 'UNI-SRV-002', hostname: 'SRV-AD-002', usuario: 'Sistema', filial: 'Matriz', sistema: 'Windows Server', memoria: '64 GB' },
+    { id: 1, empresaId: 1, patrimonio: 'UNI-NB-1042', hostname: 'NB-CPS-1042', marca: 'Dell', modelo: 'Latitude 5420', tipo: 'Notebook', descricao: 'Notebook corporativo', dataCompra: '2026-08-10', numeroNotaFiscal: '', notaFiscalNome: '', notaFiscalUrl: '', responsavelUsuarioId: undefined, responsavel: 'ana.sales', unidadeEmpresaId: 1, unidade: 'Campinas', online: true, usuario: 'ana.sales', filial: 'Campinas', sistema: 'Windows 11 Pro', memoria: '16 GB' },
+    { id: 2, empresaId: 1, patrimonio: 'UNI-SRV-002', hostname: 'SRV-AD-002', marca: 'Dell', modelo: 'PowerEdge', tipo: 'Computador', descricao: 'Servidor de dominio', dataCompra: '2026-07-18', numeroNotaFiscal: '', notaFiscalNome: '', notaFiscalUrl: '', responsavelUsuarioId: undefined, responsavel: 'Sistema', unidadeEmpresaId: 1, unidade: 'Matriz', online: false, usuario: 'Sistema', filial: 'Matriz', sistema: 'Windows Server', memoria: '64 GB' },
   ];
 
   protected links = signal<LinkMonitorado[]>([
@@ -400,6 +428,16 @@ export class App implements OnInit, OnDestroy {
     if (!alvo?.closest('.account-box')) {
       this.contaMenuAberto.set(false);
     }
+    if (!alvo?.closest('.topbar-popover-wrap')) {
+      this.notificacoesMenuAberto.set(false);
+      this.alertasMenuAberto.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.control.k', ['$event'])
+  protected focarPesquisaGlobal(event: Event): void {
+    event.preventDefault();
+    document.querySelector<HTMLInputElement>('input[name="pesquisaGlobal"]')?.focus();
   }
 
   async ngOnInit(): Promise<void> {
@@ -482,6 +520,36 @@ export class App implements OnInit, OnDestroy {
       urgentes: chamados.filter((item) => item.prioridade === 'Urgente').length,
       linksFora: this.links().filter((item) => !item.disponivel).length,
     };
+  });
+
+  protected contagemTodosChamados = computed(() => this.chamadosVisiveis().length);
+
+  protected contagemMeusChamados = computed(() => {
+    const nome = this.sessao()?.nome;
+    const id = this.sessao()?.id;
+    return this.chamadosVisiveis().filter(
+      (c) => (nome && c.atendente === nome) || (id && c.solicitanteUsuarioId === id) || (nome && c.solicitante === nome),
+    ).length;
+  });
+
+  protected contagemNaoAtribuidos = computed(() => {
+    return this.chamadosVisiveis().filter((c) => !c.atendente || !c.atendente.trim()).length;
+  });
+
+  protected contagemAguardandoCliente = computed(() => {
+    return this.chamadosVisiveis().filter((c) => c.status === 'Aguardando retorno').length;
+  });
+
+  protected contagemSlaProximo = computed(() => {
+    return this.chamadosVisiveis().filter(
+      (c) => c.status !== 'Encerrado' && c.status !== 'Cancelado' && (c.prioridade === 'Alta' || c.prioridade === 'Urgente'),
+    ).length;
+  });
+
+  protected contagemSlaVencido = computed(() => {
+    return this.chamadosVisiveis().filter(
+      (c) => c.status !== 'Encerrado' && c.status !== 'Cancelado' && c.prioridade === 'Urgente',
+    ).length;
   });
 
   protected categoriasVisiveis = computed(() => {
@@ -619,6 +687,9 @@ export class App implements OnInit, OnDestroy {
       this.novoChamado.solicitante = data.nome;
       this.resetarAlertasTickets();
       await this.carregarDadosSistema();
+      if (data.role === 'Usuario') {
+        await this.verificarUniFlowItAgent();
+      }
       this.iniciarAtualizacaoChamadosRealtime();
       this.toastr.success(`Bem-vindo, ${data.nome}.`, 'Login realizado');
     } catch {
@@ -892,6 +963,138 @@ export class App implements OnInit, OnDestroy {
   protected alternarMenuConta(event?: MouseEvent): void {
     event?.stopPropagation();
     this.contaMenuAberto.update((aberto) => !aberto);
+  }
+
+  protected alternarNotificacoes(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.alertasMenuAberto.set(false);
+    const estavaAberto = this.notificacoesMenuAberto();
+    this.notificacoesMenuAberto.set(!estavaAberto);
+  }
+
+  protected alternarAlertas(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.notificacoesMenuAberto.set(false);
+    this.alertasMenuAberto.update((aberto) => !aberto);
+  }
+
+  protected notificacoesChamados(): NotificacaoChamado[] {
+    return this.chamadosVisiveis()
+      .flatMap((chamado) => (chamado.mensagens ?? []).map((mensagem) => ({
+        chamadoId: chamado.id,
+        mensagemId: mensagem.id,
+        titulo: chamado.titulo || `Chamado ${chamado.numero}`,
+        autor: mensagem.autor,
+        texto: mensagem.texto,
+        horario: mensagem.horario,
+        tipo: mensagem.tipo === 'Mural' ? 'comunicacao' as const : 'chat' as const,
+        lida: mensagem.lida === true,
+      })))
+      .filter((notificacao) => !notificacao.lida && !this.notificacoesLidas().has(this.chaveNotificacao(notificacao)))
+      .sort((a, b) => b.horario.localeCompare(a.horario))
+      .slice(0, 8);
+  }
+
+  protected chaveNotificacao(notificacao: NotificacaoChamado): string {
+    return notificacao.mensagemId != null
+      ? `mensagem:${notificacao.mensagemId}`
+      : `${notificacao.chamadoId}|${notificacao.tipo}|${notificacao.autor}|${notificacao.horario}|${notificacao.texto}`;
+  }
+
+  protected linksIndisponiveis(): LinkMonitorado[] {
+    if (this.perfil() !== 'Administrador' && this.perfil() !== 'Atendente') {
+      return [];
+    }
+    return this.links().filter((link) => !link.disponivel);
+  }
+
+  protected abrirNotificacao(notificacao: NotificacaoChamado): void {
+    this.marcarNotificacoesComoLidas([notificacao]);
+    const chamado = this.chamadosVisiveis().find((item) => item.id === notificacao.chamadoId);
+    const mensagem = chamado?.mensagens.find((item) => item.id === notificacao.mensagemId);
+    if (mensagem) {
+      mensagem.lida = true;
+    }
+    this.notificacoesMenuAberto.set(false);
+    this.paginaAtiva.set('chamados');
+    this.abrirChamadoModal.set({ id: notificacao.chamadoId, aba: notificacao.tipo, nonce: Date.now() });
+  }
+
+  private async persistirLeituraNotificacao(chamadoId: number): Promise<void> {
+    try {
+      await this.apiFetch(`${this.apiUrl}/chamados/${chamadoId}/mensagens/lidas`, { method: 'POST' });
+    } catch {
+      // A leitura local continua válida mesmo se a API estiver indisponível.
+    }
+  }
+
+  private marcarNotificacoesComoLidas(notificacoes: NotificacaoChamado[]): void {
+    const lidas = new Set(this.notificacoesLidas());
+    const chamadosParaPersistir = new Set<number>();
+    for (const notificacao of notificacoes) {
+      lidas.add(this.chaveNotificacao(notificacao));
+      chamadosParaPersistir.add(notificacao.chamadoId);
+      const chamado = this.chamadosVisiveis().find((item) => item.id === notificacao.chamadoId);
+      const mensagem = chamado?.mensagens.find((item) => item.id === notificacao.mensagemId);
+      if (mensagem) {
+        mensagem.lida = true;
+      }
+    }
+    this.notificacoesLidas.set(lidas);
+    localStorage.setItem('uniflowit-read-notifications', JSON.stringify([...lidas]));
+    for (const chamadoId of chamadosParaPersistir) {
+      void this.persistirLeituraNotificacao(chamadoId);
+    }
+  }
+
+  private carregarNotificacoesLidas(): string[] {
+    try {
+      const valor = JSON.parse(localStorage.getItem('uniflowit-read-notifications') ?? '[]');
+      return Array.isArray(valor) ? valor.filter((item): item is string => typeof item === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  protected abrirAlertaLink(): void {
+    this.alertasMenuAberto.set(false);
+    this.paginaAtiva.set('links-dashboard');
+  }
+
+  protected resultadosPesquisaGlobal(): ResultadoPesquisaGlobal[] {
+    const termo = this.pesquisaGlobal.trim().toLocaleLowerCase('pt-BR');
+    if (!termo) {
+      return [];
+    }
+
+    const resultados: ResultadoPesquisaGlobal[] = [];
+    for (const chamado of this.chamadosVisiveis()) {
+      const texto = `${chamado.numero} ${chamado.titulo} ${chamado.descricao} ${chamado.solicitante}`.toLocaleLowerCase('pt-BR');
+      if (texto.includes(termo)) {
+        resultados.push({ titulo: chamado.titulo || `Chamado ${chamado.numero}`, detalhe: `${chamado.numero} · ${chamado.solicitante}`, pagina: 'chamados', chamadoId: chamado.id });
+      }
+    }
+    for (const artigo of this.artigos) {
+      const texto = `${artigo.titulo} ${artigo.categoria} ${artigo.descricao} ${artigo.usuario}`.toLocaleLowerCase('pt-BR');
+      if (texto.includes(termo)) {
+        resultados.push({ titulo: artigo.titulo, detalhe: `Base de conhecimento · ${artigo.categoria}`, pagina: 'conhecimento' });
+      }
+    }
+    for (const link of this.links()) {
+      const texto = `${link.nome} ${link.endereco} ${link.local}`.toLocaleLowerCase('pt-BR');
+      if (texto.includes(termo)) {
+        resultados.push({ titulo: link.nome, detalhe: `Monitoramento · ${link.endereco}`, pagina: 'links-dashboard' });
+      }
+    }
+    return resultados.slice(0, 8);
+  }
+
+  protected abrirResultadoPesquisa(resultado: ResultadoPesquisaGlobal): void {
+    this.pesquisaGlobal = '';
+    this.paginaAtiva.set(resultado.pagina);
+    if (resultado.chamadoId) {
+      this.abrirChamadoModal.set({ id: resultado.chamadoId, aba: 'dados', nonce: Date.now() });
+    }
   }
 
   protected abrirSuporte(): void {
@@ -1342,6 +1545,8 @@ export class App implements OnInit, OnDestroy {
       anexos: [],
       usuario,
       usuarioId: this.sessao()?.id,
+      publico: true,
+      status: 'Publicado',
     };
     this.conhecimentoModalAberto.set(true);
   }
@@ -1356,6 +1561,8 @@ export class App implements OnInit, OnDestroy {
       anexos: [...(artigo.anexos ?? [])],
       usuario: artigo.usuario || this.sessao()?.nome || 'Usuario atual',
       usuarioId: artigo.usuarioId ?? this.sessao()?.id,
+      publico: artigo.publico !== false,
+      status: artigo.status ?? 'Publicado',
     };
     this.conhecimentoModalAberto.set(true);
   }
@@ -1510,6 +1717,8 @@ export class App implements OnInit, OnDestroy {
       anexos: [...this.conhecimentoForm.anexos],
       usuario: this.sessao()?.nome ?? this.conhecimentoForm.usuario,
       usuarioId: this.sessao()?.id,
+      publico: this.conhecimentoForm.publico,
+      status: this.conhecimentoForm.status,
     };
 
     this.artigos = editando
@@ -1532,7 +1741,8 @@ export class App implements OnInit, OnDestroy {
           anexos: artigo.anexos,
           usuarioCriador: artigo.usuario,
           usuarioCriadorId: artigo.usuarioId,
-          publicado: true,
+          publicado: artigo.publico !== false,
+          status: artigo.status,
         }),
       });
 
@@ -1970,13 +2180,39 @@ export class App implements OnInit, OnDestroy {
 
       const inventario = (await response.json()) as Array<Record<string, unknown>>;
       this.inventario = inventario.map((item) => ({
+        id: item['id'] == null ? undefined : Number(item['id']),
         empresaId: item['empresaId'] == null ? undefined : Number(item['empresaId']),
         patrimonio: String(item['patrimonio'] ?? ''),
         hostname: String(item['hostname'] ?? ''),
+        marca: String(item['marca'] ?? ''),
+        modelo: String(item['modelo'] ?? ''),
+        tipo: this.normalizarTipoEquipamento(item['tipo']),
+        descricao: String(item['descricao'] ?? ''),
+        dataCompra: String(item['dataCompra'] ?? '').slice(0, 10),
+        numeroNotaFiscal: String(item['numeroNotaFiscal'] ?? ''),
+        notaFiscalNome: String(item['notaFiscalNome'] ?? ''),
+        notaFiscalUrl: String(item['notaFiscalUrl'] ?? ''),
+        responsavelUsuarioId: item['responsavelUsuarioId'] == null ? undefined : Number(item['responsavelUsuarioId']),
+        responsavel: String(item['responsavel'] ?? item['usuarioAtual'] ?? ''),
+        unidadeEmpresaId: item['unidadeEmpresaId'] == null ? undefined : Number(item['unidadeEmpresaId']),
+        unidade: String(item['unidade'] ?? item['filial'] ?? ''),
+        online: Boolean(item['online'] ?? true),
         usuario: String(item['usuarioAtual'] ?? ''),
         filial: String(item['filial'] ?? ''),
         sistema: String(item['sistemaOperacional'] ?? ''),
         memoria: `${Number(item['memoriaGb'] ?? 0)} GB`,
+        memoriaLivreGb: Number(item['memoriaLivreGb'] ?? 0),
+        processador: String(item['processador'] ?? ''),
+        gpu: String(item['gpu'] ?? ''),
+        discoGb: Number(item['discoGb'] ?? 0),
+        discoLivreGb: Number(item['discoLivreGb'] ?? 0),
+        discosJson: String(item['discosJson'] ?? ''),
+        discos: this.parseDiscosInventario(String(item['discosJson'] ?? '')),
+        ip: String(item['ip'] ?? ''),
+        agentId: String(item['agentId'] ?? ''),
+        agentVersion: String(item['agentVersion'] ?? ''),
+        rustDeskId: String(item['rustDeskId'] ?? ''),
+        rustDeskPassword: String(item['rustDeskPassword'] ?? ''),
       }));
     } catch {
       return;
@@ -2018,6 +2254,37 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  private parseDiscosInventario(valor: string): DiscoInventario[] {
+    if (!valor.trim()) {
+      return [];
+    }
+
+    try {
+      const discos = JSON.parse(valor) as DiscoInventario[];
+      return Array.isArray(discos)
+        ? discos
+            .map((disco) => {
+              const raw = disco as unknown as Record<string, unknown>;
+              return {
+                nome: String(disco.nome ?? raw['Nome'] ?? ''),
+                unidade: String(disco.unidade ?? raw['Unidade'] ?? ''),
+                totalGb: Number(disco.totalGb ?? raw['TotalGb'] ?? 0),
+                livreGb: Number(disco.livreGb ?? raw['LivreGb'] ?? 0),
+              };
+            })
+            .filter((disco) => disco.totalGb > 0)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private normalizarTipoEquipamento(tipo: unknown): Inventario['tipo'] {
+    return tipo === 'Computador' || tipo === 'Notebook' || tipo === 'Impressora' || tipo === 'Perifericos' || tipo === 'Outros'
+      ? tipo
+      : 'Computador';
+  }
+
   private mapearLink(link: Record<string, unknown>): LinkMonitorado {
     return {
       id: link['id'] == null ? undefined : Number(link['id']),
@@ -2051,7 +2318,15 @@ export class App implements OnInit, OnDestroy {
       anexos: Array.isArray(artigo['anexos']) ? artigo['anexos'].map(String) : [],
       usuario: String(artigo['usuarioCriador'] ?? artigo['usuario'] ?? ''),
       usuarioId: artigo['usuarioCriadorId'] == null ? undefined : Number(artigo['usuarioCriadorId']),
+      publico: artigo['publicado'] == null ? true : Boolean(artigo['publicado']),
+      status: this.normalizarStatusConhecimento(artigo['status']),
     };
+  }
+
+  private normalizarStatusConhecimento(valor: unknown): StatusConhecimento {
+    return valor === 'Em revisão' || valor === 'Rascunho' || valor === 'Arquivado' || valor === 'Publicado'
+      ? valor
+      : 'Publicado';
   }
 
   private mapearCategoriaConhecimento(categoria: Record<string, unknown>): CategoriaConhecimento {
@@ -2414,7 +2689,7 @@ export class App implements OnInit, OnDestroy {
       prioridade: this.novoChamado.prioridade,
       descricao,
       origem,
-      equipamentoRelacionado: this.criarEquipamentoCapturado(),
+      equipamentoRelacionado: this.criarEquipamentoRelacionadoChamado(),
       anexos: anexosDetalhes,
     };
 
@@ -2548,6 +2823,17 @@ export class App implements OnInit, OnDestroy {
     }
 
     try {
+      if (chamadoAtual.status === 'Encerrado' && patch.status === 'Aberto') {
+        const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamadoEditado.id}/reabrir`, { method: 'POST' });
+        if (!response.ok) {
+          throw new Error('Nao foi possivel reabrir o ticket.');
+        }
+
+        await this.carregarChamados();
+        this.toastr.success('Atendimento reaberto com sucesso.', 'Tickets');
+        return;
+      }
+
       const response = await this.apiFetch(`${this.apiUrl}/chamados/${chamadoEditado.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2820,6 +3106,126 @@ export class App implements OnInit, OnDestroy {
     this.toastr.warning('Mova o ticket apenas para a proxima etapa do fluxo.', 'Kanban de tickets');
   }
 
+  protected async salvarEquipamento(equipamento: Inventario): Promise<void> {
+    const payload = {
+      id: equipamento.id,
+      empresaId: equipamento.empresaId ?? this.sessao()?.empresaId,
+      patrimonio: equipamento.patrimonio.trim(),
+      hostname: equipamento.hostname.trim(),
+      marca: equipamento.marca?.trim() ?? '',
+      modelo: equipamento.modelo?.trim() ?? '',
+      tipo: equipamento.tipo ?? 'Computador',
+      descricao: equipamento.descricao?.trim() ?? '',
+      dataCompra: equipamento.dataCompra || null,
+      numeroNotaFiscal: equipamento.numeroNotaFiscal?.trim() ?? '',
+      notaFiscalNome: equipamento.notaFiscalNome?.trim() ?? '',
+      notaFiscalUrl: equipamento.notaFiscalUrl ?? '',
+      responsavelUsuarioId: equipamento.responsavelUsuarioId,
+      responsavel: (equipamento.responsavel || equipamento.usuario).trim(),
+      unidadeEmpresaId: equipamento.unidadeEmpresaId,
+      unidade: (equipamento.unidade || equipamento.filial).trim(),
+      online: Boolean(equipamento.online),
+      usuarioAtual: (equipamento.responsavel || equipamento.usuario).trim(),
+      filial: (equipamento.unidade || equipamento.filial).trim(),
+      sistemaOperacional: equipamento.sistema || '',
+      processador: equipamento.processador || '',
+      gpu: equipamento.gpu || '',
+      memoriaGb: Number.parseInt(equipamento.memoria, 10) || 0,
+      memoriaLivreGb: equipamento.memoriaLivreGb || 0,
+      discoGb: equipamento.discoGb || 0,
+      discoLivreGb: equipamento.discoLivreGb || 0,
+      discosJson: equipamento.discosJson || JSON.stringify(equipamento.discos ?? []),
+      ip: equipamento.ip || '',
+      agentId: equipamento.agentId || '',
+      agentVersion: equipamento.agentVersion || '',
+      rustDeskId: equipamento.rustDeskId || '',
+      rustDeskPassword: equipamento.rustDeskPassword || '',
+    };
+
+    if (this.perfil() !== 'AdministradorSaas') {
+      const equipamentoExistente = equipamento.id ? this.inventario.find((item) => item.id === equipamento.id) : undefined;
+      payload.ip = equipamentoExistente?.ip || '';
+      payload.sistemaOperacional = equipamentoExistente?.sistema || '';
+      payload.processador = equipamentoExistente?.processador || '';
+      payload.gpu = equipamentoExistente?.gpu || '';
+      payload.memoriaGb = Number.parseInt(equipamentoExistente?.memoria || '', 10) || 0;
+      payload.memoriaLivreGb = equipamentoExistente?.memoriaLivreGb || 0;
+      payload.discoGb = equipamentoExistente?.discoGb || 0;
+      payload.discoLivreGb = equipamentoExistente?.discoLivreGb || 0;
+      payload.discosJson = equipamentoExistente?.discosJson || JSON.stringify(equipamentoExistente?.discos ?? []);
+      payload.agentId = equipamentoExistente?.agentId || '';
+      payload.agentVersion = equipamentoExistente?.agentVersion || '';
+      payload.rustDeskId = equipamentoExistente?.rustDeskId || '';
+      payload.rustDeskPassword = equipamentoExistente?.rustDeskPassword || '';
+    }
+
+    if (!payload.patrimonio || !payload.hostname || !payload.tipo || !payload.responsavel) {
+      this.toastr.warning('Preencha ID, nome, tipo e responsavel do equipamento.', 'Equipamentos');
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/equipamentos/inventario${equipamento.id ? `/${equipamento.id}` : ''}`, {
+        method: equipamento.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel salvar o equipamento.');
+      }
+
+      await this.carregarInventario();
+      this.toastr.success('Equipamento salvo com sucesso.', 'Equipamentos');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Falha ao conectar na API de equipamentos.';
+      this.toastr.error(mensagem, 'Equipamentos');
+    }
+  }
+
+  protected async excluirEquipamento(equipamento: Inventario): Promise<void> {
+    if (!equipamento.id) {
+      this.inventario = this.inventario.filter((item) => item.patrimonio !== equipamento.patrimonio);
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/equipamentos/inventario/${equipamento.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const mensagem = await this.lerMensagemErro(response);
+        throw new Error(mensagem || 'Nao foi possivel excluir o equipamento.');
+      }
+
+      await this.carregarInventario();
+      this.toastr.success('Equipamento excluido com sucesso.', 'Equipamentos');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Falha ao conectar na API de equipamentos.';
+      this.toastr.error(mensagem, 'Equipamentos');
+    }
+  }
+
+  protected async abrirAcessoRemotoEquipamento(equipamento: Inventario): Promise<void> {
+    const rustDeskId = equipamento.rustDeskId?.trim();
+    if (!rustDeskId) {
+      this.toastr.warning('RustDesk ID nao encontrado. Instale/configure o RustDesk no equipamento e aguarde a sincronizacao do UniFlowIT Agent.', 'Acesso remoto');
+      return;
+    }
+
+    await this.abrirRustDesk(rustDeskId, equipamento.rustDeskPassword || '');
+  }
+
+  protected async abrirAcessoRemotoChamado(chamado: Chamado): Promise<void> {
+    const equipamento = this.localizarEquipamentoDoChamado(chamado);
+
+    if (!equipamento) {
+      this.toastr.warning('Nao encontrei o equipamento vinculado a este ticket no inventario.', 'Acesso remoto');
+      return;
+    }
+
+    await this.abrirAcessoRemotoEquipamento(equipamento);
+  }
+
   protected async alternarLink(link: LinkMonitorado): Promise<void> {
     if (link.id && link.id > 0) {
       const proximoDisponivel = !link.disponivel;
@@ -3078,8 +3484,33 @@ export class App implements OnInit, OnDestroy {
   }
 
   private capturarEquipamento(): string {
+    if (this.equipamentoAgentAtual?.hostname) {
+      const equipamento = this.equipamentoAgentAtual;
+      return [
+        equipamento.hostname,
+        equipamento.patrimonio,
+        equipamento.sistema,
+        equipamento.ip,
+      ].filter(Boolean).join(' | ');
+    }
+
     const equipamento = this.criarEquipamentoCapturado();
     return `Portal Web | ${equipamento.sistemaOperacional} | ${equipamento.navegador}`;
+  }
+
+  private criarEquipamentoRelacionadoChamado(): { hostname: string; sistemaOperacional: string; usuarioLogado: string; ip: string; navegador: string } {
+    const equipamentoAgent = this.equipamentoAgentAtual;
+    if (equipamentoAgent?.hostname) {
+      return {
+        hostname: equipamentoAgent.hostname,
+        sistemaOperacional: equipamentoAgent.sistema || navigator.platform || 'Sistema nao identificado',
+        usuarioLogado: this.sessao()?.nome ?? this.novoChamado.solicitante,
+        ip: equipamentoAgent.ip || '',
+        navegador: navigator.userAgent.includes('Edg') ? 'Edge' : navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Navegador detectado',
+      };
+    }
+
+    return this.criarEquipamentoCapturado();
   }
 
   private criarEquipamentoCapturado(): { hostname: string; sistemaOperacional: string; usuarioLogado: string; ip: string; navegador: string } {
@@ -3091,5 +3522,259 @@ export class App implements OnInit, OnDestroy {
       ip: '',
       navegador,
     };
+  }
+
+  private localizarEquipamentoDoChamado(chamado: Chamado): Inventario | undefined {
+    const textoChamado = this.normalizarBuscaEquipamento(chamado.equipamento);
+    const solicitante = this.normalizarBuscaEquipamento(chamado.solicitante);
+    const sessao = this.sessao();
+
+    const equipamentoAgent = this.equipamentoAgentAtual;
+    if (equipamentoAgent?.hostname && this.usuarioPodeReabrirChamado(chamado)) {
+      const hostnameAgent = equipamentoAgent.hostname;
+      const atual = this.inventario.find((item) =>
+        this.comparaCampoEquipamento(textoChamado, item)
+        || this.normalizarBuscaEquipamento(item.hostname) === this.normalizarBuscaEquipamento(hostnameAgent)
+        || (!!equipamentoAgent.patrimonio && this.normalizarBuscaEquipamento(item.patrimonio) === this.normalizarBuscaEquipamento(equipamentoAgent.patrimonio)),
+      );
+      if (atual) {
+        return atual;
+      }
+    }
+
+    return this.inventario.find((item) => {
+      if (item.empresaId && chamado.empresaId && item.empresaId !== chamado.empresaId) {
+        return false;
+      }
+
+      const textoItem = this.normalizarBuscaEquipamento([
+        item.hostname,
+        item.patrimonio,
+        item.ip,
+        item.sistema,
+        item.usuario,
+        item.responsavel,
+      ].filter(Boolean).join(' '));
+
+      const usuarioItem = this.normalizarBuscaEquipamento(item.usuario || item.responsavel || '');
+      return this.comparaCampoEquipamento(textoChamado, item)
+        || (!!textoChamado && !!textoItem && (textoChamado.includes(textoItem) || textoItem.includes(textoChamado)))
+        || (!!solicitante && !!usuarioItem && (usuarioItem.includes(solicitante) || solicitante.includes(usuarioItem)))
+        || (!!sessao?.id && item.responsavelUsuarioId === sessao.id && this.usuarioPodeReabrirChamado(chamado));
+    });
+  }
+
+  private comparaCampoEquipamento(textoChamado: string, equipamento: Inventario): boolean {
+    if (!textoChamado) {
+      return false;
+    }
+
+    return [
+      equipamento.hostname,
+      equipamento.patrimonio,
+      equipamento.ip,
+      equipamento.sistema,
+    ]
+      .map((valor) => this.normalizarBuscaEquipamento(valor || ''))
+      .filter(Boolean)
+      .some((valor) => textoChamado.includes(valor) || valor.includes(textoChamado));
+  }
+
+  private normalizarBuscaEquipamento(valor: string): string {
+    return valor
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, ' ')
+      .trim()
+      .toLocaleLowerCase('pt-BR');
+  }
+
+  private async verificarUniFlowItAgent(): Promise<void> {
+    const sessao = this.sessao();
+    if (!sessao?.token) {
+      return;
+    }
+
+    try {
+      await this.validarAgentInstalado();
+    } catch {
+      this.iniciarAgentInstalado();
+
+      try {
+        await this.aguardarAgentDisponivel(5000);
+      } catch {
+        this.toastr.info('Baixando UniFlowIT Agent. Abra o instalador uma vez para concluir a instalacao silenciosa.', 'Agente de equipamento');
+        this.baixarInstaladorUniFlowItAgent();
+        void this.aguardarInstalacaoERegistrarAgent(sessao);
+        return;
+      }
+    }
+
+    try {
+      await this.registrarAgent(sessao, 20000);
+      this.toastr.success('UniFlowIT Agent instalado e equipamento sincronizado.', 'Agente de equipamento');
+    } catch {
+      this.toastr.warning('UniFlowIT Agent instalado, mas a sincronizacao do equipamento ainda esta pendente. Vou tentar novamente em segundo plano.', 'Agente de equipamento');
+      void this.aguardarInstalacaoERegistrarAgent(sessao);
+    }
+  }
+
+  private async aguardarInstalacaoERegistrarAgent(sessao: Sessao): Promise<void> {
+    const tentativas = 45;
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+
+      try {
+        const health = await this.fetchComTimeout(`${this.agentUrl}/health`, 1200);
+        if (!health.ok) {
+          continue;
+        }
+
+        const healthPayload = await health.json() as Record<string, unknown>;
+        if (healthPayload['installedFromRegistry'] !== true) {
+          continue;
+        }
+
+        const register = await this.fetchComTimeout(`${this.agentUrl}/register`, 7000, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiUrl: this.apiUrl,
+            token: sessao.token,
+            empresaId: sessao.empresaId,
+            usuarioId: sessao.id,
+            usuarioNome: sessao.nome,
+          }),
+        });
+
+        if (!register.ok) {
+          continue;
+        }
+
+        const dados = await register.json() as Record<string, unknown>;
+        const equipamento = dados['equipamento'] as Record<string, unknown> | undefined;
+        this.equipamentoAgentAtual = {
+          id: equipamento?.['id'] == null ? undefined : Number(equipamento['id']),
+          patrimonio: String(equipamento?.['patrimonio'] ?? ''),
+          hostname: String(equipamento?.['hostname'] ?? ''),
+          sistema: String(equipamento?.['sistemaOperacional'] ?? ''),
+          ip: String(equipamento?.['ip'] ?? ''),
+          rustDeskId: String(equipamento?.['rustDeskId'] ?? ''),
+        } as Partial<Inventario>;
+        await this.carregarInventario();
+        this.toastr.success('Equipamento cadastrado e sincronizado automaticamente.', 'UniFlowIT Agent');
+        return;
+      } catch {
+        continue;
+      }
+    }
+
+    this.toastr.warning('Instale o UniFlowIT Agent e faça login novamente para sincronizar o equipamento.', 'Agente de equipamento');
+  }
+
+  private async validarAgentInstalado(): Promise<void> {
+    const health = await this.fetchComTimeout(`${this.agentUrl}/health`, 1800);
+    if (!health.ok) {
+      throw new Error('Agent indisponivel');
+    }
+
+    const healthPayload = await health.json() as Record<string, unknown>;
+    if (healthPayload['installedFromRegistry'] !== true && healthPayload['installed'] !== true) {
+      throw new Error('Agent nao instalado no Windows');
+    }
+  }
+
+  private async aguardarAgentDisponivel(timeoutMs: number): Promise<void> {
+    const limite = Date.now() + timeoutMs;
+    while (Date.now() < limite) {
+      try {
+        await this.validarAgentInstalado();
+        return;
+      } catch {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
+    }
+
+    throw new Error('Agent instalado indisponivel');
+  }
+
+  private iniciarAgentInstalado(): void {
+    const link = document.createElement('a');
+    link.href = 'uniflowit-agent://start';
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  private async registrarAgent(sessao: Sessao, timeoutMs: number): Promise<void> {
+    const register = await this.fetchComTimeout(`${this.agentUrl}/register`, timeoutMs, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl: this.apiUrl,
+        token: sessao.token,
+        empresaId: sessao.empresaId,
+        usuarioId: sessao.id,
+        usuarioNome: sessao.nome,
+      }),
+    });
+
+    if (!register.ok) {
+      throw new Error('Agent nao registrou equipamento');
+    }
+
+    const dados = await register.json() as Record<string, unknown>;
+    const equipamento = dados['equipamento'] as Record<string, unknown> | undefined;
+    this.equipamentoAgentAtual = {
+      id: equipamento?.['id'] == null ? undefined : Number(equipamento['id']),
+      patrimonio: String(equipamento?.['patrimonio'] ?? ''),
+      hostname: String(equipamento?.['hostname'] ?? ''),
+      sistema: String(equipamento?.['sistemaOperacional'] ?? ''),
+      ip: String(equipamento?.['ip'] ?? ''),
+      rustDeskId: String(equipamento?.['rustDeskId'] ?? ''),
+    } as Partial<Inventario>;
+    await this.carregarInventario();
+  }
+
+  private async fetchComTimeout(input: RequestInfo | URL, timeoutMs: number, init: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  private baixarInstaladorUniFlowItAgent(): void {
+    const link = document.createElement('a');
+    link.href = `${this.apiUrl}/agent/installer/windows`;
+    link.download = 'UniFlowIT-Agent-Setup-1.0.9.exe';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  private async abrirRustDesk(rustDeskId: string, password = ''): Promise<void> {
+    try {
+      const response = await this.fetchComTimeout(`${this.agentUrl}/remote`, 2500, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rustDeskId, password }),
+      });
+
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Fallback to RustDesk URL protocol below.
+    }
+
+    window.location.href = password
+      ? `rustdesk://${encodeURIComponent(rustDeskId)}?password=${encodeURIComponent(password)}`
+      : `rustdesk://${encodeURIComponent(rustDeskId)}`;
   }
 }

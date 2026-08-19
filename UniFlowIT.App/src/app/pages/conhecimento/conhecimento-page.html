@@ -22,6 +22,11 @@
       <small>Conhecimentos publicados</small>
       <strong>Disponiveis para consulta</strong>
     </article>
+    <article class="dashboard-card knowledge-metric-card knowledge-private-metric">
+      <span>{{ conhecimentosRestritos }}</span>
+      <small>Conhecimentos internos</small>
+      <strong>Visiveis para administradores e atendentes</strong>
+    </article>
   </div>
 
   <section class="knowledge-search panel">
@@ -50,23 +55,52 @@
     }
   </section>
 
-  <div class="knowledge-category-grid">
-    @for (categoria of categoriasAtivas; track categoria.nome) {
-      <button type="button" class="knowledge-category-card card" (click)="abrirCategoriaClick.emit(categoria.nome)">
-        <header>
-          <span class="badge info">{{ totalConhecimentos(categoria.nome) }}</span>
-          <small>Conhecimentos</small>
-        </header>
-        <div>
-          <h3>{{ categoria.nome }}</h3>
-          <p>Visualize os artigos e orientacoes cadastrados nessa categoria.</p>
-        </div>
-        <strong>Abrir categoria</strong>
-      </button>
-    } @empty {
-      <p class="empty-state">Nenhuma categoria de conhecimento cadastrada.</p>
-    }
-  </div>
+  <section class="knowledge-table-panel panel">
+    <header class="knowledge-table-heading">
+      <div>
+        <p class="eyebrow">Biblioteca da equipe</p>
+        <h3>Artigos cadastrados</h3>
+      </div>
+      <span>{{ artigos.length }} artigos</span>
+    </header>
+
+    <div class="knowledge-table-wrap">
+      <table class="knowledge-table">
+        <thead>
+          <tr>
+            <th>Titulo do artigo</th>
+            <th>Categoria</th>
+            <th>Autor</th>
+            <th>Visibilidade</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (artigo of artigos; track artigo.id ?? artigo.titulo) {
+            <tr>
+              <td>
+                <button type="button" class="knowledge-title-button" (click)="editarConhecimentoClick.emit(artigo)">
+                  <strong>{{ artigo.titulo }}</strong>
+                  <small>{{ artigo.descricao || artigo.resumo }}</small>
+                </button>
+              </td>
+              <td><span class="badge info">{{ artigo.categoria }}</span></td>
+              <td><span class="knowledge-author">{{ artigo.usuario || 'Sistema' }}</span></td>
+              <td><span class="knowledge-visibility" [class.private]="artigo.status !== 'Publicado'">{{ artigo.status || 'Publicado' }}</span></td>
+              <td>
+                <div class="knowledge-row-actions">
+                  <button type="button" class="edit-text" (click)="editarConhecimentoClick.emit(artigo)">Editar</button>
+                  <button type="button" class="danger-text" (click)="excluirConhecimentoClick.emit(artigo)">Excluir</button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5"><p class="empty-state">Nenhum conhecimento cadastrado.</p></td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 </section>
 
 @if (modalConhecimentoAberto) {
@@ -80,48 +114,73 @@
       <button type="button" class="icon-button" (click)="fecharModaisClick.emit()" aria-label="Fechar">x</button>
     </header>
 
-    <form class="modal-form knowledge-form" (ngSubmit)="salvarConhecimentoSubmit.emit()">
-      <label class="full">
-        <span>Titulo do conhecimento</span>
-        <input name="conhecimentoTitulo" [(ngModel)]="conhecimentoForm.titulo" required />
-      </label>
+    <form class="knowledge-editor-form" (ngSubmit)="salvarConhecimentoSubmit.emit()">
+      <div class="knowledge-editor-layout">
+        <div class="knowledge-editor-main">
+          <label>
+            <span>Título do artigo</span>
+            <input name="conhecimentoTitulo" [(ngModel)]="conhecimentoForm.titulo" placeholder="Ex.: Como resetar senha do AD" required />
+          </label>
 
-      <label>
-        <span>Categoria</span>
-        <select name="conhecimentoCategoria" [(ngModel)]="conhecimentoForm.categoria" required>
-          @for (categoria of categoriasAtivas; track categoria.nome) {
-            <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
-          }
-        </select>
-      </label>
+          <label>
+            <span>Resumo</span>
+            <textarea name="conhecimentoDescricao" [(ngModel)]="conhecimentoForm.descricao" rows="3" placeholder="Breve descrição do conteúdo do artigo..." required></textarea>
+          </label>
 
-      <label>
-        <span>Usuario</span>
-        <input name="conhecimentoUsuario" [(ngModel)]="conhecimentoForm.usuario" readonly />
-      </label>
+          <label>
+            <span>Conteúdo do artigo</span>
+            <textarea name="conhecimentoConteudo" [(ngModel)]="conhecimentoForm.descricao" rows="7" placeholder="Escreva o conteúdo do artigo aqui..." required></textarea>
+          </label>
 
-      <label class="full">
-        <span>Descricao</span>
-        <textarea name="conhecimentoDescricao" [(ngModel)]="conhecimentoForm.descricao" rows="5" required></textarea>
-      </label>
-
-      <div class="full upload-field">
-        <span>Upload de arquivos</span>
-        <input id="conhecimentoArquivos" name="conhecimentoArquivos" type="file" multiple (change)="atualizarArquivos($event)" />
-        <label class="upload-control" for="conhecimentoArquivos">
-          <strong>Selecionar arquivos</strong>
-          <small>{{ conhecimentoForm.anexos.length ? conhecimentoForm.anexos.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo escolhido' }}</small>
-        </label>
-        @if (conhecimentoForm.anexos.length) {
-          <div class="upload-list">
-            @for (anexo of conhecimentoForm.anexos; track anexo) {
-              <span>{{ anexo }}</span>
+          <div class="upload-field">
+            <span>Anexos</span>
+            <input id="conhecimentoArquivos" name="conhecimentoArquivos" type="file" multiple (change)="atualizarArquivos($event)" />
+            <label class="upload-control" for="conhecimentoArquivos">
+              <strong>Selecionar arquivos</strong>
+              <small>{{ conhecimentoForm.anexos.length ? conhecimentoForm.anexos.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo escolhido' }}</small>
+            </label>
+            @if (conhecimentoForm.anexos.length) {
+              <div class="upload-list">
+                @for (anexo of conhecimentoForm.anexos; track anexo) { <span>{{ anexo }}</span> }
+              </div>
             }
           </div>
-        }
+        </div>
+
+        <aside class="knowledge-editor-sidebar">
+          <label>
+            <span>Categoria</span>
+            <select name="conhecimentoCategoria" [(ngModel)]="conhecimentoForm.categoria" required>
+              @for (categoria of categoriasAtivas; track categoria.nome) { <option [ngValue]="categoria.nome">{{ categoria.nome }}</option> }
+            </select>
+          </label>
+
+          <label>
+            <span>Autor</span>
+            <input name="conhecimentoUsuario" [(ngModel)]="conhecimentoForm.usuario" readonly />
+          </label>
+
+          <label class="knowledge-editor-status">
+            <span>Status</span>
+            <select name="conhecimentoStatus" [(ngModel)]="conhecimentoForm.status">
+              <option [ngValue]="'Publicado'">Publicado</option>
+              <option [ngValue]="'Em revisão'">Em revisão</option>
+              <option [ngValue]="'Rascunho'">Rascunho</option>
+              <option [ngValue]="'Arquivado'">Arquivado</option>
+            </select>
+          </label>
+
+          <label class="knowledge-public-toggle">
+            <input type="checkbox" name="conhecimentoPublico" [(ngModel)]="conhecimentoForm.publico" />
+            <span>
+              <strong>Conhecimento público</strong>
+              <small>Disponível também para usuários.</small>
+            </span>
+          </label>
+        </aside>
       </div>
 
-      <footer class="modal-actions">
+      <footer class="knowledge-editor-footer">
         <button type="button" (click)="fecharModaisClick.emit()">Cancelar</button>
         <button type="submit" class="primary">{{ conhecimentoForm.id ? 'Salvar alteracoes' : 'Cadastrar conhecimento' }}</button>
       </footer>
@@ -212,6 +271,7 @@
         <article class="card knowledge-article-card">
           <header>
             <span class="badge info">{{ artigo.categoria }}</span>
+            <span class="knowledge-visibility" [class.private]="artigo.status !== 'Publicado'">{{ artigo.status || 'Publicado' }}</span>
             <div class="knowledge-card-actions">
               <button type="button" class="edit-text" (click)="editarConhecimentoClick.emit(artigo)">Editar</button>
               <button type="button" class="danger-text" (click)="excluirConhecimentoClick.emit(artigo)">Excluir</button>

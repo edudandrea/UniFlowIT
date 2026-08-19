@@ -1,91 +1,77 @@
 <section class="links-dashboard">
   <div class="dashboard-cards link-summary-cards">
     <article class="dashboard-card green">
+      <span class="link-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.5 2.5L16 9"></path></svg></span>
       <span>{{ linksAtivos.length }}</span>
       <small>Monitoramentos ativos</small>
     </article>
     <article class="dashboard-card red">
+      <span class="link-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m9 9 6 6M15 9l-6 6"></path></svg></span>
       <span>{{ linksInativos.length }}</span>
       <small>Monitoramentos inativos</small>
     </article>
     <article class="dashboard-card cyan">
+      <span class="link-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
       <span>{{ pingLabel(menorPing) }}</span>
       <small>Menor ping{{ menorPing ? ' - ' + menorPing.nome : '' }}</small>
     </article>
     <article class="dashboard-card amber">
+      <span class="link-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z"></path></svg></span>
       <span>{{ pingLabel(maiorPing) }}</span>
       <small>Maior ping{{ maiorPing ? ' - ' + maiorPing.nome : '' }}</small>
     </article>
   </div>
 
-  <div class="dashboard-grid link-dashboard-grid">
-    <section class="panel link-map-panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Mapa de monitoramento</p>
-          <h2>Distribuicao por local</h2>
+  <div class="link-monitoring-layout">
+    <section class="panel link-table-panel">
+      <header class="link-table-toolbar">
+        <div class="link-tabs" role="tablist" aria-label="Filtros de links">
+          <button type="button" class="active">Todos <b>{{ links.length }}</b></button>
+          <button type="button">Online <b>{{ linksAtivos.length }}</b></button>
+          <button type="button">Offline <b>{{ linksInativos.length }}</b></button>
         </div>
-        <span class="badge info">{{ linksMapa.length }} firewalls</span>
-      </div>
+        <div class="link-table-filters">
+          <input [(ngModel)]="linkPesquisa" name="linkPesquisa" placeholder="Pesquisar link..." />
+          <select aria-label="Filtrar por status"><option>Todos os status</option><option>Online</option><option>Offline</option></select>
+          <select aria-label="Agrupar links"><option>Grupo</option><option>Local</option><option>Tipo</option></select>
+        </div>
+      </header>
 
-      <div
-        class="link-map"
-        [class.dragging]="mapaArrastando"
-        aria-label="Mapa real com a posicao aproximada dos monitoramentos"
-        (wheel)="zoomMapaComScroll($event)"
-        (mousedown)="iniciarArrastoMapa($event)"
-        (mousemove)="arrastarMapa($event)"
-        (mouseup)="finalizarArrastoMapa()"
-        (mouseleave)="finalizarArrastoMapa()"
-      >
-        <div class="map-tile-layer" aria-hidden="true">
-          @for (tile of mapTiles(); track tile.url) {
-            <img [src]="tile.url" [ngStyle]="tile.style" alt="" />
-          }
-        </div>
-        <div class="map-zoom-controls" aria-label="Controles de zoom do mapa">
-          <button type="button" aria-label="Aproximar mapa" (click)="aumentarZoom()">+</button>
-          <button type="button" aria-label="Afastar mapa" (click)="diminuirZoom()">-</button>
-        </div>
-        <svg class="map-link-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          @for (conexao of conexoesMapa(); track conexao.id) {
-            <path [attr.d]="conexao.path" [class.down]="conexao.down" />
-          }
-        </svg>
-        @for (link of linksMapa; track link.nome) {
-          <button type="button" class="map-pin" [class.down]="!link.disponivel" [ngStyle]="mapStyle(link)" [attr.aria-label]="link.nome" (click)="abrirEdicaoLink(link)">
-            <strong>{{ link.nome }}</strong>
-            <span aria-hidden="true"></span>
+      <div class="link-operations-table">
+        <div class="link-operations-head"><span>Link</span><span>Provedor / tipo</span><span>Local</span><span>Status</span><span>Disponibilidade</span><span>Latência</span><span>Ações</span></div>
+        @for (link of linksFiltrados; track link.nome) {
+          <button type="button" class="link-operation-row" [class.offline]="!link.disponivel" (click)="abrirEdicaoLink(link)">
+            <span class="link-name-cell"><i [class.offline]="!link.disponivel"></i><strong>{{ link.nome }}</strong><small>{{ link.endereco }}</small></span>
+            <span>{{ link.firewall || link.tipo }}</span>
+            <span>{{ link.local }}</span>
+            <span class="link-status" [class.offline]="!link.disponivel"><i></i>{{ link.disponivel ? 'Online' : 'Offline' }}<small>{{ link.disponivel ? 'há 2 min' : 'há 3 min' }}</small></span>
+            <span class="availability-cell"><strong>{{ link.disponivel ? '99,81%' : '12,34%' }}</strong><i class="mini-sparkline" [class.offline]="!link.disponivel"></i></span>
+            <span>{{ pingLabel(link) }}</span>
+            <span class="link-row-menu">•••</span>
           </button>
-        } @empty {
-          <p class="empty-state">Nenhum firewall cadastrado para exibir no mapa.</p>
-        }
+        } @empty { <p class="empty-state">Nenhum link encontrado.</p> }
       </div>
+      <footer class="link-table-footer">Mostrando {{ linksFiltrados.length }} de {{ links.length }} links <span>‹ &nbsp; 1 &nbsp; ›</span></footer>
     </section>
 
-    <section class="panel link-ranking-panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Latencia</p>
-          <h2>Ranking de resposta</h2>
-        </div>
-      </div>
+    <aside class="link-monitoring-aside">
+      <section class="panel link-alerts-card">
+        <header><h3>Alertas ativos</h3><b>{{ linksInativos.length }}</b><a>Ver todos</a></header>
+        @for (link of linksInativos | slice:0:3; track link.nome) { <article><i></i><div><strong>{{ link.nome }}</strong><small>{{ link.endereco }}</small></div><time>11:32</time></article> }
+        @if (!linksInativos.length) { <p class="empty-state">Nenhum alerta ativo.</p> }
+      </section>
+      <section class="panel link-status-card">
+        <header><h3>Status dos links</h3></header>
+        <div class="status-donut"><strong>{{ links.length }}</strong><small>Total</small></div>
+        <div class="status-legend"><span><i class="online"></i>Online <b>{{ linksAtivos.length }}</b></span><span><i class="offline"></i>Offline <b>{{ linksInativos.length }}</b></span></div>
+      </section>
+    </aside>
+  </div>
 
-      <div class="link-ranking-list">
-        @for (link of linksOrdenados; track link.nome) {
-          <article class="link-ranking-item" [class.down]="!link.disponivel">
-            <div>
-              <strong>{{ link.nome }}</strong>
-              <small>{{ link.tipo }} - {{ link.local }} - {{ link.endereco }}</small>
-            </div>
-            <span class="status-pill" [class.inactive]="!link.disponivel">{{ link.disponivel ? 'Ativo' : 'Inativo' }}</span>
-            <strong>{{ pingLabel(link) }}</strong>
-          </article>
-        } @empty {
-          <p class="empty-state">Cadastre o primeiro monitoramento para acompanhar a latencia.</p>
-        }
-      </div>
-    </section>
+  <div class="link-chart-row">
+    <section class="panel link-chart-card"><header><h3>Disponibilidade (%)</h3><select><option>Últimos 15 minutos</option></select></header><div class="chart-placeholder availability-chart"><i></i><i></i><i></i><i></i><i></i><i></i></div></section>
+    <section class="panel link-chart-card"><header><h3>Latência (ms)</h3><select><option>Últimos 15 minutos</option></select></header><div class="chart-placeholder latency-chart"><i></i><i></i><i></i><i></i><i></i><i></i></div></section>
+    <section class="panel link-chart-card"><header><h3>Uso de banda (Mbps)</h3><select><option>Últimos 15 minutos</option></select></header><div class="chart-placeholder bandwidth-chart"><i></i><i></i><i></i><i></i><i></i><i></i></div></section>
   </div>
 
   <section class="panel links-panel">

@@ -30,78 +30,186 @@
     <aside class="sidebar">
       <div class="brand">
         <img src="uniflowit-logo.png" alt="UniFlowIT" />
-        <div>
+        <div class="brand-meta">
           <strong>UniFlowIT</strong>
-          <small>{{ perfil() === 'AdministradorSaas' ? 'SaaS Administration' : sessao()?.empresaNome || 'Admin SaaS' }}</small>
+          <small>{{ perfil() === 'AdministradorSaas' ? 'SaaS Administration' : sessao()?.empresaNome || 'Glass + Status' }}</small>
         </div>
         @if (perfil() === 'AdministradorSaas') {
           <span class="saas-badge">SaaS</span>
         }
       </div>
 
-      <nav class="nav">
-        @if (perfil() === 'AdministradorSaas') {
-          <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'saas-dashboard'" (click)="navegar('saas-dashboard')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Dashboard SaaS</span>
-          </button>
-
-          <button type="button" class="nav-empresas" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Empresas</span>
-          </button>
-          <button type="button" class="nav-usuarios" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">
-            <span class="nav-icon" aria-hidden="true"></span><span>Usuarios</span>
-          </button>
-          <div class="nav-group">
-            <button type="button" class="nav-parent nav-comercial" [class.open]="comercialAberto()" (click)="alternarComercial()">
-              <span class="nav-icon" aria-hidden="true"></span>
-              <span>Comercial</span>
+      <div class="sidebar-scrollable-content">
+        <nav class="nav">
+          @if (perfil() === 'AdministradorSaas') {
+            <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'saas-dashboard'" (click)="navegar('saas-dashboard')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Dashboard SaaS</span>
             </button>
-            <div class="nav-children" [class.open]="comercialAberto()">
-              <button type="button" [class.active]="paginaAtiva() === 'financeiro-planos'" (click)="navegar('financeiro-planos')">Planos</button>
-              <button type="button" [class.active]="paginaAtiva() === 'financeiro-assinaturas'" (click)="navegar('financeiro-assinaturas')">Assinaturas</button>
-              <button type="button" [class.active]="paginaAtiva() === 'financeiro-cobrancas'" (click)="navegar('financeiro-cobrancas')">Cobrancas</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-inadimplencia'" (click)="navegar('saas-inadimplencia')">
-                <span>Inadimplencia</span><span class="nav-count danger">4</span>
-              </button>
-            </div>
-          </div>
 
-          <div class="nav-group">
-            <button type="button" class="nav-parent nav-admin" [class.open]="administracaoSaasAberto()" (click)="alternarAdministracaoSaas()">
-              <span class="nav-icon" aria-hidden="true"></span>
-              <span>Administracao</span>
+            <button type="button" class="nav-empresas" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Empresas</span>
             </button>
-            <div class="nav-children" [class.open]="administracaoSaasAberto()">
-              <button type="button" [class.active]="paginaAtiva() === 'saas-configuracoes'" (click)="navegar('saas-configuracoes')">Configuracoes</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-seguranca'" (click)="navegar('saas-seguranca')">Seguranca</button>
-              <button type="button" [class.active]="paginaAtiva() === 'saas-administradores'" (click)="navegar('saas-administradores')">Administradores</button>
-              <button type="button" [class.active]="paginaAtiva() === 'financeiro-pagamentos'" (click)="navegar('financeiro-pagamentos')">Formas de pagamento</button>
-              <button type="button" [class.active]="paginaAtiva() === 'financeiro-despesas'" (click)="navegar('financeiro-despesas')">Despesas</button>
-            </div>
-          </div>
-        } @else if (perfil() === 'Administrador' || perfil() === 'Atendente') {
-          <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Dashboard</span></button>
-          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
-          @if (perfil() === 'Administrador') {
+            <button type="button" class="nav-usuarios" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Usuarios</span>
+            </button>
             <div class="nav-group">
-              <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
-                <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
-                <span>Cadastro</span>
+              <button type="button" class="nav-parent nav-comercial" [class.open]="comercialAberto()" (click)="alternarComercial()">
+                <span class="nav-icon" aria-hidden="true"></span>
+                <span>Comercial</span>
               </button>
-              <div class="nav-children" [class.open]="cadastroAberto()">
-                <button type="button" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">Empresas</button>
-                <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
-                <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
+              <div class="nav-children" [class.open]="comercialAberto()">
+                <button type="button" [class.active]="paginaAtiva() === 'financeiro-planos'" (click)="navegar('financeiro-planos')">Planos</button>
+                <button type="button" [class.active]="paginaAtiva() === 'financeiro-assinaturas'" (click)="navegar('financeiro-assinaturas')">Assinaturas</button>
+                <button type="button" [class.active]="paginaAtiva() === 'financeiro-cobrancas'" (click)="navegar('financeiro-cobrancas')">Cobrancas</button>
+                <button type="button" [class.active]="paginaAtiva() === 'saas-inadimplencia'" (click)="navegar('saas-inadimplencia')">
+                  <span>Inadimplencia</span><span class="nav-count danger">4</span>
+                </button>
               </div>
             </div>
+
+            <div class="nav-group">
+              <button type="button" class="nav-parent nav-admin" [class.open]="administracaoSaasAberto()" (click)="alternarAdministracaoSaas()">
+                <span class="nav-icon" aria-hidden="true"></span>
+                <span>Administracao</span>
+              </button>
+              <div class="nav-children" [class.open]="administracaoSaasAberto()">
+                <button type="button" [class.active]="paginaAtiva() === 'saas-configuracoes'" (click)="navegar('saas-configuracoes')">Configuracoes</button>
+                <button type="button" [class.active]="paginaAtiva() === 'saas-seguranca'" (click)="navegar('saas-seguranca')">Seguranca</button>
+                <button type="button" [class.active]="paginaAtiva() === 'saas-administradores'" (click)="navegar('saas-administradores')">Administradores</button>
+                <button type="button" [class.active]="paginaAtiva() === 'financeiro-pagamentos'" (click)="navegar('financeiro-pagamentos')">Formas de pagamento</button>
+                <button type="button" [class.active]="paginaAtiva() === 'financeiro-despesas'" (click)="navegar('financeiro-despesas')">Despesas</button>
+              </div>
+            </div>
+          } @else if (perfil() === 'Administrador' || perfil() === 'Atendente') {
+            <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'dashboard'" (click)="navegar('dashboard')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Dashboard</span>
+            </button>
+            <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Chamados</span>
+            </button>
+            <button type="button" class="nav-equipamentos" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Ativos</span>
+            </button>
+            <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links-dashboard'" (click)="navegar('links-dashboard')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Monitoramento</span>
+            </button>
+            @if (perfil() === 'Administrador') {
+              <div class="nav-group">
+                <button type="button" class="nav-parent" [class.open]="cadastroAberto()" (click)="alternarCadastro()">
+                  <span class="nav-icon nav-icon-cadastro" aria-hidden="true"></span>
+                  <span>Infraestrutura</span>
+                </button>
+                <div class="nav-children" [class.open]="cadastroAberto()">
+                  <button type="button" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">Empresas</button>
+                  <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
+                  <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
+                </div>
+              </div>
+            }
+            <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Conhecimento</span>
+            </button>
+            @if (perfil() === 'Administrador') {
+              <button type="button" class="nav-usuarios" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">
+                <span class="nav-icon" aria-hidden="true"></span><span>Usuários</span>
+              </button>
+            }
+          } @else {
+            <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Chamados</span>
+            </button>
+            <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')">
+              <span class="nav-icon" aria-hidden="true"></span><span>Base de Conhecimento</span>
+            </button>
           }
-          <button type="button" class="nav-base" [class.active]="paginaAtiva() === 'conhecimento'" (click)="navegar('conhecimento')"><span class="nav-icon" aria-hidden="true"></span><span>Base de Conhecimentos</span></button>
-          <button type="button" class="nav-equipamentos" [class.active]="paginaAtiva() === 'equipamentos'" (click)="navegar('equipamentos')"><span class="nav-icon" aria-hidden="true"></span><span>Equipamentos</span></button>
-          <button type="button" class="nav-links" [class.active]="paginaAtiva() === 'links-dashboard'" (click)="navegar('links-dashboard')"><span class="nav-icon" aria-hidden="true"></span><span>Monitoramento</span></button>
-        } @else {
-          <button type="button" class="nav-chamados" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')"><span class="nav-icon" aria-hidden="true"></span><span>Tickets</span></button>
+        </nav>
+
+        <!-- FILAS INTELIGENTES -->
+        @if (perfil() !== 'AdministradorSaas') {
+          <div class="sidebar-section">
+            <span class="sidebar-section-title">FILAS INTELIGENTES</span>
+            <div class="sidebar-queues">
+              <button type="button" class="queue-item" [class.active]="paginaAtiva() === 'chamados'" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <svg class="queue-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Todos os chamados</span>
+                </span>
+                <span class="queue-count primary">{{ contagemTodosChamados() }}</span>
+              </button>
+
+              <button type="button" class="queue-item" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <svg class="queue-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Meus chamados</span>
+                </span>
+                <span class="queue-count">{{ contagemMeusChamados() }}</span>
+              </button>
+
+              <button type="button" class="queue-item" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <i class="queue-dot warning"></i>
+                  <span>Não atribuídos</span>
+                </span>
+                <span class="queue-count warning">{{ contagemNaoAtribuidos() }}</span>
+              </button>
+
+              <button type="button" class="queue-item" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <i class="queue-dot orange"></i>
+                  <span>Aguardando cliente</span>
+                </span>
+                <span class="queue-count orange">{{ contagemAguardandoCliente() }}</span>
+              </button>
+
+              <button type="button" class="queue-item" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <i class="queue-dot danger"></i>
+                  <span>SLA próximo de vencer</span>
+                </span>
+                <span class="queue-count danger">{{ contagemSlaProximo() }}</span>
+              </button>
+
+              <button type="button" class="queue-item" (click)="navegar('chamados')">
+                <span class="queue-label">
+                  <i class="queue-dot danger-dark"></i>
+                  <span>SLA vencido</span>
+                </span>
+                <span class="queue-count danger-dark">{{ contagemSlaVencido() }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- MINHAS FAVORITAS -->
+          <div class="sidebar-section">
+            <span class="sidebar-section-title">MINHAS FAVORITAS</span>
+            <div class="sidebar-favorites">
+              <button type="button" class="fav-item" (click)="navegar('cadastro-categorias')">
+                <span class="fav-label">
+                  <svg class="fav-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Infraestrutura</span>
+                </span>
+                <span class="fav-star">★</span>
+              </button>
+
+              <button type="button" class="fav-item" (click)="navegar('links-dashboard')">
+                <span class="fav-label">
+                  <svg class="fav-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  <span>Rede</span>
+                </span>
+                <span class="fav-star">★</span>
+              </button>
+
+              <button type="button" class="fav-item" (click)="navegar('cadastro-categorias')">
+                <span class="fav-label">
+                  <svg class="fav-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"></circle><path d="M10.5 12.5L20 3"></path><path d="M16 7l2 2"></path></svg>
+                  <span>Acessos</span>
+                </span>
+                <span class="fav-star">★</span>
+              </button>
+            </div>
+          </div>
         }
-      </nav>
+      </div>
 
       @if (perfil() === 'AdministradorSaas') {
         <div class="saas-sidebar-footer">
@@ -114,6 +222,7 @@
           </div>
         </div>
       }
+
     </aside>
 
     <section class="workspace">
@@ -124,35 +233,100 @@
         </div>
 
         <div class="topbar-actions">
-          <div class="session-box account-box">
-          <button type="button" class="account-trigger" (click)="alternarMenuConta($event)" aria-label="Abrir menu da conta">
-            <span class="account-avatar">
-              @if (fotoPerfilUrl()) {
-                <img [src]="fotoPerfilUrl()" alt="Foto do colaborador" />
-              } @else {
-                {{ iniciaisUsuario() }}
-              }
-            </span>
-            <span class="account-summary">
-              <strong>{{ sessao()?.nome }}</strong>
-              <small>{{ perfil() === 'AdministradorSaas' ? 'Super Administrador' : sessao()?.empresaNome || 'Administrador SaaS' }}</small>
-            </span>
-            <span class="account-role">{{ perfil() }}</span>
-            <span class="account-chevron">⌄</span>
-          </button>
+          <label class="global-search" aria-label="Pesquisar no sistema">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input [(ngModel)]="pesquisaGlobal" name="pesquisaGlobal" placeholder="Pesquisar artigos, chamados..." />
+            <kbd>Ctrl K</kbd>
+            @if (pesquisaGlobal.trim()) {
+              <div class="global-search-results">
+                @for (resultado of resultadosPesquisaGlobal(); track resultado.titulo + resultado.detalhe) {
+                  <button type="button" (click)="abrirResultadoPesquisa(resultado)"><strong>{{ resultado.titulo }}</strong><small>{{ resultado.detalhe }}</small></button>
+                } @empty { <span>Nenhum resultado encontrado.</span> }
+              </div>
+            }
+          </label>
 
-          @if (contaMenuAberto()) {
-            <div class="account-menu">
-              <button type="button" class="theme-switch-row" (click)="alternarTema()">
-                <span>Modo {{ tema() === 'dark' ? 'escuro' : 'claro' }}</span>
-                <span class="theme-switch" [class.light]="tema() === 'light'" aria-hidden="true"><i></i></span>
-              </button>
-              <button type="button" (click)="abrirSuporte()">Suporte</button>
-              <button type="button" (click)="abrirEditarPerfil()">Editar perfil</button>
-              <button type="button" (click)="abrirAlterarSenha()">Alterar senha</button>
-              <button type="button" class="danger" (click)="sair()">Sair</button>
-            </div>
+          <div class="topbar-popover-wrap">
+            <button type="button" class="topbar-icon-button" [class.active]="notificacoesMenuAberto()" (click)="alternarNotificacoes($event)" aria-label="Abrir notificações">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
+              @if (notificacoesChamados().length) { <span class="topbar-count danger">{{ notificacoesChamados().length }}</span> }
+            </button>
+            @if (notificacoesMenuAberto()) {
+              <div class="topbar-popover notification-popover">
+                <header><strong>Notificações</strong><small>{{ notificacoesChamados().length }} novas</small></header>
+                @for (notificacao of notificacoesChamados(); track chaveNotificacao(notificacao)) {
+                  <button type="button" class="popover-item notification-item" (click)="abrirNotificacao(notificacao)">
+                    <span class="popover-dot"></span>
+                    <span>
+                      <strong>{{ notificacao.titulo }}</strong>
+                      <small>{{ notificacao.tipo === 'chat' ? 'Mensagem no chat' : 'Comunicado no mural' }} · {{ notificacao.autor }}</small>
+                      <em>{{ notificacao.texto }}</em>
+                      <time>{{ notificacao.horario }}</time>
+                    </span>
+                  </button>
+                } @empty { <p class="popover-empty">Nenhuma notificação nova.</p> }
+              </div>
+            }
+          </div>
+
+          @if (perfil() === 'Administrador' || perfil() === 'Atendente') {
+          <div class="topbar-popover-wrap">
+            <button type="button" class="topbar-alert-button" [class.active]="alertasMenuAberto()" (click)="alternarAlertas($event)" aria-label="Abrir alertas">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"></path></svg><span>Alertas</span>
+              @if (linksIndisponiveis().length) { <b>{{ linksIndisponiveis().length }}</b> }
+            </button>
+            @if (alertasMenuAberto()) {
+              <div class="topbar-popover alerts-popover">
+                <header><strong>Links indisponíveis</strong><small>{{ linksIndisponiveis().length }} alertas</small></header>
+                @for (link of linksIndisponiveis(); track link.id ?? link.nome) {
+                  <button type="button" class="popover-item" (click)="abrirAlertaLink()"><span class="popover-dot warning"></span><span><strong>{{ link.nome }}</strong><small>{{ link.endereco }} · indisponível</small></span></button>
+                } @empty { <p class="popover-empty">Nenhum link indisponível.</p> }
+              </div>
+            }
+          </div>
           }
+
+          <div class="session-box account-box">
+            <button type="button" class="account-trigger" (click)="alternarMenuConta($event)" aria-label="Abrir menu da conta">
+              <span class="account-avatar">
+                @if (fotoPerfilUrl()) {
+                  <img [src]="fotoPerfilUrl()" alt="Foto do colaborador" />
+                } @else {
+                  {{ iniciaisUsuario() }}
+                }
+              </span>
+              <span class="account-summary">
+                <strong>{{ sessao()?.nome }}</strong>
+                <small>{{ perfil() === 'AdministradorSaas' ? 'Super Administrador' : sessao()?.empresaNome || 'Administrador SaaS' }}</small>
+              </span>
+              <span class="account-role">{{ perfil() }}</span>
+              <span class="account-chevron">⌄</span>
+            </button>
+
+            @if (contaMenuAberto()) {
+              <div class="account-menu">
+                <button type="button" class="theme-switch-row" (click)="alternarTema()">
+                  <span>Modo {{ tema() === 'dark' ? 'escuro' : 'claro' }}</span>
+                  <span class="theme-switch" [class.light]="tema() === 'light'" aria-hidden="true"><i></i></span>
+                </button>
+                <button type="button" (click)="abrirSuporte()">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  <span>Central de Ajuda</span>
+                </button>
+                <button type="button" (click)="abrirEditarPerfil()">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>
+                  <span>Editar perfil</span>
+                </button>
+                <button type="button" (click)="abrirAlterarSenha()">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <span>Alterar senha</span>
+                </button>
+                <button type="button" class="danger" (click)="sair()">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  <span>Sair</span>
+                </button>
+              </div>
+            }
           </div>
         </div>
       </header>
@@ -320,6 +494,7 @@
           (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
           (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao, $event.comentario)"
           (detalheModalAbertoChange)="atualizarEstadoModalChamado($event)"
+          (acessoRemotoClick)="abrirAcessoRemotoChamado($event)"
         />
       }
 
@@ -351,6 +526,7 @@
           (movimentoInvalidoClick)="avisarMovimentoKanbanInvalido()"
           (avaliarChamadoClick)="avaliarChamado($event.chamado, $event.avaliacao, $event.comentario)"
           (detalheModalAbertoChange)="atualizarEstadoModalChamado($event)"
+          (acessoRemotoClick)="abrirAcessoRemotoChamado($event)"
         />
       }
 
@@ -379,7 +555,16 @@
       }
 
       @if (paginaAtiva() === 'equipamentos') {
-        <app-equipamentos-page [envios]="envios" [inventario]="inventario" />
+        <app-equipamentos-page
+          [envios]="envios"
+          [inventario]="inventario"
+          [empresas]="empresasVisiveisCadastroEmpresa()"
+          [usuarios]="usuariosVisiveisCadastro()"
+          [exibirIntegracaoRustDesk]="perfil() === 'AdministradorSaas'"
+          (salvarEquipamentoSubmit)="salvarEquipamento($event)"
+          (excluirEquipamentoClick)="excluirEquipamento($event)"
+          (acessoRemotoClick)="abrirAcessoRemotoEquipamento($event)"
+        />
       }
 
       @if (paginaAtiva() === 'links-dashboard') {
@@ -393,8 +578,8 @@
     <section class="modal-panel ticket-alert-modal" role="dialog" aria-modal="true" aria-label="Nova atualizacao no ticket">
       <header class="modal-header">
         <div>
-        <p class="eyebrow">{{ alerta.tipo === 'chat' ? 'Nova mensagem no chat' : 'Nova comunicacao' }}</p>
-        <h2>{{ alerta.numero }} - {{ alerta.titulo }}</h2>
+          <p class="eyebrow">{{ alerta.tipo === 'chat' ? 'Nova mensagem no chat' : 'Nova comunicacao' }}</p>
+          <h2>{{ alerta.numero }} - {{ alerta.titulo }}</h2>
         </div>
       </header>
 

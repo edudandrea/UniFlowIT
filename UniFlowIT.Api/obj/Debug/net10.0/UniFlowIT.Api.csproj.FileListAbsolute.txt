@@ -132,4 +132,11 @@ D:\Dev\UniFlowIT\tmp\api-build-check\UniFlowIT.Api.deps.json
 D:\Dev\UniFlowIT\tmp\api-build-check\UniFlowIT.Api.runtimeconfig.json
 D:\Dev\UniFlowIT\tmp\api-build-check\UniFlowIT.Api.dll
 D:\Dev\UniFlowIT\tmp\api-build-check\UniFlowIT.Api.pdb
-D:\Dev\UniFlowIT\uniflowit.api\bin\Debug\net10.0\UniFlowIT.Api.exe
+D:\Dev\UniFlowIT\tmp\api-build\appsettings.Development.json
+D:\Dev\UniFlowIT\tmp\api-build\appsettings.json
+D:\Dev\UniFlowIT\tmp\api-build\UniFlowIT.Api.staticwebassets.endpoints.json
+D:\Dev\UniFlowIT\tmp\api-build\UniFlowIT.Api.deps.json
+D:\Dev\UniFlowIT\tmp\api-build\UniFlowIT.Api.runtimeconfig.json
+D:\Dev\UniFlowIT\tmp\api-build\UniFlowIT.Api.dll
+D:\Dev\UniFlowIT\tmp\api-build\UniFlowIT.Api.pdb
+D:\Dev\UniFlowIT\UniFlowIT.Api\bin\Debug\net10.0\UniFlowIT.Api.exe

@@ -1,249 +1,896 @@
-<section class="metrics" aria-label="Resumo de tickets">
-  <article>
-    <span>{{ metricas.abertos }}</span>
-    <small>Abertos</small>
-  </article>
-  <article>
-    <span>{{ metricas.atendimento }}</span>
-    <small>Em atendimento</small>
-  </article>
-  <article>
-    <span>{{ metricas.urgentes }}</span>
-    <small>Urgentes</small>
-  </article>
-  <article>
-    <span>{{ chamadosVisiveis.length }}</span>
-    <small>Visiveis para voce</small>
-  </article>
-</section>
-
-<section id="chamados" class="panel tickets-workspace">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">{{ modoDesenvolvedor ? 'Suporte da plataforma' : perfil === 'Usuario' ? 'Portal do usuario' : 'Central de atendimento' }}</p>
-      <h2>{{ modoDesenvolvedor ? 'Tickets para o desenvolvedor' : perfil === 'Usuario' ? 'Meus tickets abertos' : 'Painel de tickets' }}</h2>
-      <small class="ticket-period-summary">{{ periodoTicketsLabel() }}: {{ chamadosFiltrados().length }} tickets</small>
+<section class="tickets-workspace" [class.kanban-fullscreen-active]="kanbanFullscreen">
+  <!-- Cabeçalho Principal da Página de Chamados -->
+  <header class="chamados-header">
+    <div class="header-titles">
+      <h1>{{ modoDesenvolvedor ? 'Tickets Desenvolvedor' : 'Chamados' }}</h1>
+      <p>{{ modoDesenvolvedor ? 'Gerencie e acompanhe as solicitações técnicas e correções da plataforma.' : 'Gerencie e acompanhe todos os chamados de suporte.' }}</p>
     </div>
-    <button type="button" class="primary" (click)="abrirModalNovoChamado()">{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo ticket' }}</button>
-  </div>
 
-  <div class="ticket-filter-bar">
-    <label class="ticket-search-field">
-      <span>Pesquisa</span>
-      <input
-        name="filtroTickets"
-        [(ngModel)]="filtroTickets"
-        placeholder="Numero, assunto, prioridade ou atendente"
-      />
-    </label>
-    <label>
-      <span>Data inicial</span>
-      <input type="date" name="filtroDataInicio" [(ngModel)]="filtroDataInicio" />
-    </label>
-    <label>
-      <span>Data final</span>
-      <input type="date" name="filtroDataFim" [(ngModel)]="filtroDataFim" />
-    </label>
-    <button type="button" (click)="limparFiltrosTickets()">Semana atual</button>
-  </div>
-
-  <div class="kanban-board" aria-label="Kanban de tickets">
-    @for (coluna of colunasKanban; track coluna.status) {
-      <section class="kanban-column" (dragover)="permitirSoltar($event)" (drop)="soltarChamado(coluna.status)">
-        <header>
-          <div>
-            <span>{{ coluna.titulo }}</span>
-            <small>{{ chamadosPorStatus(coluna.status).length }} tickets</small>
-          </div>
-        </header>
-
-        <div class="kanban-list">
-          @for (chamado of chamadosPorStatus(coluna.status); track chamado.id) {
-            <article
-              class="kanban-card"
-              [class.selected]="chamadoSelecionado?.id === chamado.id"
-              [class.has-update]="chamadoTemAtualizacao(chamado)"
-              [draggable]="podeEditarChamado() && chamado.status !== 'Encerrado'"
-              (dragstart)="iniciarArraste(chamado)"
-              (click)="abrirDetalheChamado(chamado)"
-            >
-              <div class="kanban-card-top">
-                <strong>{{ chamado.numero }}</strong>
-                @if (chamadoTemAtualizacao(chamado)) {
-                  <span class="ticket-update-badge">Nova resposta</span>
-                }
-                <span
-                  class="status-pill priority-status"
-                  [class.low]="chamado.prioridade === 'Baixa'"
-                  [class.medium]="chamado.prioridade === 'Media'"
-                  [class.high]="chamado.prioridade === 'Alta'"
-                  [class.urgent]="chamado.prioridade === 'Urgente'"
-                >
-                  {{ chamado.prioridade }}
-                </span>
-              </div>
-              <h3>{{ chamado.titulo || chamado.tipo }}</h3>
-              <p>{{ chamado.categoria }} / {{ chamado.subcategoria }}</p>
-              <footer>
-                <span>{{ chamado.solicitante }}</span>
-                <small>{{ chamado.atendente || 'Sem proprietario' }}</small>
-              </footer>
-            </article>
-          } @empty {
-            <p class="kanban-empty">Sem tickets nesta etapa.</p>
-          }
-        </div>
-      </section>
-    }
-  </div>
-</section>
-
-@if (novoChamadoModalAberto) {
-  <div class="modal-backdrop" (click)="fecharModalNovoChamado()"></div>
-  <section class="modal-panel large-modal" role="dialog" aria-modal="true" aria-label="Abertura de ticket">
-    <header class="modal-header">
-      <div>
-        <p class="eyebrow">{{ modoDesenvolvedor ? 'Desenvolvedor UniFlowIT' : 'Novo ticket' }}</p>
-        <h2>{{ modoDesenvolvedor ? 'Solicitar ajuste na plataforma' : 'Abrir ticket' }}</h2>
-      </div>
-      <div class="modal-header-actions">
+    <div class="header-actions">
+      <!-- Alternador de Modos de Visualização (Abas) -->
+      <div class="view-mode-tabs" role="tablist" aria-label="Visualização de chamados">
         <button
           type="button"
-          class="priority-pill"
-          [class.low]="novoChamado.prioridade === 'Baixa'"
-          [class.medium]="novoChamado.prioridade === 'Media'"
-          [class.high]="novoChamado.prioridade === 'Alta'"
-          [class.urgent]="novoChamado.prioridade === 'Urgente'"
-          (click)="alternarPrioridade()"
+          role="tab"
+          class="tab-button"
+          [class.active]="modoVisualizacao === 'lista'"
+          [attr.aria-selected]="modoVisualizacao === 'lista'"
+          (click)="alterarModoVisualizacao('lista')"
         >
-          Prioridade: {{ novoChamado.prioridade }}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Lista</span>
         </button>
-        <button class="icon-button" type="button" aria-label="Fechar" (click)="fecharModalNovoChamado()">x</button>
+
+        <button
+          type="button"
+          role="tab"
+          class="tab-button"
+          [class.active]="modoVisualizacao === 'kanban'"
+          [attr.aria-selected]="modoVisualizacao === 'kanban'"
+          (click)="alterarModoVisualizacao('kanban')"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="5" height="18" rx="1"></rect>
+            <rect x="10" y="3" width="5" height="12" rx="1"></rect>
+            <rect x="17" y="3" width="5" height="15" rx="1"></rect>
+          </svg>
+          <span>Kanban</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          class="tab-button"
+          [class.active]="modoVisualizacao === 'compacta'"
+          [attr.aria-selected]="modoVisualizacao === 'compacta'"
+          (click)="alterarModoVisualizacao('compacta')"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <line x1="3" y1="14" x2="21" y2="14"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <span>Compacta</span>
+        </button>
       </div>
+
+      <!-- Botão Novo Chamado -->
+      <button type="button" class="btn-novo-chamado" (click)="abrirModalNovoChamado()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>{{ modoDesenvolvedor ? 'Solicitar ajuste' : 'Novo chamado' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Filtros (Pílulas de Status + Dropdowns) -->
+  <div class="filters-toolbar">
+    <!-- Pílulas de Status no lado esquerdo -->
+    <div class="status-pills-bar">
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Todos'"
+        (click)="definirFiltroStatus('Todos')"
+      >
+        <span>Todos</span>
+      </button>
+
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Abertos'"
+        (click)="definirFiltroStatus('Abertos')"
+      >
+        <span>Abertos</span>
+      </button>
+
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Em atendimento'"
+        (click)="definirFiltroStatus('Em atendimento')"
+      >
+        <span>Em atendimento</span>
+      </button>
+
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Aguardando'"
+        (click)="definirFiltroStatus('Aguardando')"
+      >
+        <span>Aguardando</span>
+      </button>
+
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Resolvidos'"
+        (click)="definirFiltroStatus('Resolvidos')"
+      >
+        <span>Resolvidos</span>
+      </button>
+
+      <button
+        type="button"
+        class="status-pill-btn"
+        [class.active]="filtroStatus === 'Fechados'"
+        (click)="definirFiltroStatus('Fechados')"
+      >
+        <span>Fechados</span>
+      </button>
+    </div>
+
+    <!-- Dropdowns e Ações de Filtros no lado direito -->
+    <div class="dropdown-filters-bar">
+      <!-- Input de Busca Rápida Integrada -->
+      <div class="quick-search-box">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          name="filtroTickets"
+          [(ngModel)]="filtroTickets"
+          placeholder="Buscar chamado..."
+          (input)="paginaAtual = 1"
+        />
+        @if (filtroTickets) {
+          <button type="button" class="clear-search-btn" (click)="filtroTickets = ''; paginaAtual = 1" aria-label="Limpar pesquisa">✕</button>
+        }
+      </div>
+
+      <!-- Filtro Prioridade -->
+      <div class="custom-select-wrapper">
+        <select [(ngModel)]="filtroPrioridade" (ngModelChange)="paginaAtual = 1" aria-label="Filtrar por prioridade">
+          <option value="Todas">Prioridade</option>
+          <option value="Urgente">Urgente</option>
+          <option value="Alta">Alta</option>
+          <option value="Media">Média</option>
+          <option value="Baixa">Baixa</option>
+        </select>
+        <span class="select-chevron" aria-hidden="true">⌄</span>
+      </div>
+
+      <!-- Filtro Categoria -->
+      <div class="custom-select-wrapper">
+        <select [(ngModel)]="filtroCategoria" (ngModelChange)="paginaAtual = 1" aria-label="Filtrar por categoria">
+          <option value="Todas">Categoria</option>
+          @for (categoria of categorias; track categoria.id ?? categoria.nome) {
+            <option [value]="categoria.nome">{{ categoria.nome }}</option>
+          }
+        </select>
+        <span class="select-chevron" aria-hidden="true">⌄</span>
+      </div>
+
+      <!-- Filtro Técnico -->
+      <div class="custom-select-wrapper">
+        <select [(ngModel)]="filtroTecnico" (ngModelChange)="paginaAtual = 1" aria-label="Filtrar por técnico">
+          <option value="Todos">Técnico</option>
+          <option value="NaoAtribuido">Não atribuído</option>
+          @for (tecnico of listaTecnicos(); track tecnico) {
+            <option [value]="tecnico">{{ tecnico }}</option>
+          }
+        </select>
+        <span class="select-chevron" aria-hidden="true">⌄</span>
+      </div>
+
+      <!-- Botão Limpar Filtros -->
+      @if (filtroStatus !== 'Todos' || filtroPrioridade !== 'Todas' || filtroCategoria !== 'Todas' || filtroTecnico !== 'Todos' || filtroTickets) {
+        <button type="button" class="btn-clear-filters" (click)="limparFiltrosTickets()" title="Limpar todos os filtros">
+          <span>Limpar</span>
+        </button>
+      }
+
+      <!-- Botão de Configurações da Visualização -->
+      <button type="button" class="btn-settings-col" title="Opções de exibição">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CONTEÚDO PRINCIPAL: TABELA DE LISTA OU COMPACTA -->
+  @if (modoVisualizacao === 'lista' || modoVisualizacao === 'compacta') {
+    <div class="table-card" [class.compact-mode]="modoVisualizacao === 'compacta'">
+      <div class="table-responsive">
+        <table class="tickets-data-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-chamado">Chamado</th>
+              <th class="col-solicitante">Solicitante</th>
+              <th class="col-categoria">Categoria</th>
+              <th class="col-prioridade">Prioridade</th>
+              <th class="col-status">Status</th>
+              <th class="col-tecnico">Técnico</th>
+              <th class="col-sla">SLA</th>
+              <th class="col-abertura">
+                <div class="th-sortable">
+                  <span>Abertura</span>
+                  <span class="sort-icon">⌄</span>
+                </div>
+              </th>
+              <th class="col-acoes"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (chamado of chamadosPaginados(); track chamado.id) {
+              <tr
+                class="ticket-table-row"
+                [class.active-modal]="chamadoSelecionado?.id === chamado.id"
+                [class.has-update]="chamadoTemAtualizacao(chamado)"
+                (click)="abrirDetalheChamado(chamado)"
+              >
+                <!-- ID -->
+                <td class="col-id">
+                  <span class="ticket-id-tag">#{{ chamado.numero || chamado.id }}</span>
+                </td>
+
+                <!-- Chamado (Título + Excerpt) -->
+                <td class="col-chamado">
+                  <div class="ticket-title-group">
+                    <strong class="ticket-title">
+                      {{ chamado.titulo || chamado.tipo }}
+                      @if (chamadoTemAtualizacao(chamado)) {
+                        <span class="update-badge" title="Nova resposta">Nova resposta</span>
+                      }
+                    </strong>
+                    <small class="ticket-excerpt">{{ chamado.descricao || 'Sem descrição informada.' }}</small>
+                  </div>
+                </td>
+
+                <!-- Solicitante (Nome + Cargo/Setor) -->
+                <td class="col-solicitante">
+                  <div class="requester-group">
+                    <strong class="requester-name">{{ chamado.solicitante }}</strong>
+                    <small class="requester-dept">{{ chamado.equipamento || 'Geral' }}</small>
+                  </div>
+                </td>
+
+                <!-- Categoria (Pill Badge) -->
+                <td class="col-categoria">
+                  <span class="category-pill-tag">{{ chamado.categoria }}</span>
+                </td>
+
+                <!-- Prioridade (Bullet + Texto) -->
+                <td class="col-prioridade">
+                  <span class="priority-indicator" [class]="chamado.prioridade.toLowerCase()">
+                    <i class="priority-bullet" aria-hidden="true"></i>
+                    <span>{{ chamado.prioridade }}</span>
+                  </span>
+                </td>
+
+                <!-- Status (Pill com ponto) -->
+                <td class="col-status">
+                  <span class="status-indicator-pill" [class]="chamado.status.toLowerCase().replace(' ', '-')">
+                    <i class="status-bullet" aria-hidden="true"></i>
+                    <span>{{ statusVisual(chamado.status) }}</span>
+                  </span>
+                </td>
+
+                <!-- Técnico Responsável -->
+                <td class="col-tecnico">
+                  <div class="tech-user-cell">
+                    @if (chamado.atendente) {
+                      <span
+                        class="avatar-circle-sm"
+                        [style.background-color]="obterCorAvatar(chamado.atendente)"
+                        aria-hidden="true"
+                      >
+                        {{ obterIniciais(chamado.atendente) }}
+                      </span>
+                      <span class="tech-name">{{ chamado.atendente }}</span>
+                    } @else {
+                      <span class="unassigned-tech">— Não atribuído</span>
+                    }
+                  </div>
+                </td>
+
+                <!-- SLA -->
+                <td class="col-sla">
+                  <div class="sla-cell-group" [class]="obterSLA(chamado).status">
+                    <strong class="sla-time">{{ obterSLA(chamado).tempo }}</strong>
+                    @if (obterSLA(chamado).venceEm) {
+                      <small class="sla-deadline">{{ obterSLA(chamado).venceEm }}</small>
+                    }
+                  </div>
+                </td>
+
+                <!-- Data de Abertura -->
+                <td class="col-abertura">
+                  <div class="opening-date-group">
+                    <strong class="opening-hour">{{ formatarAbertura(chamado).hora }}</strong>
+                    <small class="opening-date">{{ formatarAbertura(chamado).data }}</small>
+                  </div>
+                </td>
+
+                <!-- Menu de Ações (...) -->
+                <td class="col-acoes" (click)="$event.stopPropagation()">
+                  <div class="row-actions-container">
+                    <button
+                      type="button"
+                      class="btn-row-menu"
+                      (click)="alternarMenuAcoes(chamado.id, $event)"
+                      aria-label="Opções do chamado"
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="19" cy="12" r="1"></circle>
+                        <circle cx="5" cy="12" r="1"></circle>
+                      </svg>
+                    </button>
+
+                    @if (menuAcoesAbertoId === chamado.id) {
+                      <div class="row-actions-dropdown">
+                        <button type="button" (click)="abrirDetalheChamado(chamado, 'dados'); menuAcoesAbertoId = null">
+                          <span>Visualizar detalhes</span>
+                        </button>
+                        <button type="button" (click)="abrirDetalheChamado(chamado, 'chat'); menuAcoesAbertoId = null">
+                          <span>Abrir Chat</span>
+                        </button>
+                        @if (chamado.status === 'Aberto' && podeEditarChamado()) {
+                          <button type="button" (click)="capturarChamadoClick.emit(chamado); menuAcoesAbertoId = null">
+                            <span>Assumir chamado</span>
+                          </button>
+                        }
+                        @if (podeEditarChamado() && chamado.status !== 'Encerrado') {
+                          <button type="button" (click)="encerrarChamadoClick.emit(chamado); menuAcoesAbertoId = null">
+                            <span>Encerrar chamado</span>
+                          </button>
+                          <button type="button" class="danger" (click)="cancelarChamadoClick.emit(chamado); menuAcoesAbertoId = null">
+                            <span>Cancelar chamado</span>
+                          </button>
+                        }
+                        @if (perfil !== 'Usuario') {
+                          <button type="button" (click)="acessoRemotoClick.emit(chamado); menuAcoesAbertoId = null">
+                            <span>Acesso remoto</span>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="11" class="empty-table-row">
+                  <div class="empty-state-box">
+                    <p>Nenhum chamado encontrado com os filtros selecionados.</p>
+                    <button type="button" class="btn-clear-inline" (click)="limparFiltrosTickets()">Limpar filtros</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Rodapé de Paginação -->
+      <footer class="table-pagination-footer">
+        <div class="pagination-info">
+          <span>Mostrando {{ indiceInicioPaginacao() }} a {{ indiceFimPaginacao() }} de {{ totalChamadosFiltrados() }} chamados</span>
+        </div>
+
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="page-nav-btn"
+            [disabled]="paginaAtual === 1"
+            (click)="irParaPagina(paginaAtual - 1)"
+            aria-label="Página anterior"
+          >
+            ‹
+          </button>
+
+          @for (pagina of paginasExibidas(); track $index) {
+            @if (pagina === '...') {
+              <span class="page-ellipsis">...</span>
+            } @else {
+              <button
+                type="button"
+                class="page-number-btn"
+                [class.active]="paginaAtual === pagina"
+                (click)="irParaPagina(+pagina)"
+              >
+                {{ pagina }}
+              </button>
+            }
+          }
+
+          <button
+            type="button"
+            class="page-nav-btn"
+            [disabled]="paginaAtual >= totalPaginas()"
+            (click)="irParaPagina(paginaAtual + 1)"
+            aria-label="Próxima página"
+          >
+            ›
+          </button>
+        </div>
+
+        <div class="page-size-selector">
+          <select
+            [ngModel]="itensPorPagina"
+            (ngModelChange)="alterarItensPorPagina($event)"
+            aria-label="Itens por página"
+          >
+            @for (opcao of opcoesItensPorPagina; track opcao) {
+              <option [ngValue]="opcao">{{ opcao }} por página</option>
+            }
+          </select>
+          <span class="select-chevron" aria-hidden="true">⌄</span>
+        </div>
+      </footer>
+    </div>
+  }
+
+  <!-- CONTEÚDO PRINCIPAL: QUADRO KANBAN (EXIBIDO APENAS NA TAB KANBAN) -->
+  @if (modoVisualizacao === 'kanban') {
+    <div class="kanban-workspace-card">
+      <!-- Sub-cabeçalho da Visualização Kanban -->
+      <header class="kanban-topbar">
+        <div class="kanban-headline">
+          <h2>Kanban</h2>
+          <span>Visualize o fluxo dos chamados em tempo real.</span>
+        </div>
+
+        <div class="kanban-controls">
+          <div class="kanban-control-field">
+            <label for="ordenarKanbanSelect">Ordenar por</label>
+            <div class="custom-select-wrapper">
+              <select id="ordenarKanbanSelect" [(ngModel)]="ordenarKanbanPor">
+                <option value="prioridade">Prioridade</option>
+                <option value="recente">Mais recente</option>
+              </select>
+              <span class="select-chevron" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+
+          <div class="kanban-control-field">
+            <label for="agruparKanbanSelect">Agrupar por</label>
+            <div class="custom-select-wrapper">
+              <select id="agruparKanbanSelect" [(ngModel)]="agruparKanbanPor">
+                <option value="status">Status</option>
+              </select>
+              <span class="select-chevron" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn-kanban-expand"
+            [class.active]="kanbanFullscreen"
+            (click)="alternarKanbanFullscreen()"
+            title="Expandir visualização"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Colunas do Quadro Kanban -->
+      <div class="kanban-columns-container">
+        @for (coluna of colunasKanban; track coluna.id) {
+          <section
+            class="kanban-column"
+            [class]="coluna.id"
+            (dragover)="permitirSoltar($event)"
+            (drop)="soltarChamado(coluna.status)"
+          >
+            <!-- Cabeçalho da Coluna -->
+            <header class="kanban-col-header">
+              <div class="col-title-group">
+                <i class="col-indicator-dot" [style.background-color]="coluna.cor" aria-hidden="true"></i>
+                <h3>{{ coluna.titulo }}</h3>
+              </div>
+              <span class="col-count-badge">{{ chamadosPorStatusKanban(coluna).length }}</span>
+            </header>
+
+            <!-- Lista de Cartões da Coluna -->
+            <div class="kanban-cards-list">
+              @for (chamado of chamadosPorStatusKanban(coluna); track chamado.id) {
+                <article
+                  class="kanban-ticket-card"
+                  [class.selected]="chamadoSelecionado?.id === chamado.id"
+                  [class.has-update]="chamadoTemAtualizacao(chamado)"
+                  [draggable]="podeEditarChamado() && chamado.status !== 'Encerrado' && chamado.status !== 'Cancelado'"
+                  (dragstart)="iniciarArraste(chamado)"
+                  (click)="abrirDetalheChamado(chamado)"
+                >
+                  <!-- Topo do Cartão: ID + Título -->
+                  <div class="card-top-info">
+                    <span class="card-id">#{{ chamado.numero || chamado.id }}</span>
+                    <h4 class="card-title">{{ chamado.titulo || chamado.tipo }}</h4>
+                  </div>
+
+                  <!-- Descrição Prévia -->
+                  <p class="card-description">{{ chamado.descricao || 'Sem descrição.' }}</p>
+
+                  <!-- Rodapé do Cartão: Prioridade, Solicitante e Atendente/SLA -->
+                  <footer class="card-footer-info">
+                    <div class="card-priority" [class]="chamado.prioridade.toLowerCase()">
+                      <i class="priority-bullet" aria-hidden="true"></i>
+                      <span>{{ chamado.prioridade }}</span>
+                    </div>
+
+                    <span class="card-requester">{{ chamado.solicitante }}</span>
+
+                    <div class="card-meta-right">
+                      @if (chamado.atendente) {
+                        <span
+                          class="avatar-circle-xs"
+                          [style.background-color]="obterCorAvatar(chamado.atendente)"
+                          [title]="'Técnico: ' + chamado.atendente"
+                          aria-hidden="true"
+                        >
+                          {{ obterIniciais(chamado.atendente) }}
+                        </span>
+                      }
+                      <span class="card-time">{{ formatarAbertura(chamado).hora }}</span>
+                    </div>
+                  </footer>
+                </article>
+              } @empty {
+                <div class="kanban-empty-column">
+                  <p>Sem chamados nesta etapa.</p>
+                </div>
+              }
+            </div>
+
+            <!-- Rodapé da Coluna -->
+            <footer class="kanban-col-footer">
+              <button type="button" class="btn-col-see-all" (click)="definirFiltroStatus(coluna.titulo === 'Aberto' ? 'Abertos' : coluna.titulo === 'Em atendimento' ? 'Em atendimento' : coluna.titulo === 'Aguardando' ? 'Aguardando' : coluna.titulo === 'Resolvido' ? 'Resolvidos' : 'Fechados'); alterarModoVisualizacao('lista')">
+                <span>+ Ver todos</span>
+              </button>
+            </footer>
+          </section>
+        }
+      </div>
+
+      <!-- Barra de Dica do Kanban -->
+      <div class="kanban-help-banner">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Arraste os cartões entre as colunas para atualizar o status do chamado.</span>
+      </div>
+    </div>
+  }
+</section>
+
+<!-- MODAL NOVO CHAMADO -->
+<!-- MODAL NOVO CHAMADO -->
+@if (novoChamadoModalAberto) {
+  <div class="modal-backdrop" (click)="fecharModalNovoChamado()"></div>
+  <section class="modal-panel new-ticket-modal" role="dialog" aria-modal="true" aria-label="Novo chamado">
+    <header class="modal-header new-ticket-header">
+      <div class="header-titles">
+        <h2>{{ modoDesenvolvedor ? 'Solicitar ajuste na plataforma' : 'Novo chamado' }}</h2>
+        <p class="modal-subtitle">Descreva o problema para que a equipe de TI possa atendê-lo.</p>
+      </div>
+      <button class="modal-close-btn" type="button" aria-label="Fechar modal" (click)="fecharModalNovoChamado()">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </header>
 
-    <form (ngSubmit)="salvarNovoChamado()" class="modal-form ticket-form">
-      <label class="full">
-        <span>Titulo</span>
-        <input name="titulo" [(ngModel)]="novoChamado.titulo" required />
-      </label>
+    <div class="new-ticket-scroll-area">
+      <form (ngSubmit)="salvarNovoChamado()" class="new-ticket-form">
+        <!-- Linha 1: Título do chamado (70%) + Prioridade (30%) -->
+        <div class="form-row row-title-priority">
+          <div class="form-group field-title">
+            <label for="inputTituloChamado">Título do chamado <span class="required-star">*</span></label>
+            <input
+              id="inputTituloChamado"
+              name="titulo"
+              type="text"
+              [(ngModel)]="novoChamado.titulo"
+              placeholder="Não consigo acessar o ERP"
+              required
+            />
+          </div>
 
-      <label class="full">
-        <span>Descricao do ticket</span>
-        <textarea name="descricao" [(ngModel)]="novoChamado.descricao" rows="4" [placeholder]="modoDesenvolvedor ? 'Descreva o erro, tela afetada, passos para reproduzir e impacto para a empresa' : 'Descreva o problema, impacto e mensagens de erro'"></textarea>
-      </label>
-
-      <label>
-        <span>Solicitante</span>
-        <input name="solicitante" [(ngModel)]="novoChamado.solicitante" required />
-      </label>
-
-      <label>
-        <span>Categoria</span>
-        <select name="categoria" [ngModel]="novoChamado.categoria" (ngModelChange)="definirCategoria($event)">
-          @for (categoria of categorias; track categoria.id ?? categoria.nome) {
-            <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        <span>Subcategoria</span>
-        <select name="subcategoria" [(ngModel)]="novoChamado.subcategoria" required>
-          @for (subcategoria of subcategoriasCategoriaSelecionada(); track subcategoria) {
-            <option [ngValue]="subcategoria">{{ subcategoria }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        <span>Tipo</span>
-        <select name="tipo" [(ngModel)]="novoChamado.tipo">
-          <option>Incidente</option>
-          <option>Solicitacao</option>
-          <option>Alteracao</option>
-        </select>
-      </label>
-
-      <div class="upload-field full">
-        <span>Anexos</span>
-        <label class="upload-control">
-          <input type="file" name="anexos" multiple (change)="selecionarAnexos($event)" />
-          <span class="upload-button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 16V4m0 0 5 5m-5-5-5 5M5 20h14" />
-            </svg>
-            Upload de arquivos
-          </span>
-          <small>Prints de tela, PDFs e documentos com evidencias</small>
-        </label>
-
-        <div class="upload-files">
-          @for (anexo of nomesAnexos(); track anexo) {
-            <span>{{ anexo }}</span>
-          } @empty {
-            <small>Nenhum arquivo selecionado</small>
-          }
+          <div class="form-group field-priority">
+            <label for="selectPrioridadeChamado">Prioridade</label>
+            <div class="select-wrapper">
+              <span class="priority-dot" [class]="novoChamado.prioridade.toLowerCase()"></span>
+              <select
+                id="selectPrioridadeChamado"
+                name="prioridade"
+                [(ngModel)]="novoChamado.prioridade"
+              >
+                <option value="Baixa">Baixa</option>
+                <option value="Media">Média</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="modal-actions">
-        <button type="button" (click)="fecharModalNovoChamado()">Voltar</button>
-        <button class="primary" type="submit">{{ modoDesenvolvedor ? 'Enviar ao desenvolvedor' : 'Abrir ticket' }}</button>
-      </div>
-    </form>
+        <!-- Linha 2: Descrição -->
+        <div class="form-row">
+          <div class="form-group field-full">
+            <label for="textareaDescricaoChamado">Descrição <span class="required-star">*</span></label>
+            <div class="textarea-wrapper">
+              <textarea
+                id="textareaDescricaoChamado"
+                name="descricao"
+                [(ngModel)]="novoChamado.descricao"
+                maxlength="1000"
+                rows="4"
+                placeholder="Ao tentar acessar o sistema ERP, aparece a mensagem &quot;Usuário ou senha inválidos&quot;. Já tentei redefinir a senha e o problema persiste."
+                required
+              ></textarea>
+              <span class="char-counter">{{ novoChamado.descricao ? novoChamado.descricao.length : 0 }}/1000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linha 3: Categoria, Subcategoria, Tipo (3 colunas) -->
+        <div class="form-row row-three-cols">
+          <div class="form-group">
+            <label for="selectCategoriaChamado">Categoria <span class="required-star">*</span></label>
+            <div class="select-wrapper">
+              <select
+                id="selectCategoriaChamado"
+                name="categoria"
+                [ngModel]="novoChamado.categoria"
+                (ngModelChange)="definirCategoria($event)"
+                required
+              >
+                @for (categoria of categorias; track categoria.id ?? categoria.nome) {
+                  <option [ngValue]="categoria.nome">{{ categoria.nome }}</option>
+                }
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="selectSubcategoriaChamado">Subcategoria <span class="required-star">*</span></label>
+            <div class="select-wrapper">
+              <select
+                id="selectSubcategoriaChamado"
+                name="subcategoria"
+                [(ngModel)]="novoChamado.subcategoria"
+                required
+              >
+                @for (subcategoria of subcategoriasCategoriaSelecionada(); track subcategoria) {
+                  <option [ngValue]="subcategoria">{{ subcategoria }}</option>
+                }
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="selectTipoChamado">Tipo <span class="required-star">*</span></label>
+            <div class="select-wrapper">
+              <select
+                id="selectTipoChamado"
+                name="tipo"
+                [(ngModel)]="novoChamado.tipo"
+                required
+              >
+                <option value="Incidente">Incidente</option>
+                <option value="Solicitacao">Solicitação</option>
+                <option value="Alteracao">Alteração / Mudança</option>
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linha 4: Solicitante, Departamento, Equipamento relacionado (3 colunas) -->
+        <div class="form-row row-three-cols">
+          <div class="form-group">
+            <label for="inputSolicitanteChamado">Solicitante <span class="required-star">*</span></label>
+            <div class="select-wrapper">
+              <input
+                id="inputSolicitanteChamado"
+                name="solicitante"
+                type="text"
+                [(ngModel)]="novoChamado.solicitante"
+                placeholder="Nome do solicitante"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="selectDepartamentoChamado">Departamento</label>
+            <div class="select-wrapper">
+              <select
+                id="selectDepartamentoChamado"
+                name="departamento"
+                [(ngModel)]="novoChamado.departamento"
+              >
+                @for (depto of departamentosLista; track depto) {
+                  <option [value]="depto">{{ depto }}</option>
+                }
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="selectEquipamentoChamado">Equipamento relacionado</label>
+            <div class="select-wrapper">
+              <select
+                id="selectEquipamentoChamado"
+                name="equipamento"
+                [(ngModel)]="novoChamado.equipamento"
+              >
+                @for (eq of equipamentosLista; track eq) {
+                  <option [value]="eq">{{ eq }}</option>
+                }
+              </select>
+              <span class="select-chevron-icon" aria-hidden="true">⌄</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linha 5: Anexos com Drag & Drop e Lista de chips de arquivos -->
+        <div class="form-row">
+          <div class="form-group field-full attachments-group">
+            <label>Anexos</label>
+            
+            <div
+              class="attachment-dropzone"
+              [class.drag-over]="arrastandoAnexoNovoChamado"
+              (dragover)="onDragOverNovoChamado($event)"
+              (dragleave)="onDragLeaveNovoChamado($event)"
+              (drop)="onDropNovoChamado($event)"
+              (click)="fileInputNovoChamado.click()"
+              role="button"
+              tabindex="0"
+              aria-label="Zona de upload de arquivos"
+            >
+              <input
+                #fileInputNovoChamado
+                type="file"
+                multiple
+                class="hidden-file-input"
+                (change)="selecionarAnexos($event)"
+              />
+              <div class="dropzone-icon-box">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>
+                  <polyline points="12 13 12 9 9 12"></polyline>
+                </svg>
+              </div>
+              <div class="dropzone-text-block">
+                <p>Arraste arquivos aqui ou <span class="browse-link">clique para selecionar</span></p>
+                <small>Suporte para imagens, PDF e documentos (máx. 20MB)</small>
+              </div>
+            </div>
+
+            <!-- Lista de arquivos anexados -->
+            @if (novoChamado.anexosDetalhes && novoChamado.anexosDetalhes.length > 0) {
+              <div class="attachment-chips-list">
+                @for (anexo of novoChamado.anexosDetalhes; track anexo.nomeArquivo; let idx = $index) {
+                  <div class="file-chip">
+                    <svg class="file-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span class="file-name" [title]="anexo.nomeArquivo">{{ anexo.nomeArquivo }}</span>
+                    <span class="file-size">{{ formatarTamanhoBytes(anexo.tamanhoBytes) }}</span>
+                    <button
+                      type="button"
+                      class="btn-remove-chip"
+                      (click)="removerAnexoNovoChamado(idx); $event.stopPropagation()"
+                      aria-label="Remover anexo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Rodapé: Ações do Modal -->
+        <footer class="new-ticket-footer">
+          <button type="button" class="btn-secondary-cancel" (click)="fecharModalNovoChamado()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary-open">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span>{{ modoDesenvolvedor ? 'Enviar ao desenvolvedor' : 'Abrir chamado' }}</span>
+          </button>
+        </footer>
+      </form>
+    </div>
   </section>
 }
 
+<!-- MODAL DETALHES DO CHAMADO -->
 @if (chamadoModalAberto && chamadoSelecionado) {
   <div class="modal-backdrop" (click)="fecharDetalheChamado()"></div>
   <section class="modal-panel large-modal ticket-detail-modal" role="dialog" aria-modal="true" aria-label="Detalhe do ticket">
     <header class="modal-header">
-      <div>
-        <p class="eyebrow">{{ chamadoSelecionado.numero }}</p>
+      <div class="ticket-header-line">
+        <p class="eyebrow">Chamado #{{ chamadoSelecionado.numero || chamadoSelecionado.id }}</p>
         <h2>{{ chamadoSelecionado.titulo || chamadoSelecionado.categoria + ' / ' + chamadoSelecionado.subcategoria }}</h2>
       </div>
-      <button class="icon-button" type="button" aria-label="Fechar" (click)="fecharDetalheChamado()">x</button>
+      <button class="icon-button" type="button" aria-label="Fechar" (click)="fecharDetalheChamado()">✕</button>
     </header>
 
     <div class="ticket-modal-body">
+      <!-- Abas internas do modal de detalhes -->
       <div class="tabs ticket-tabs">
         <button type="button" [class.active]="abaDetalhe === 'dados'" (click)="definirAbaDetalhe('dados')">Dados</button>
+        <button type="button" [class.active]="abaDetalhe === 'linha-do-tempo'" (click)="definirAbaDetalhe('linha-do-tempo')">Linha do tempo</button>
         <button type="button" [class.active]="abaDetalhe === 'anexos'" (click)="definirAbaDetalhe('anexos')">Anexos</button>
         @if (chamadoEncerrado()) {
-          <button type="button" [class.active]="abaDetalhe === 'avaliacao'" (click)="definirAbaDetalhe('avaliacao')">Avaliacao</button>
+          <button type="button" [class.active]="abaDetalhe === 'avaliacao'" (click)="definirAbaDetalhe('avaliacao')">Avaliação</button>
         }
-        <button type="button" [class.active]="abaDetalhe === 'comunicacao'" (click)="definirAbaDetalhe('comunicacao')">Comunicacao</button>
+        <button type="button" [class.active]="abaDetalhe === 'comunicacao'" (click)="definirAbaDetalhe('comunicacao')">Comunicação</button>
         <button type="button" [class.active]="abaDetalhe === 'chat'" (click)="definirAbaDetalhe('chat')">Chat</button>
       </div>
 
+      <div class="ticket-workspace">
+      <!-- Aba 1: Dados do Chamado -->
       @if (abaDetalhe === 'dados') {
         <div class="ticket-detail-content">
           <div class="detail-hero">
             <div class="ticket-state-summary">
-              <span class="status" [class.urgent]="chamadoSelecionado.prioridade === 'Urgente'">{{ statusVisual(chamadoSelecionado.status) }}</span>
-              <span class="ticket-info-pill">
-                <small>Proprietario</small>
-                <strong>{{ chamadoSelecionado.atendente || 'Sem proprietario' }}</strong>
+              <span class="status-indicator-pill" [class]="chamadoSelecionado.status.toLowerCase().replace(' ', '-')">
+                <i class="status-bullet"></i>
+                {{ statusVisual(chamadoSelecionado.status) }}
               </span>
               <span class="ticket-info-pill">
-                <small>Equipamento</small>
-                <strong>{{ chamadoSelecionado.equipamento }}</strong>
+                <small>Proprietário</small>
+                <strong>{{ chamadoSelecionado.atendente || 'Sem proprietário' }}</strong>
               </span>
-              <p class="description">{{ chamadoSelecionado.descricao }}</p>
+              <span class="ticket-info-pill">
+                <small>Equipamento / Setor</small>
+                <strong>{{ chamadoSelecionado.equipamento || 'Geral' }}</strong>
+              </span>
             </div>
-            <small>{{ chamadoSelecionado.prioridade }}</small>
+            <span class="priority-indicator" [class]="chamadoSelecionado.prioridade.toLowerCase()">
+              <i class="priority-bullet"></i>
+              {{ chamadoSelecionado.prioridade }}
+            </span>
           </div>
 
           @if (podeEditarConteudoChamado()) {
             <form id="ticketEditForm" class="ticket-edit-form" (ngSubmit)="salvarEdicaoChamado()">
-              <label class="ticket-title-field">
-                <span>Titulo</span>
+              <label class="ticket-title-field full">
+                <span>Título</span>
                 <input name="tituloEdicao" [(ngModel)]="chamadoEdicao.titulo" required />
               </label>
 
               <label class="ticket-description-field full">
-                <span>Descricao</span>
+                <span>Descrição</span>
                 <textarea name="descricaoEdicao" [(ngModel)]="chamadoEdicao.descricao" rows="4"></textarea>
               </label>
 
@@ -299,7 +946,6 @@
                   <option>Cancelado</option>
                 </select>
               </label>
-
             </form>
           } @else {
             <dl class="details">
@@ -311,6 +957,10 @@
                 <dt>Tipo</dt>
                 <dd>{{ chamadoSelecionado.tipo }}</dd>
               </div>
+              <div class="full">
+                <dt>Descrição</dt>
+                <dd>{{ chamadoSelecionado.descricao }}</dd>
+              </div>
             </dl>
           }
 
@@ -318,22 +968,59 @@
             @if (perfil !== 'Usuario') {
               <div class="actions">
                 @if (chamadoSelecionado.status === 'Aberto') {
-                  <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Assumir ticket</button>
+                  <button type="button" class="primary" (click)="capturarChamadoClick.emit(chamadoSelecionado)">Assumir chamado</button>
                 }
-                <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
-                <button type="button" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
-                <button type="button" class="remote-button">Acesso remoto</button>
+                @if (chamadoSelecionado.status !== 'Encerrado' && chamadoSelecionado.status !== 'Cancelado') {
+                  <button type="button" (click)="encerrarChamadoClick.emit(chamadoSelecionado)">Encerrar</button>
+                  <button type="button" class="danger" (click)="cancelarChamadoClick.emit(chamadoSelecionado)">Cancelar</button>
+                }
+                <button type="button" class="remote-button" (click)="acessoRemotoClick.emit(chamadoSelecionado)">Acesso remoto</button>
               </div>
             }
 
             @if (podeEditarConteudoChamado()) {
-              <button class="primary save-ticket-button" type="submit" form="ticketEditForm">Salvar dados do ticket</button>
+              <button class="primary save-ticket-button" type="submit" form="ticketEditForm">Salvar alterações</button>
             }
           </footer>
-
         </div>
       }
 
+      @if (abaDetalhe === 'linha-do-tempo') {
+        <section class="ticket-timeline-panel" aria-label="Linha do tempo do chamado">
+          <header class="ticket-timeline-header">
+            <div>
+              <p class="eyebrow">Histórico de atividades</p>
+              <h3>Linha do tempo</h3>
+              <span>Todas as ações registradas neste chamado</span>
+            </div>
+            <strong>{{ eventosLinhaDoTempo().length }} eventos</strong>
+          </header>
+
+          <div class="ticket-timeline-list">
+            @for (evento of eventosLinhaDoTempo(); track evento.titulo + evento.horario + $index) {
+              <article class="ticket-timeline-event" [class]="evento.tipo">
+                <div class="ticket-timeline-marker" aria-hidden="true">
+                  <span></span>
+                </div>
+                <div class="ticket-timeline-card">
+                  <div class="ticket-timeline-card-header">
+                    <div>
+                      <strong>{{ evento.titulo }}</strong>
+                      <small>{{ evento.autor }}</small>
+                    </div>
+                    <time>{{ evento.horario }}</time>
+                  </div>
+                  <p>{{ evento.detalhe }}</p>
+                </div>
+              </article>
+            } @empty {
+              <p class="empty-state">Nenhuma atividade registrada neste chamado.</p>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Aba 2: Anexos -->
       @if (abaDetalhe === 'anexos') {
         <div class="ticket-detail-content attachments-tab-content">
           <section class="ticket-attachments">
@@ -348,9 +1035,10 @@
                   Adicionar anexos
                 </label>
               } @else {
-                <small class="locked-attachments">Ticket encerrado para anexos</small>
+                <small class="locked-attachments">Chamado encerrado para novos anexos</small>
               }
             </header>
+
             @if ((chamadoSelecionado.anexosDetalhes?.length ?? 0) > 0) {
               <div class="attachment-list">
                 @for (anexo of chamadoSelecionado.anexosDetalhes ?? []; track anexo.nome + anexo.url + anexo.tamanhoBytes) {
@@ -363,8 +1051,6 @@
                       <button type="button" [disabled]="!anexo.url" (click)="visualizarAnexo(anexo)">Visualizar</button>
                       @if (anexo.url) {
                         <a [href]="anexo.url" [download]="anexo.nome">Baixar</a>
-                      } @else {
-                        <button type="button" disabled>Sem arquivo</button>
                       }
                       <button type="button" class="danger" (click)="excluirAnexo(anexo)">Excluir</button>
                     </div>
@@ -380,32 +1066,31 @@
                       <small>Arquivo anexado</small>
                     </div>
                     <div class="attachment-actions">
-                      <button type="button" disabled>Sem arquivo</button>
-                      <button type="button" disabled>Baixar</button>
                       <button type="button" class="danger" (click)="excluirAnexo({ nome: anexo })">Excluir</button>
                     </div>
                   </article>
                 }
               </div>
             } @else {
-              <p>Nenhum anexo enviado neste ticket.</p>
+              <p class="empty-state">Nenhum anexo enviado neste chamado.</p>
             }
           </section>
         </div>
       }
 
+      <!-- Aba 3: Avaliação -->
       @if (abaDetalhe === 'avaliacao' && chamadoEncerrado()) {
         <div class="ticket-detail-content">
           <section class="ticket-rating-panel">
             <header>
               <div>
-                <p class="eyebrow">Avaliacao do atendimento</p>
-                <h3>{{ chamadoSelecionado.avaliacao ? descricaoAvaliacao(chamadoSelecionado.avaliacao) : 'Sem avaliacao registrada' }}</h3>
+                <p class="eyebrow">Avaliação do atendimento</p>
+                <h3>{{ chamadoSelecionado.avaliacao ? descricaoAvaliacao(chamadoSelecionado.avaliacao) : 'Sem avaliação registrada' }}</h3>
                 <small>
                   @if (podeEditarAvaliacaoChamado()) {
-                    Registre ou atualize sua experiencia com o atendimento deste ticket.
+                    Registre ou atualize sua experiência com o atendimento deste chamado.
                   } @else {
-                    Avaliacao preenchida pelo usuario solicitante do ticket.
+                    Avaliação preenchida pelo solicitante.
                   }
                 </small>
               </div>
@@ -431,34 +1116,35 @@
             </div>
 
             <label class="rating-comment">
-              <span>Descricao da satisfacao</span>
+              <span>Comentário da satisfação</span>
               <textarea
                 name="avaliacaoComentario"
                 [(ngModel)]="avaliacaoComentario"
-                rows="5"
+                rows="4"
                 [disabled]="!podeEditarAvaliacaoChamado()"
-                placeholder="Descreva sua satisfacao com o atendimento"
+                placeholder="Descreva sua satisfação com o atendimento"
               ></textarea>
             </label>
 
             <footer>
               @if (podeReabrirChamado()) {
-                <button type="button" (click)="reabrirChamado()">Reabrir ticket</button>
+                <button type="button" (click)="reabrirChamado()">Reabrir chamado</button>
               }
               @if (podeEditarAvaliacaoChamado()) {
-                <button type="button" class="primary" (click)="salvarAvaliacaoChamado()">Salvar avaliacao</button>
+                <button type="button" class="primary" (click)="salvarAvaliacaoChamado()">Salvar avaliação</button>
               }
             </footer>
           </section>
         </div>
       }
 
+      <!-- Aba 4: Comunicação (Mural) -->
       @if (abaDetalhe === 'comunicacao') {
         <div class="mural-panel">
           <div class="mural-composer">
             <label>
-              <span>{{ perfil === 'Usuario' ? 'Recado para o atendimento' : 'Recado para o usuario' }}</span>
-              <textarea [(ngModel)]="novoComunicado" name="novoComunicado" rows="4" placeholder="Escreva uma comunicacao formal para ficar registrada no mural"></textarea>
+              <span>{{ perfil === 'Usuario' ? 'Recado para o atendimento' : 'Recado para o usuário' }}</span>
+              <textarea [(ngModel)]="novoComunicado" name="novoComunicado" rows="4" placeholder="Escreva uma comunicação formal para o mural deste chamado"></textarea>
             </label>
             <button type="button" class="primary" (click)="publicarComunicado()">Publicar recado</button>
           </div>
@@ -467,7 +1153,7 @@
             <span>Exibindo os {{ comunicacoesMuralPaginadas().length }} comunicados mais recentes de {{ comunicacoesMural().length }}</span>
             <div>
               <button type="button" [disabled]="paginaComunicados === 0" (click)="alterarPaginaComunicados(-1)">Mais recentes</button>
-              <small>Pagina {{ paginaComunicados + 1 }} de {{ totalPaginasComunicados() }}</small>
+              <small>Página {{ paginaComunicados + 1 }} de {{ totalPaginasComunicados() }}</small>
               <button type="button" [disabled]="paginaComunicados + 1 >= totalPaginasComunicados()" (click)="alterarPaginaComunicados(1)">Anteriores</button>
             </div>
           </div>
@@ -482,12 +1168,13 @@
                 <p>{{ mensagem.texto }}</p>
               </article>
             } @empty {
-              <p class="empty-state">Nenhum recado registrado no mural deste ticket.</p>
+              <p class="empty-state">Nenhum recado registrado no mural deste chamado.</p>
             }
           </div>
         </div>
       }
 
+      <!-- Aba 5: Chat em Tempo Real -->
       @if (abaDetalhe === 'chat') {
         <div class="chat-panel ticket-chat-panel">
           <div class="chat whatsapp-chat" #chatMessages>
@@ -506,7 +1193,7 @@
                 }
               </div>
             } @empty {
-              <p class="empty-state">Inicie a conversa com a equipe tecnica.</p>
+              <p class="empty-state">Inicie a conversa com a equipe técnica.</p>
             }
 
             @if (digitandoRemoto || usuariosDigitandoChat.length) {
@@ -522,11 +1209,68 @@
           </div>
 
           <div class="composer whatsapp-composer">
-            <input [(ngModel)]="novaMensagem" name="mensagem" placeholder="Escreva uma mensagem" (input)="registrarDigitacaoChat()" (keyup.enter)="enviarMensagem()" />
+            <input [(ngModel)]="novaMensagem" name="mensagem" placeholder="Escreva uma mensagem..." (input)="registrarDigitacaoChat()" (keyup.enter)="enviarMensagem()" />
             <button type="button" class="primary" (click)="enviarMensagem()">Enviar</button>
           </div>
         </div>
       }
+
+      <aside class="ticket-sidebar" aria-label="Resumo do chamado">
+        <header class="ticket-sidebar-header">
+          <h3>Detalhes do chamado</h3>
+          <span aria-hidden="true">⌃</span>
+        </header>
+
+        <div class="ticket-sidebar-group">
+          <div class="ticket-sidebar-row">
+            <span>Status</span>
+            <strong class="sidebar-status"><i class="status-bullet"></i>{{ statusVisual(chamadoSelecionado.status) }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Prioridade</span>
+            <strong class="sidebar-priority"><i class="priority-bullet"></i>{{ chamadoSelecionado.prioridade }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Responsável</span>
+            <strong>{{ chamadoSelecionado.atendente || 'Sem proprietário' }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Solicitante</span>
+            <strong>{{ chamadoSelecionado.solicitante }}</strong>
+          </div>
+        </div>
+
+        <div class="ticket-sidebar-group">
+          <div class="ticket-sidebar-row">
+            <span>Categoria</span>
+            <strong>{{ chamadoSelecionado.categoria || 'Não informada' }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Subcategoria</span>
+            <strong>{{ chamadoSelecionado.subcategoria || 'Não informada' }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Tipo</span>
+            <strong>{{ chamadoSelecionado.tipo || 'Incidente' }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Equipamento / setor</span>
+            <strong>{{ chamadoSelecionado.equipamento || 'Geral' }}</strong>
+          </div>
+        </div>
+
+        <div class="ticket-sidebar-group ticket-sidebar-dates">
+          <div class="ticket-sidebar-row">
+            <span>Chamado aberto em</span>
+            <strong>{{ formatarAbertura(chamadoSelecionado).data }} às {{ formatarAbertura(chamadoSelecionado).hora }}</strong>
+          </div>
+          <div class="ticket-sidebar-row">
+            <span>Última atualização</span>
+            <strong>Informações do chamado</strong>
+          </div>
+        </div>
+      </aside>
+      </div>
     </div>
   </section>
 }

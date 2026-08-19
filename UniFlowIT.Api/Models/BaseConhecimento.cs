@@ -13,6 +13,7 @@ namespace UniFlowIT.Api.Models
         public int? UsuarioCriadorId { get; set; }
         public string UsuarioCriador { get; set; } = string.Empty;
         public bool Publicado { get; set; } = true;
+        public string Status { get; set; } = "Publicado";
         public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
     }
 

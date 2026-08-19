@@ -1,40 +1,287 @@
-<section class="operations-grid">
-  <div class="panel">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Logistica</p>
-        <h2>Controle de equipamentos</h2>
-      </div>
+<section class="equipment-page">
+  <div class="panel equipment-hero">
+    <div>
+      <p class="eyebrow">Controle de equipamentos</p>
+      <h2>Inventario de equipamentos</h2>
+      <p>Cadastre, acompanhe responsaveis e gere QR Codes para identificacao rapida.</p>
     </div>
-    <div class="table">
-      @for (envio of envios; track envio.patrimonio) {
-        <div class="table-row">
-          <strong>{{ envio.patrimonio }}</strong>
-          <span>{{ envio.tipo }}</span>
-          <span>{{ envio.filialDestino }}</span>
-          <span>{{ envio.status }}</span>
-        </div>
-      }
-    </div>
+    <button type="button" class="primary" (click)="abrirNovoEquipamento()">Novo equipamento</button>
   </div>
 
-  <div class="panel">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Leitura do parque</p>
-        <h2>Inventario</h2>
-      </div>
-    </div>
-    <div class="table">
-      @for (item of inventario; track item.patrimonio) {
-        <div class="table-row inventory">
-          <strong>{{ item.hostname }}</strong>
-          <span>{{ item.usuario }}</span>
-          <span>{{ item.filial }}</span>
-          <span>{{ item.sistema }} - {{ item.memoria }}</span>
+  <div class="equipment-tabs tabs">
+    <button type="button" [class.active]="aba === 'pesquisa'" (click)="aba = 'pesquisa'">Pesquisa</button>
+    <button type="button" [class.active]="aba === 'cadastro'" (click)="aba = 'cadastro'">Cadastro</button>
+  </div>
+
+  @if (aba === 'pesquisa' || aba === 'cadastro') {
+    <section class="panel equipment-search">
+      @if (aba === 'pesquisa') {
+        <label class="search-field">
+          <span>Pesquisa</span>
+          <input [(ngModel)]="pesquisa" name="pesquisaEquipamento" placeholder="ID, nome, tipo, responsavel ou unidade" />
+        </label>
+      } @else {
+        <div class="registered-heading">
+          <div>
+            <p class="eyebrow">Cadastro</p>
+            <h3>Equipamentos cadastrados</h3>
+          </div>
+          <span>{{ inventario.length }} equipamento(s)</span>
         </div>
       }
-    </div>
-  </div>
+
+      <div class="equipment-table">
+        <div class="equipment-row equipment-header">
+          <span>Equipamento</span>
+          <span>Tipo</span>
+          <span>Responsavel</span>
+          <span>Unidade</span>
+          <span>Status</span>
+        </div>
+
+        @for (item of equipamentosFiltrados(); track item.id ?? item.patrimonio) {
+          <button type="button" class="equipment-row" (click)="abrirEquipamento(item)">
+            <span class="equipment-name">
+              <span class="equipment-type-icon" [attr.title]="item.tipo || 'Equipamento'">
+                @switch (item.tipo) {
+                  @case ('Notebook') {
+                    <svg lucideLaptop aria-hidden="true"></svg>
+                  }
+                  @case ('Impressora') {
+                    <svg lucidePrinter aria-hidden="true"></svg>
+                  }
+                  @case ('Perifericos') {
+                    <svg lucideKeyboard aria-hidden="true"></svg>
+                  }
+                  @case ('Outros') {
+                    <svg lucidePackage aria-hidden="true"></svg>
+                  }
+                  @default {
+                    <svg lucideMonitor aria-hidden="true"></svg>
+                  }
+                }
+              </span>
+              <strong>{{ item.hostname }}</strong>
+              <small>{{ item.patrimonio }} - {{ item.marca }} {{ item.modelo }}</small>
+            </span>
+            <span>{{ item.tipo }}</span>
+            <span>{{ item.responsavel || item.usuario }}</span>
+            <span>{{ item.unidade || item.filial }}</span>
+            <span class="status-dot" [class]="statusClasse(item)">
+              <b></b>{{ item.online ? 'Online' : 'Offline' }}
+            </span>
+          </button>
+        } @empty {
+          <p class="empty-state">Nenhum equipamento cadastrado.</p>
+        }
+      </div>
+    </section>
+  }
 </section>
 
+@if (modalAberto) {
+  <div class="modal-backdrop" (click)="fecharModal()"></div>
+  <section class="modal-panel large-modal equipment-modal" role="dialog" aria-modal="true" aria-label="Cadastro de equipamento">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Equipamento</p>
+        <h2>{{ equipamentoForm.id ? 'Dados do equipamento' : 'Novo equipamento' }}</h2>
+      </div>
+      <button type="button" class="icon-button" aria-label="Fechar" (click)="fecharModal()">x</button>
+    </header>
+
+    <form class="equipment-form" (ngSubmit)="salvar()">
+      <section class="form-block">
+        <header>
+          <h3>Identificacao</h3>
+          @if (equipamentoForm.id && !modoEdicao) {
+            <button type="button" class="equipment-action-button" (click)="habilitarEdicao()">Editar</button>
+          }
+        </header>
+
+        <label>
+          <span>ID do equipamento</span>
+          <input name="patrimonio" [(ngModel)]="equipamentoForm.patrimonio" required [disabled]="!modoEdicao" />
+        </label>
+        <label>
+          <span>Nome</span>
+          <input name="hostname" [(ngModel)]="equipamentoForm.hostname" required [disabled]="!modoEdicao" />
+        </label>
+        <label>
+          <span>Marca</span>
+          <input name="marca" [(ngModel)]="equipamentoForm.marca" [disabled]="!modoEdicao" />
+        </label>
+        <label>
+          <span>Modelo</span>
+          <input name="modelo" [(ngModel)]="equipamentoForm.modelo" [disabled]="!modoEdicao" />
+        </label>
+        <label>
+          <span>Tipo de equipamento</span>
+          <select name="tipo" [(ngModel)]="equipamentoForm.tipo" required [disabled]="!modoEdicao">
+            @for (tipo of tiposEquipamento; track tipo) {
+              <option [ngValue]="tipo">{{ tipo }}</option>
+            }
+          </select>
+        </label>
+        <label class="equipment-status-field">
+          <span>Status</span>
+          <button type="button" [class.is-online]="equipamentoForm.online" [disabled]="!modoEdicao" (click)="equipamentoForm.online = !equipamentoForm.online">
+            <b></b>{{ equipamentoForm.online ? 'Online' : 'Offline' }}
+          </button>
+        </label>
+        <label class="full">
+          <span>Descricao do equipamento</span>
+          <textarea name="descricao" [(ngModel)]="equipamentoForm.descricao" rows="3" [disabled]="!modoEdicao"></textarea>
+        </label>
+      </section>
+
+      @if (equipamentoDoAgente()) {
+        <section class="agent-inventory-cards">
+          <article class="tech-card">
+            <span>Sistema operacional</span>
+            <strong>{{ equipamentoForm.sistema || 'Nao informado' }}</strong>
+            <small>{{ equipamentoForm.processador || 'Processador nao informado' }}</small>
+          </article>
+
+          <article class="tech-card chart-card">
+            <span>Memoria RAM</span>
+            <strong>{{ memoriaUsadaGb() }} GB / {{ memoriaTotalGb() }} GB</strong>
+            <div class="radial-chart" [style.--value.%]="memoriaUsoPercentual()">
+              <b>{{ memoriaUsoPercentual() }}%</b>
+            </div>
+            <small>{{ equipamentoForm.memoriaLivreGb || 0 }} GB livres</small>
+          </article>
+
+          @for (disco of discosDoAgente(); track disco.unidade || disco.nome) {
+            <article class="tech-card chart-card">
+              <span>{{ disco.nome }}</span>
+              <strong>{{ disco.usadoGb }} GB / {{ disco.totalGb }} GB</strong>
+              <div class="radial-chart disk" [style.--value.%]="disco.usoPercentual">
+                <b>{{ disco.usoPercentual }}%</b>
+              </div>
+              <small>{{ disco.livreGb }} GB livres</small>
+            </article>
+          } @empty {
+            <article class="tech-card chart-card">
+              <span>HD e espaco em disco</span>
+              <strong>{{ discoUsadoGb() }} GB / {{ equipamentoForm.discoGb || 0 }} GB</strong>
+              <div class="radial-chart disk" [style.--value.%]="discoUsoPercentual()">
+                <b>{{ discoUsoPercentual() }}%</b>
+              </div>
+              <small>{{ equipamentoForm.discoLivreGb || 0 }} GB livres</small>
+            </article>
+          }
+
+          <article class="tech-card">
+            <span>GPU</span>
+            <strong>{{ equipamentoForm.gpu || 'GPU nao informada' }}</strong>
+            <small>Adaptador grafico principal</small>
+          </article>
+
+          <article class="tech-card">
+            <span>Endereco IP</span>
+            <strong>{{ equipamentoForm.ip || 'IP nao informado' }}</strong>
+            <small>Ultima leitura do UniFlowIT Agent</small>
+          </article>
+        </section>
+      }
+
+      <section class="form-block compact-block">
+        <header>
+          <h3>Responsavel, unidade e compra</h3>
+        </header>
+
+        <label class="half">
+          <span>Responsavel pelo equipamento</span>
+          <select name="responsavel" [(ngModel)]="equipamentoForm.responsavelUsuarioId" required [disabled]="!modoEdicao">
+            <option [ngValue]="undefined">Selecione o responsavel</option>
+            @for (usuario of usuariosDisponiveis(); track usuario.id ?? usuario.email) {
+              <option [ngValue]="usuario.id">{{ usuario.nome }}</option>
+            } @empty {
+              <option [ngValue]="undefined" disabled>Nenhum usuario cadastrado</option>
+            }
+          </select>
+        </label>
+        <label class="half">
+          <span>Unidade</span>
+          <select name="unidade" [(ngModel)]="equipamentoForm.unidadeEmpresaId" [disabled]="!modoEdicao">
+            <option [ngValue]="undefined">Selecione a unidade</option>
+            @for (empresa of unidadesDisponiveis(); track empresa.id ?? empresa.razaoSocial) {
+              <option [ngValue]="empresa.id">{{ empresa.nomeFantasia || empresa.razaoSocial }}</option>
+            } @empty {
+              <option [ngValue]="undefined" disabled>Nenhuma unidade cadastrada</option>
+            }
+          </select>
+        </label>
+        <label class="third">
+          <span>Data da compra</span>
+          <input type="date" name="dataCompra" [(ngModel)]="equipamentoForm.dataCompra" [disabled]="!modoEdicao" />
+        </label>
+        <label class="third">
+          <span>Numero da nota fiscal</span>
+          <input name="numeroNotaFiscal" [(ngModel)]="equipamentoForm.numeroNotaFiscal" [disabled]="!modoEdicao" />
+        </label>
+        <label class="file-field two-thirds">
+          <span>Upload da nota fiscal</span>
+          <div>
+            <strong>{{ equipamentoForm.notaFiscalNome || 'Nenhum arquivo selecionado' }}</strong>
+            <button type="button" class="equipment-action-button primary-lite" [disabled]="!podeSelecionarNotaFiscal()">Selecionar arquivo</button>
+            <input type="file" accept=".pdf,image/*" [disabled]="!podeSelecionarNotaFiscal()" (change)="selecionarNotaFiscal($event)" />
+          </div>
+        </label>
+      </section>
+
+      @if (exibirIntegracaoRustDesk) {
+        <section class="form-block integration-block">
+          <header>
+            <div>
+              <h3>Integracao RustDesk</h3>
+              <p>Configuracao tecnica visivel apenas para o Administrador SaaS.</p>
+            </div>
+          </header>
+
+          <label class="half">
+            <span>RustDesk ID</span>
+            <input name="rustDeskId" [(ngModel)]="equipamentoForm.rustDeskId" placeholder="ID remoto do equipamento" [disabled]="!modoEdicao" />
+          </label>
+          <label class="half">
+            <span>Agent ID</span>
+            <input name="agentId" [(ngModel)]="equipamentoForm.agentId" placeholder="Identificador do UniFlowIT Agent" [disabled]="!modoEdicao" />
+          </label>
+          <label class="third">
+            <span>Versao do agente</span>
+            <input name="agentVersion" [(ngModel)]="equipamentoForm.agentVersion" placeholder="Ex: 1.0.0" [disabled]="!modoEdicao" />
+          </label>
+          <label class="third">
+            <span>IP local</span>
+            <input name="ip" [(ngModel)]="equipamentoForm.ip" placeholder="Ex: 192.168.0.10" [disabled]="!modoEdicao" />
+          </label>
+          <label class="third">
+            <span>Sistema operacional</span>
+            <input name="sistema" [(ngModel)]="equipamentoForm.sistema" placeholder="Windows, Linux..." [disabled]="!modoEdicao" />
+          </label>
+        </section>
+      }
+
+      @if (qrCodeUrl) {
+        <section class="form-block qr-block">
+          <div>
+            <h3>QR Code do equipamento</h3>
+            <p>Ao escanear, abre uma pagina simples com os dados deste equipamento.</p>
+          </div>
+          <img [src]="qrCodeUrl" alt="QR Code do equipamento" />
+          <button type="button" class="equipment-action-button" (click)="imprimirQrCode()">Imprimir QR Code</button>
+        </section>
+      }
+
+      <footer class="modal-actions">
+        @if (equipamentoForm.id) {
+          <button type="button" class="danger" (click)="excluir()">Excluir</button>
+          <button type="button" class="remote-button" (click)="acessoRemotoClick.emit(equipamentoForm)">Acesso remoto</button>
+        }
+        <button type="button" (click)="fecharModal()">Cancelar</button>
+        <button type="submit" class="primary" [disabled]="!modoEdicao">Salvar</button>
+      </footer>
+    </form>
+  </section>
+}

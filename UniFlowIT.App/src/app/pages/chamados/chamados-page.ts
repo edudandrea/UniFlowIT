@@ -1,7 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CategoriaChamado, Chamado, Mensagem, Perfil, Prioridade } from '../../models/uniflowit.models';
+
+export type ModoVisualizacaoTickets = 'lista' | 'kanban' | 'compacta';
+export type FiltroStatusTickets = 'Todos' | 'Abertos' | 'Em atendimento' | 'Aguardando' | 'Resolvidos' | 'Fechados';
+type AbaDetalheChamado = 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat' | 'linha-do-tempo';
+
+interface EventoLinhaDoTempo {
+  titulo: string;
+  detalhe: string;
+  autor: string;
+  horario: string;
+  tipo: 'abertura' | 'status' | 'mensagem' | 'anexo' | 'avaliacao' | 'atualizacao';
+}
 
 @Component({
   selector: 'app-chamados-page',
@@ -19,11 +31,13 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   @Input() usuarioAtualId?: number;
   @Input() usuarioAtualNome = '';
   @Input() usuariosDigitandoChat: string[] = [];
-  @Input() abrirChamadoModal?: { id: number; aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat'; nonce: number } | null;
+  @Input() abrirChamadoModal?: { id: number; aba: AbaDetalheChamado; nonce: number } | null;
   @Input() chamadosComAtualizacao: Set<number> = new Set<number>();
   @Input({ required: true }) novoChamado!: {
     titulo: string;
     solicitante: string;
+    departamento?: string;
+    equipamento?: string;
     categoria: string;
     subcategoria: string;
     tipo: Chamado['tipo'];
@@ -33,6 +47,48 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
     anexosDetalhes: Array<{ nomeArquivo: string; tipoConteudo: string; tamanhoBytes: number; url: string }>;
   };
 
+  // Listas auxiliares do modal de novo chamado
+  protected readonly departamentosLista = [
+    'Tecnologia da Informação',
+    'Comercial',
+    'Financeiro',
+    'Recursos Humanos',
+    'Operações',
+    'Administrativo',
+    'Diretoria',
+  ];
+
+  protected readonly equipamentosLista = [
+    'NOTE-EDUARDO',
+    'DESKTOP-FIN01',
+    'NOTE-TI03',
+    'DESKTOP-ADM02',
+    'Nenhum',
+  ];
+
+  protected arrastandoAnexoNovoChamado = false;
+
+  // Visualização e Filtros principais
+  protected modoVisualizacao: ModoVisualizacaoTickets = 'lista';
+  protected filtroStatus: FiltroStatusTickets = 'Todos';
+  protected filtroPrioridade = 'Todas';
+  protected filtroCategoria = 'Todas';
+  protected filtroTecnico = 'Todos';
+  protected filtroTickets = '';
+
+  // Paginação e Seleção
+  protected paginaAtual = 1;
+  protected itensPorPagina = 5;
+  protected readonly opcoesItensPorPagina = [5, 10, 20, 50];
+  protected menuAcoesAbertoId: number | null = null;
+  protected menuFiltrosAberto = false;
+
+  // Kanban Configurações
+  protected ordenarKanbanPor: 'prioridade' | 'recente' | 'sla' = 'prioridade';
+  protected agruparKanbanPor: 'status' | 'prioridade' | 'categoria' = 'status';
+  protected kanbanFullscreen = false;
+
+  // Modais e Chat
   protected novaMensagem = '';
   protected novoComunicado = '';
   protected digitandoRemoto = false;
@@ -40,21 +96,27 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   protected avaliacaoComentario = '';
   protected chamadoModalAberto = false;
   protected novoChamadoModalAberto = false;
-  protected abaDetalhe: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat' = 'dados';
+  protected abaDetalhe: AbaDetalheChamado = 'dados';
   protected chamadoEdicao = this.criarEdicaoVazia();
   protected chamadoArrastadoId: number | null = null;
-  protected filtroTickets = '';
-  protected filtroDataInicio = this.dataIsoSemanaAtual().inicio;
-  protected filtroDataFim = this.dataIsoSemanaAtual().fim;
   protected paginaComunicados = 0;
   private readonly comunicadosPorPagina = 3;
   private readonly prioridades: Prioridade[] = ['Baixa', 'Media', 'Alta', 'Urgente'];
-  protected readonly colunasKanban: Array<{ titulo: string; status: Chamado['status'] }> = [
-    { titulo: 'Pendente', status: 'Aberto' },
-    { titulo: 'Em Atendimento', status: 'Em atendimento' },
-    { titulo: 'Aguardando Retorno', status: 'Aguardando retorno' },
-    { titulo: 'Encerrado', status: 'Encerrado' },
+
+  protected readonly colunasKanban: Array<{
+    id: string;
+    titulo: string;
+    status: Chamado['status'];
+    cor: string;
+    dotClass: string;
+  }> = [
+    { id: 'aberto', titulo: 'Aberto', status: 'Aberto', cor: '#10b981', dotClass: 'open' },
+    { id: 'atendimento', titulo: 'Em atendimento', status: 'Em atendimento', cor: '#f59e0b', dotClass: 'in-progress' },
+    { id: 'aguardando', titulo: 'Aguardando', status: 'Aguardando retorno', cor: '#eab308', dotClass: 'waiting' },
+    { id: 'resolvido', titulo: 'Resolvido', status: 'Encerrado', cor: '#059669', dotClass: 'resolved' },
+    { id: 'fechado', titulo: 'Fechado', status: 'Cancelado', cor: '#64748b', dotClass: 'closed' },
   ];
+
   private readonly typingStorageKey = 'uniflowit-ticket-typing';
   private ocultarDigitandoTimer?: number;
   private ultimoChatScrollKey = '';
@@ -76,9 +138,16 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   @Output() movimentoInvalidoClick = new EventEmitter<void>();
   @Output() avaliarChamadoClick = new EventEmitter<{ chamado: Chamado; avaliacao: number; comentario: string }>();
   @Output() detalheModalAbertoChange = new EventEmitter<boolean>();
+  @Output() acessoRemotoClick = new EventEmitter<Chamado>();
 
   constructor() {
     window.addEventListener('storage', this.processarDigitacaoRemota);
+  }
+
+  @HostListener('document:click')
+  protected fecharMenusAoClicarFora(): void {
+    this.menuAcoesAbertoId = null;
+    this.menuFiltrosAberto = false;
   }
 
   ngOnDestroy(): void {
@@ -113,87 +182,272 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
     }
   }
 
-  protected abrirModalNovoChamado(): void {
-    this.sincronizarCategoriaSelecionada();
-    this.novoChamadoModalAberto = true;
+  // Alternância de abas de visualização
+  protected alterarModoVisualizacao(modo: ModoVisualizacaoTickets): void {
+    this.modoVisualizacao = modo;
   }
 
-  protected fecharModalNovoChamado(): void {
-    this.novoChamadoModalAberto = false;
+  protected definirFiltroStatus(status: FiltroStatusTickets): void {
+    this.filtroStatus = status;
+    this.paginaAtual = 1;
   }
 
-  protected salvarNovoChamado(): void {
-    this.abrirChamadoSubmit.emit();
-    this.novoChamadoModalAberto = false;
+  protected alternarMenuFiltros(event: Event): void {
+    event.stopPropagation();
+    this.menuFiltrosAberto = !this.menuFiltrosAberto;
   }
 
-  protected abrirDetalheChamado(chamado: Chamado, aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat' = 'dados'): void {
-    this.selecionarChamadoClick.emit(chamado.id);
-    this.prepararEdicao(chamado);
-    this.prepararAvaliacao(chamado);
-    this.paginaComunicados = 0;
-    this.abaDetalhe = aba;
-    this.chamadoModalAberto = true;
-    this.detalheModalAbertoChange.emit(true);
-    if (aba === 'chat') {
-      this.agendarScrollChat();
-    }
+  protected alternarMenuAcoes(id: number, event: Event): void {
+    event.stopPropagation();
+    this.menuAcoesAbertoId = this.menuAcoesAbertoId === id ? null : id;
   }
 
-  protected fecharDetalheChamado(): void {
-    this.chamadoModalAberto = false;
-    this.novaMensagem = '';
-    this.novoComunicado = '';
-    this.digitandoRemoto = false;
-    this.detalheModalAbertoChange.emit(false);
+  protected alternarKanbanFullscreen(): void {
+    this.kanbanFullscreen = !this.kanbanFullscreen;
   }
 
-  protected definirAbaDetalhe(aba: 'dados' | 'anexos' | 'avaliacao' | 'comunicacao' | 'chat'): void {
-    this.abaDetalhe = aba;
-    if (aba === 'comunicacao') {
-      this.paginaComunicados = 0;
-    }
-    if (aba === 'chat') {
-      this.agendarScrollChat();
-    }
-  }
-
-  protected chamadosPorStatus(status: Chamado['status']): Chamado[] {
-    return this.chamadosFiltrados().filter((chamado) => chamado.status === status || (status === 'Encerrado' && chamado.status === 'Cancelado'));
-  }
-
+  // Filtragem dos chamados
   protected chamadosFiltrados(): Chamado[] {
+    let lista = this.chamadosVisiveis;
+
+    // Busca textual rápida
     const termo = this.filtroTickets.trim().toLocaleLowerCase('pt-BR');
-    const inicio = this.filtroDataInicio ? new Date(`${this.filtroDataInicio}T00:00:00`) : null;
-    const fim = this.filtroDataFim ? new Date(`${this.filtroDataFim}T23:59:59`) : null;
+    if (termo) {
+      lista = lista.filter((chamado) => {
+        const texto = [
+          chamado.numero,
+          chamado.titulo,
+          chamado.descricao,
+          chamado.categoria,
+          chamado.subcategoria,
+          chamado.prioridade,
+          chamado.atendente,
+          chamado.solicitante,
+          chamado.equipamento,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase('pt-BR');
 
-    return this.chamadosVisiveis.filter((chamado) => {
-      const dataChamado = this.dataChamado(chamado);
-      const dentroPeriodo = (!inicio || !dataChamado || dataChamado >= inicio) && (!fim || !dataChamado || dataChamado <= fim);
-      const texto = [
-        chamado.numero,
-        chamado.titulo,
-        chamado.descricao,
-        chamado.categoria,
-        chamado.subcategoria,
-        chamado.prioridade,
-        chamado.atendente,
-        chamado.solicitante,
-      ].join(' ').toLocaleLowerCase('pt-BR');
+        return texto.includes(termo);
+      });
+    }
 
-      return dentroPeriodo && (!termo || texto.includes(termo));
-    });
+    // Filtro por pílula de status
+    if (this.filtroStatus === 'Abertos') {
+      lista = lista.filter((c) => c.status === 'Aberto');
+    } else if (this.filtroStatus === 'Em atendimento') {
+      lista = lista.filter((c) => c.status === 'Em atendimento');
+    } else if (this.filtroStatus === 'Aguardando') {
+      lista = lista.filter((c) => c.status === 'Aguardando retorno');
+    } else if (this.filtroStatus === 'Resolvidos') {
+      lista = lista.filter((c) => c.status === 'Encerrado');
+    } else if (this.filtroStatus === 'Fechados') {
+      lista = lista.filter((c) => c.status === 'Cancelado' || c.status === 'Encerrado');
+    }
+
+    // Filtro por Prioridade
+    if (this.filtroPrioridade !== 'Todas') {
+      lista = lista.filter((c) => c.prioridade === this.filtroPrioridade);
+    }
+
+    // Filtro por Categoria
+    if (this.filtroCategoria !== 'Todas') {
+      lista = lista.filter((c) => c.categoria === this.filtroCategoria);
+    }
+
+    // Filtro por Técnico
+    if (this.filtroTecnico === 'NaoAtribuido') {
+      lista = lista.filter((c) => !c.atendente);
+    } else if (this.filtroTecnico !== 'Todos') {
+      lista = lista.filter((c) => c.atendente === this.filtroTecnico);
+    }
+
+    return lista;
+  }
+
+  // Paginação
+  protected chamadosPaginados(): Chamado[] {
+    const filtrados = this.chamadosFiltrados();
+    const inicio = (this.paginaAtual - 1) * this.itensPorPagina;
+    return filtrados.slice(inicio, inicio + this.itensPorPagina);
+  }
+
+  protected totalChamadosFiltrados(): number {
+    return this.chamadosFiltrados().length;
+  }
+
+  protected totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.totalChamadosFiltrados() / this.itensPorPagina));
+  }
+
+  protected irParaPagina(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginas()) {
+      this.paginaAtual = pagina;
+    }
+  }
+
+  protected alterarItensPorPagina(quantidade: number): void {
+    this.itensPorPagina = quantidade;
+    this.paginaAtual = 1;
+  }
+
+  protected paginasExibidas(): Array<number | string> {
+    const total = this.totalPaginas();
+    const atual = this.paginaAtual;
+
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (atual <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+
+    if (atual >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+
+    return [1, '...', atual - 1, atual, atual + 1, '...', total];
+  }
+
+  protected indiceInicioPaginacao(): number {
+    if (this.totalChamadosFiltrados() === 0) return 0;
+    return (this.paginaAtual - 1) * this.itensPorPagina + 1;
+  }
+
+  protected indiceFimPaginacao(): number {
+    return Math.min(this.paginaAtual * this.itensPorPagina, this.totalChamadosFiltrados());
+  }
+
+  // Contadores para as pílulas de status
+  protected totalPorStatus(statusFiltro: FiltroStatusTickets): number {
+    if (statusFiltro === 'Todos') return this.chamadosVisiveis.length;
+    if (statusFiltro === 'Abertos') return this.chamadosVisiveis.filter((c) => c.status === 'Aberto').length;
+    if (statusFiltro === 'Em atendimento') return this.chamadosVisiveis.filter((c) => c.status === 'Em atendimento').length;
+    if (statusFiltro === 'Aguardando') return this.chamadosVisiveis.filter((c) => c.status === 'Aguardando retorno').length;
+    if (statusFiltro === 'Resolvidos') return this.chamadosVisiveis.filter((c) => c.status === 'Encerrado').length;
+    if (statusFiltro === 'Fechados') return this.chamadosVisiveis.filter((c) => c.status === 'Cancelado' || c.status === 'Encerrado').length;
+    return 0;
+  }
+
+  // Helpers de Apresentação visual
+  protected obterSLA(chamado: Chamado): { tempo: string; venceEm: string; status: 'normal' | 'alerta' | 'vencido' | 'concluido' } {
+    if (chamado.status === 'Encerrado' || chamado.status === 'Cancelado') {
+      return { tempo: '—', venceEm: '', status: 'concluido' };
+    }
+
+    const agora = Date.now();
+    const baseTimestamp = chamado.criadoEm ? new Date(chamado.criadoEm).getTime() : agora - chamado.id * 1800000;
+
+    const duracaoMinutosPorPrioridade: Record<Prioridade, number> = {
+      Urgente: 60,
+      Alta: 120,
+      Media: 240,
+      Baixa: 480,
+    };
+
+    const duracaoMinutos = duracaoMinutosPorPrioridade[chamado.prioridade] ?? 240;
+    const prazoFinal = baseTimestamp + duracaoMinutos * 60 * 1000;
+    const diffMinutos = Math.round((prazoFinal - agora) / 60000);
+
+    const prazoData = new Date(prazoFinal);
+    const horaVencimento = !isNaN(prazoData.getTime())
+      ? prazoData.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : '18:00';
+
+    if (diffMinutos <= 0) {
+      const atrasoMin = Math.abs(diffMinutos);
+      const textoAtraso = atrasoMin > 60 ? `${Math.floor(atrasoMin / 60)}h ${atrasoMin % 60}m` : `${atrasoMin} min`;
+      return { tempo: `Vencido (${textoAtraso})`, venceEm: `Venceu ${horaVencimento}`, status: 'vencido' };
+    }
+
+    const horas = Math.floor(diffMinutos / 60);
+    const minutos = diffMinutos % 60;
+    const tempoTexto = horas > 0 ? `${horas}h ${minutos > 0 ? minutos + 'm' : ''}` : `${minutos} min`;
+    const statusSla = diffMinutos < 40 ? 'alerta' : 'normal';
+
+    return { tempo: tempoTexto, venceEm: `Vence ${horaVencimento}`, status: statusSla };
+  }
+
+  protected formatarAbertura(chamado: Chamado): { hora: string; data: string } {
+    if (chamado.criadoEm) {
+      const d = new Date(chamado.criadoEm);
+      if (!isNaN(d.getTime())) {
+        return {
+          hora: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          data: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        };
+      }
+    }
+    return { hora: '10:40', data: '20/05/2024' };
+  }
+
+  protected obterIniciais(nome?: string): string {
+    if (!nome || !nome.trim()) return '—';
+    const partes = nome.trim().split(/\s+/);
+    if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+  }
+
+  protected obterCorAvatar(nome?: string): string {
+    if (!nome || !nome.trim()) return '#64748b';
+    const cores = ['#2563eb', '#0d9488', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#4f46e5', '#ea580c'];
+    let hash = 0;
+    for (let i = 0; i < nome.length; i++) {
+      hash = nome.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % cores.length;
+    return cores[index];
+  }
+
+  protected listaTecnicos(): string[] {
+    const tecnicos = new Set<string>();
+    for (const c of this.chamadosVisiveis) {
+      if (c.atendente?.trim()) {
+        tecnicos.add(c.atendente.trim());
+      }
+    }
+    return Array.from(tecnicos);
   }
 
   protected limparFiltrosTickets(): void {
-    const semana = this.dataIsoSemanaAtual();
     this.filtroTickets = '';
-    this.filtroDataInicio = semana.inicio;
-    this.filtroDataFim = semana.fim;
+    this.filtroStatus = 'Todos';
+    this.filtroPrioridade = 'Todas';
+    this.filtroCategoria = 'Todas';
+    this.filtroTecnico = 'Todos';
+    this.paginaAtual = 1;
+  }
+
+  // Kanban Métodos
+  protected chamadosPorStatusKanban(coluna: (typeof this.colunasKanban)[number]): Chamado[] {
+    let chamados = this.chamadosFiltrados();
+
+    if (coluna.id === 'aberto') {
+      chamados = chamados.filter((c) => c.status === 'Aberto');
+    } else if (coluna.id === 'atendimento') {
+      chamados = chamados.filter((c) => c.status === 'Em atendimento');
+    } else if (coluna.id === 'aguardando') {
+      chamados = chamados.filter((c) => c.status === 'Aguardando retorno');
+    } else if (coluna.id === 'resolvido') {
+      chamados = chamados.filter((c) => c.status === 'Encerrado');
+    } else if (coluna.id === 'fechado') {
+      chamados = chamados.filter((c) => c.status === 'Cancelado');
+    }
+
+    if (this.ordenarKanbanPor === 'prioridade') {
+      const peso: Record<Prioridade, number> = { Urgente: 4, Alta: 3, Media: 2, Baixa: 1 };
+      chamados = chamados.slice().sort((a, b) => (peso[b.prioridade] ?? 0) - (peso[a.prioridade] ?? 0));
+    } else if (this.ordenarKanbanPor === 'recente') {
+      chamados = chamados.slice().sort((a, b) => b.id - a.id);
+    }
+
+    return chamados;
   }
 
   protected iniciarArraste(chamado: Chamado): void {
-    if (!this.podeEditarChamado() || chamado.status === 'Encerrado') {
+    if (!this.podeEditarChamado() || chamado.status === 'Encerrado' || chamado.status === 'Cancelado') {
       return;
     }
 
@@ -221,23 +475,62 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   }
 
   protected statusVisual(status: Chamado['status']): string {
-    return status === 'Aberto' ? 'Pendente' : status === 'Aguardando retorno' ? 'Aguardando Retorno' : status;
+    if (status === 'Aberto') return 'Aberto';
+    if (status === 'Em atendimento') return 'Em atendimento';
+    if (status === 'Aguardando retorno') return 'Aguardando';
+    if (status === 'Encerrado') return 'Resolvido';
+    if (status === 'Cancelado') return 'Fechado';
+    return status;
   }
 
   protected chamadoTemAtualizacao(chamado: Chamado): boolean {
     return this.chamadosComAtualizacao.has(chamado.id);
   }
 
-  protected periodoTicketsLabel(): string {
-    if (!this.filtroDataInicio && !this.filtroDataFim) {
-      return 'Todos os tickets visiveis';
-    }
+  // Modais de Criação e Detalhes
+  protected abrirModalNovoChamado(): void {
+    this.sincronizarCategoriaSelecionada();
+    this.novoChamadoModalAberto = true;
+  }
 
-    if (this.filtroDataInicio === this.dataIsoSemanaAtual().inicio && this.filtroDataFim === this.dataIsoSemanaAtual().fim) {
-      return 'Tickets da semana';
-    }
+  protected fecharModalNovoChamado(): void {
+    this.novoChamadoModalAberto = false;
+  }
 
-    return 'Tickets filtrados';
+  protected salvarNovoChamado(): void {
+    this.abrirChamadoSubmit.emit();
+    this.novoChamadoModalAberto = false;
+  }
+
+  protected abrirDetalheChamado(chamado: Chamado, aba: AbaDetalheChamado = 'dados'): void {
+    this.selecionarChamadoClick.emit(chamado.id);
+    this.prepararEdicao(chamado);
+    this.prepararAvaliacao(chamado);
+    this.paginaComunicados = 0;
+    this.abaDetalhe = aba;
+    this.chamadoModalAberto = true;
+    this.detalheModalAbertoChange.emit(true);
+    if (aba === 'chat') {
+      this.agendarScrollChat();
+    }
+  }
+
+  protected fecharDetalheChamado(): void {
+    this.chamadoModalAberto = false;
+    this.novaMensagem = '';
+    this.novoComunicado = '';
+    this.digitandoRemoto = false;
+    this.detalheModalAbertoChange.emit(false);
+  }
+
+  protected definirAbaDetalhe(aba: AbaDetalheChamado): void {
+    this.abaDetalhe = aba;
+    if (aba === 'comunicacao') {
+      this.paginaComunicados = 0;
+    }
+    if (aba === 'chat') {
+      this.agendarScrollChat();
+    }
   }
 
   protected categoriaSelecionada(): CategoriaChamado | undefined {
@@ -246,16 +539,6 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
 
   protected subcategoriasCategoriaSelecionada(): string[] {
     return this.categoriaSelecionada()?.subcategorias ?? [];
-  }
-
-  protected alterarCategoria(): void {
-    if (!this.categorias.length) {
-      return;
-    }
-
-    const indiceAtual = this.categorias.findIndex((categoria) => categoria.nome === this.novoChamado.categoria);
-    const proxima = this.categorias[(indiceAtual + 1) % this.categorias.length];
-    this.definirCategoria(proxima.nome);
   }
 
   protected definirCategoria(nome: string): void {
@@ -276,7 +559,7 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   }
 
   protected podeEditarChamado(): boolean {
-    return this.perfil === 'Atendente' || this.perfil === 'Administrador';
+    return this.perfil === 'Atendente' || this.perfil === 'Administrador' || this.perfil === 'AdministradorSaas';
   }
 
   protected podeEditarConteudoChamado(): boolean {
@@ -284,9 +567,11 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
       return false;
     }
 
-    return this.podeEditarChamado()
-      || this.chamadoSelecionado.solicitanteUsuarioId === this.usuarioAtualId
-      || this.chamadoSelecionado.solicitante === this.usuarioAtualNome;
+    return (
+      this.podeEditarChamado() ||
+      this.chamadoSelecionado.solicitanteUsuarioId === this.usuarioAtualId ||
+      this.chamadoSelecionado.solicitante === this.usuarioAtualNome
+    );
   }
 
   protected podeReabrirChamado(): boolean {
@@ -429,6 +714,7 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
 
     if (!this.podeEditarChamado()) {
       this.salvarChamadoClick.emit(dadosBasicos);
+      this.fecharDetalheChamado();
       return;
     }
 
@@ -440,6 +726,7 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
       prioridade: this.chamadoEdicao.prioridade,
       status: this.chamadoEdicao.status,
     });
+    this.fecharDetalheChamado();
   }
 
   protected reabrirChamado(): void {
@@ -448,6 +735,90 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
     }
 
     this.salvarChamadoClick.emit({ id: this.chamadoSelecionado.id, status: 'Aberto' });
+    this.fecharDetalheChamado();
+  }
+
+  protected eventosLinhaDoTempo(): EventoLinhaDoTempo[] {
+    const chamado = this.chamadoSelecionado;
+    if (!chamado) {
+      return [];
+    }
+
+    const eventos: EventoLinhaDoTempo[] = [
+      {
+        titulo: 'Chamado aberto',
+        detalhe: chamado.titulo || 'Solicitação registrada no sistema',
+        autor: chamado.solicitante,
+        horario: this.formatarDataEvento(chamado.criadoEm),
+        tipo: 'abertura',
+      },
+    ];
+
+    if (chamado.atendente) {
+      eventos.push({
+        titulo: 'Atendimento atribuído',
+        detalhe: `Responsável: ${chamado.atendente}`,
+        autor: chamado.atendente,
+        horario: this.formatarDataEvento(chamado.atualizadoEm),
+        tipo: 'atualizacao',
+      });
+    }
+
+    if (chamado.status !== 'Aberto') {
+      eventos.push({
+        titulo: `Status alterado para ${this.statusVisual(chamado.status)}`,
+        detalhe: 'O andamento do chamado foi atualizado',
+        autor: chamado.atendente || 'Sistema',
+        horario: this.formatarDataEvento(chamado.atualizadoEm),
+        tipo: 'status',
+      });
+    }
+
+    for (const mensagem of chamado.mensagens ?? []) {
+      eventos.push({
+        titulo: mensagem.tipo === 'Mural' ? 'Comunicação publicada' : 'Mensagem enviada',
+        detalhe: mensagem.texto,
+        autor: mensagem.autor,
+        horario: mensagem.horario || this.formatarDataEvento(mensagem.enviadoEm),
+        tipo: 'mensagem',
+      });
+    }
+
+    for (const anexo of chamado.anexosDetalhes ?? []) {
+      eventos.push({
+        titulo: 'Anexo adicionado',
+        detalhe: anexo.nome,
+        autor: chamado.solicitante,
+        horario: this.formatarDataEvento(chamado.atualizadoEm),
+        tipo: 'anexo',
+      });
+    }
+
+    if (chamado.avaliacao) {
+      eventos.push({
+        titulo: 'Atendimento avaliado',
+        detalhe: `${chamado.avaliacao}/5${chamado.avaliacaoComentario ? ` - ${chamado.avaliacaoComentario}` : ''}`,
+        autor: chamado.solicitante,
+        horario: this.formatarDataEvento(chamado.atualizadoEm),
+        tipo: 'avaliacao',
+      });
+    }
+
+    return eventos.sort((a, b) => this.valorDataEvento(a.horario) - this.valorDataEvento(b.horario));
+  }
+
+  private formatarDataEvento(valor?: string): string {
+    if (!valor) {
+      return 'Data não informada';
+    }
+
+    const data = new Date(valor);
+    return Number.isNaN(data.getTime()) ? valor : data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  private valorDataEvento(valor: string): number {
+    const data = new Date(valor);
+    return Number.isNaN(data.getTime()) ? 0 : data.getTime();
   }
 
   protected alternarPrioridade(): void {
@@ -456,22 +827,67 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   }
 
   protected nomesAnexos(): string[] {
-    return this.novoChamado.anexos
-      .split(',')
-      .map((anexo) => anexo.trim())
-      .filter(Boolean);
+    return (this.novoChamado.anexosDetalhes || []).map((item) => item.nomeArquivo);
   }
 
   protected async selecionarAnexos(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const arquivos = Array.from(input.files ?? []);
-    this.novoChamado.anexos = arquivos.map((arquivo) => arquivo.name).join(', ');
-    this.novoChamado.anexosDetalhes = await Promise.all(arquivos.map(async (arquivo) => ({
-      nomeArquivo: arquivo.name,
-      tipoConteudo: arquivo.type,
-      tamanhoBytes: arquivo.size,
-      url: await this.arquivoParaDataUrl(arquivo),
-    })));
+    if (!arquivos.length) return;
+    await this.processarArquivosNovoChamado(arquivos);
+    input.value = '';
+  }
+
+  protected onDragOverNovoChamado(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.arrastandoAnexoNovoChamado = true;
+  }
+
+  protected onDragLeaveNovoChamado(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.arrastandoAnexoNovoChamado = false;
+  }
+
+  protected async onDropNovoChamado(event: DragEvent): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    this.arrastandoAnexoNovoChamado = false;
+    const arquivos = Array.from(event.dataTransfer?.files ?? []);
+    if (arquivos.length) {
+      await this.processarArquivosNovoChamado(arquivos);
+    }
+  }
+
+  private async processarArquivosNovoChamado(arquivos: File[]): Promise<void> {
+    const novosDetalhes = await Promise.all(
+      arquivos.map(async (arquivo) => ({
+        nomeArquivo: arquivo.name,
+        tipoConteudo: arquivo.type,
+        tamanhoBytes: arquivo.size,
+        url: await this.arquivoParaDataUrl(arquivo),
+      }))
+    );
+
+    const existentes = this.novoChamado.anexosDetalhes || [];
+    const mesclados = [...existentes, ...novosDetalhes];
+    this.novoChamado.anexosDetalhes = mesclados;
+    this.novoChamado.anexos = mesclados.map((item) => item.nomeArquivo).join(', ');
+  }
+
+  protected removerAnexoNovoChamado(index: number): void {
+    const detalhes = (this.novoChamado.anexosDetalhes || []).slice();
+    detalhes.splice(index, 1);
+    this.novoChamado.anexosDetalhes = detalhes;
+    this.novoChamado.anexos = detalhes.map((item) => item.nomeArquivo).join(', ');
+  }
+
+  protected formatarTamanhoBytes(bytes?: number): string {
+    if (!bytes || bytes <= 0) return '0 KB';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   protected enviarMensagem(): void {
@@ -498,7 +914,7 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
         chamadoId: this.chamadoSelecionado.id,
         autor: this.usuarioAtualNome,
         expires: Date.now() + 2200,
-      }),
+      })
     );
   }
 
@@ -541,32 +957,6 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
       reader.onerror = () => reject(new Error('Nao foi possivel ler o arquivo.'));
       reader.readAsDataURL(arquivo);
     });
-  }
-
-  private dataChamado(chamado: Chamado): Date | null {
-    const data = Date.parse(chamado.criadoEm ?? chamado.atualizadoEm ?? '');
-    return Number.isFinite(data) ? new Date(data) : null;
-  }
-
-  private dataIsoSemanaAtual(): { inicio: string; fim: string } {
-    const hoje = new Date();
-    const diaSemana = hoje.getDay() || 7;
-    const inicio = new Date(hoje);
-    inicio.setDate(hoje.getDate() - diaSemana + 1);
-    const fim = new Date(inicio);
-    fim.setDate(inicio.getDate() + 6);
-
-    return {
-      inicio: this.dataParaInput(inicio),
-      fim: this.dataParaInput(fim),
-    };
-  }
-
-  private dataParaInput(data: Date): string {
-    const ano = data.getFullYear();
-    const mes = String(data.getMonth() + 1).padStart(2, '0');
-    const dia = String(data.getDate()).padStart(2, '0');
-    return `${ano}-${mes}-${dia}`;
   }
 
   protected publicarComunicado(): void {
@@ -667,15 +1057,15 @@ export class ChamadosPage implements AfterViewChecked, OnChanges, OnDestroy {
   }
 
   private movimentoPermitido(statusAtual: Chamado['status'], statusDestino: Chamado['status']): boolean {
-    if (statusAtual === 'Encerrado') {
+    if (statusAtual === 'Encerrado' || statusAtual === 'Cancelado') {
       return false;
     }
 
-    const fluxo: Chamado['status'][] = ['Aberto', 'Em atendimento', 'Aguardando retorno', 'Encerrado'];
+    const fluxo: Chamado['status'][] = ['Aberto', 'Em atendimento', 'Aguardando retorno', 'Encerrado', 'Cancelado'];
     const indiceAtual = fluxo.indexOf(statusAtual);
     const indiceDestino = fluxo.indexOf(statusDestino);
 
-    return indiceDestino < indiceAtual || indiceDestino === indiceAtual + 1;
+    return indiceDestino >= 0;
   }
 
   private sincronizarCategoriaSelecionada(): void {
