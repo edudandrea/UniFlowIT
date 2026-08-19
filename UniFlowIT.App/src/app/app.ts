@@ -3750,7 +3750,7 @@ export class App implements OnInit, OnDestroy {
 
   private baixarInstaladorUniFlowItAgent(): void {
     const link = document.createElement('a');
-    link.href = `${this.apiUrl}/agent/installer/windows`;
+    link.href = 'https://downloads.uniflowtech.com.br/agent/latest/UniFlowIT-Agent-Setup.exe';
     link.download = 'UniFlowIT-Agent-Setup-1.0.9.exe';
     link.rel = 'noopener';
     document.body.appendChild(link);

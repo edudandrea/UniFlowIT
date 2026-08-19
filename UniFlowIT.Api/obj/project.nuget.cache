@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "GJI0aB12w28=",
+  "dgSpecHash": "+P5r7xbgNY0=",
   "success": true,
-  "projectFilePath": "D:\\Dev\\UniFlowIT\\UniFlowIT.Api\\UniFlowIT.Api.csproj",
+  "projectFilePath": "D:\\Dev\\UniFlowIT\\uniflowit.api\\UniFlowIT.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Eduardo\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Eduardo\\.nuget\\packages\\microsoft.build.framework\\18.0.2\\microsoft.build.framework.18.0.2.nupkg.sha512",
