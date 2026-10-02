@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Compile Include="../../UniFlowIT.Agent/AgentEnrollment.cs" Link="AgentEnrollment.cs" />
+    <Compile Include="../../UniFlowIT.Agent/AgentConfig.cs" Link="AgentConfig.cs" />
+    <Compile Include="../../UniFlowIT.Api/Services/AuthTokenService.cs" Link="AuthTokenService.cs" />
+    <Compile Include="../../UniFlowIT.Api/Services/AgentCompanyScope.cs" Link="AgentCompanyScope.cs" />
+    <Compile Include="../../UniFlowIT.Api/Services/PasswordService.cs" Link="PasswordService.cs" />
+    <Compile Include="../../UniFlowIT.Api/Models/Users.cs" Link="Users.cs" />
+    <Compile Include="../../UniFlowIT.Api/Models/Empresa.cs" Link="Empresa.cs" />
+  </ItemGroup>
+</Project>

@@ -45,8 +45,11 @@ namespace UniFlowIT.Api.Data
                 entity.Property(item => item.Login).HasMaxLength(80).IsRequired();
                 entity.Property(item => item.Email).HasMaxLength(160).IsRequired();
                 entity.Property(item => item.Role).HasMaxLength(40).IsRequired();
+                entity.Property(item => item.Telefone).HasMaxLength(30).IsRequired();
+                entity.Property(item => item.Ramal).HasMaxLength(20).IsRequired();
                 entity.HasIndex(item => item.Login).IsUnique();
                 entity.HasIndex(item => item.Email).IsUnique();
+                entity.HasIndex(item => item.AgentEnrollmentHash).IsUnique();
                 entity.HasOne(item => item.Empresa)
                     .WithMany()
                     .HasForeignKey(item => item.EmpresaId)

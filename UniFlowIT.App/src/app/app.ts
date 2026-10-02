@@ -1373,6 +1373,29 @@ export class App implements OnInit, OnDestroy {
     this.empresaTab.set('detalhes');
   }
 
+  protected async baixarAgenteEmpresa(): Promise<void> {
+    const empresaId = this.sessao()?.empresaId;
+    if (this.perfil() !== 'Administrador' || !empresaId) return;
+    try {
+      const response = await this.apiFetch(`${this.apiUrl}/agent/empresas/${empresaId}/instalador`, { method: 'POST' });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(error?.message ?? 'Nao foi possivel gerar a instalacao para esta empresa.');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Instalar-UniFlowIT-Empresa-${empresaId}.ps1`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      this.toastr.info('Execute o arquivo PowerShell no computador do usuario. Apos a instalacao, o agente solicitara o cadastro. Gere um arquivo para cada usuario; valido por 7 dias.', 'Instalacao do agente');
+    } catch (error) {
+      this.toastr.error(error instanceof Error ? error.message : 'Nao foi possivel gerar a instalacao para esta empresa.', 'Agente');
+    }
+  }
+
   protected editarEmpresa(): void {
     const empresa = this.empresaSelecionada();
     if (!empresa) {
@@ -3603,9 +3626,7 @@ export class App implements OnInit, OnDestroy {
       try {
         await this.aguardarAgentDisponivel(5000);
       } catch {
-        this.toastr.info('Baixando UniFlowIT Agent. Abra o instalador uma vez para concluir a instalacao silenciosa.', 'Agente de equipamento');
-        this.baixarInstaladorUniFlowItAgent();
-        void this.aguardarInstalacaoERegistrarAgent(sessao);
+        this.toastr.info('Solicite ao administrador o agente vinculado a sua empresa, disponivel no menu Baixar agente da empresa.', 'Agente de equipamento');
         return;
       }
     }
@@ -3748,25 +3769,34 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  private baixarInstaladorUniFlowItAgent(): void {
-    const link = document.createElement('a');
-    link.href = 'https://downloads.uniflowtech.com.br/agent/latest/UniFlowIT-Agent-Setup.exe';
-    link.download = 'UniFlowIT-Agent-Setup-1.0.9.exe';
-    link.rel = 'noopener';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
-
   private async abrirRustDesk(rustDeskId: string, password = ''): Promise<void> {
+    const sessao = this.sessao();
+    if (!sessao?.empresaId || this.perfil() === 'AdministradorSaas') return;
     try {
-      const response = await this.fetchComTimeout(`${this.agentUrl}/remote`, 2500, {
+      const approval = await this.apiFetch(`${this.apiUrl}/agent/acesso-remoto`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresaId: sessao.empresaId, rustDeskId }),
+      });
+      if (!approval.ok) throw new Error('Equipamento nao autorizado para esta empresa.');
+      const target = await approval.json() as { rustDeskId: string; password: string };
+      rustDeskId = target.rustDeskId;
+      password = target.password;
+    } catch {
+      this.toastr.error('Nao foi possivel autorizar o acesso remoto ao equipamento desta empresa.', 'Acesso remoto');
+      return;
+    }
+    try {
+      const response = await this.fetchComTimeout(`${this.agentUrl}/remote`, 12000, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rustDeskId, password }),
+        body: JSON.stringify({ rustDeskId, token: sessao.token }),
       });
 
       if (response.ok) {
+        return;
+      }
+      if (response.status === 401 || response.status === 403) {
+        this.toastr.error('O agente ou o equipamento pertence a outra empresa. Acesso bloqueado.', 'Acesso remoto');
         return;
       }
     } catch {

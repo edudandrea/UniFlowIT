@@ -39,6 +39,11 @@ catch (Exception error)
 }
 
 _ = Task.Run(() => SyncLoopAsync(config, syncLock, cts.Token), cts.Token);
+if (!string.IsNullOrWhiteSpace(config.EnrollmentToken))
+{
+    try { Process.Start(new ProcessStartInfo { FileName = "http://127.0.0.1:17891/cadastro", UseShellExecute = true }); }
+    catch { AgentStore.Log("Abra http://127.0.0.1:17891/cadastro para concluir seu cadastro."); }
+}
 
 while (!cts.IsCancellationRequested)
 {
@@ -59,6 +64,7 @@ static async Task HandleAsync(HttpListenerContext context, AgentConfig config, S
 
     try
     {
+        if (await AgentEnrollment.HandleAsync(context, config, syncLock, cancellationToken)) return;
         if (context.Request.Url?.AbsolutePath == "/health")
         {
             var installedFromRegistry = AgentStore.IsInstalledInWindows();
@@ -79,6 +85,15 @@ static async Task HandleAsync(HttpListenerContext context, AgentConfig config, S
             var request = await JsonSerializer.DeserializeAsync<RegisterRequest>(context.Request.InputStream, JsonOptions.Default, cancellationToken);
             if (request is not null)
             {
+                if (!string.IsNullOrWhiteSpace(config.EnrollmentToken)
+                    || config.EmpresaId.HasValue && (request.EmpresaId != config.EmpresaId
+                        || !string.IsNullOrWhiteSpace(request.ApiUrl) && !string.Equals(request.ApiUrl.TrimEnd('/'), config.ApiUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+                    || config.UsuarioId.HasValue && (request.UsuarioId != config.UsuarioId || request.EmpresaId != config.EmpresaId))
+                {
+                    context.Response.StatusCode = 409;
+                    await WriteJsonAsync(context.Response, new { message = "O agente pertence ao usuario cadastrado. Conclua o cadastro e utilize esse acesso." });
+                    return;
+                }
                 config.ApiUrl = string.IsNullOrWhiteSpace(request.ApiUrl) ? config.ApiUrl : request.ApiUrl;
                 config.Token = string.IsNullOrWhiteSpace(request.Token) ? config.Token : request.Token;
                 config.EmpresaId = request.EmpresaId;
@@ -94,8 +109,25 @@ static async Task HandleAsync(HttpListenerContext context, AgentConfig config, S
         if (context.Request.Url?.AbsolutePath == "/remote" && context.Request.HttpMethod == "POST")
         {
             var request = await JsonSerializer.DeserializeAsync<RemoteRequest>(context.Request.InputStream, JsonOptions.Default, cancellationToken);
-            var password = string.IsNullOrWhiteSpace(request?.Password) ? config.RustDeskPassword : request.Password;
-            OpenRustDesk(request?.RustDeskId ?? string.Empty, password);
+            if (request is null || string.IsNullOrWhiteSpace(request.Token) || !config.EmpresaId.HasValue)
+            {
+                context.Response.StatusCode = 403;
+                await WriteJsonAsync(context.Response, new { message = "Acesso remoto exige agente vinculado a empresa e sessao autenticada." });
+                return;
+            }
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", request.Token);
+            using var approval = await http.PostAsJsonAsync($"{config.ApiUrl.TrimEnd('/')}/agent/acesso-remoto",
+                new { empresaId = config.EmpresaId, request.RustDeskId }, cancellationToken);
+            if (!approval.IsSuccessStatusCode)
+            {
+                context.Response.StatusCode = (int)approval.StatusCode;
+                await WriteJsonAsync(context.Response, new { message = "Equipamento nao autorizado para esta empresa." });
+                return;
+            }
+            var target = await approval.Content.ReadFromJsonAsync<RemoteTarget>(cancellationToken);
+            if (target is null) throw new InvalidOperationException("Autorizacao remota invalida.");
+            OpenRustDesk(target.RustDeskId, target.Password);
             await WriteJsonAsync(context.Response, new { ok = true });
             return;
         }
@@ -226,7 +258,8 @@ static async Task WriteJsonAsync(HttpListenerResponse response, object value)
 }
 
 internal sealed record RegisterRequest(string ApiUrl, string Token, int? EmpresaId, int? UsuarioId, string? UsuarioNome);
-internal sealed record RemoteRequest(string RustDeskId, string? Password);
+internal sealed record RemoteRequest(string RustDeskId, string? Token);
+internal sealed record RemoteTarget(string RustDeskId, string Password);
 internal sealed record AgentEquipmentSyncResponse(bool Created, AgentEquipmentResponse? Equipamento);
 internal sealed record AgentEquipmentResponse(int Id, string Patrimonio, string Hostname);
 
@@ -456,7 +489,9 @@ internal static class AgentStore
     public static void Save(AgentConfig config)
     {
         Directory.CreateDirectory(DirectoryPath);
-        File.WriteAllText(ConfigPath, JsonSerializer.Serialize(config, JsonOptions.Default));
+        var pendingPath = ConfigPath + ".pending";
+        File.WriteAllText(pendingPath, JsonSerializer.Serialize(config, JsonOptions.Default));
+        File.Move(pendingPath, ConfigPath, overwrite: true);
     }
 
     public static void Log(string message)
@@ -503,6 +538,7 @@ internal static class AgentStore
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(config.EnrollmentToken) || config.UsuarioId.HasValue) return;
         var query = ParseQuery(uri.Query);
         config.ApiUrl = query.GetValueOrDefault("apiUrl") ?? config.ApiUrl;
         config.Token = query.GetValueOrDefault("token") ?? config.Token;

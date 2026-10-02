@@ -41,6 +41,11 @@
 
       <div class="sidebar-scrollable-content">
         <nav class="nav">
+          @if (perfil() === 'Administrador' && sessao()?.empresaId) {
+            <button type="button" class="nav-equipamentos" (click)="baixarAgenteEmpresa()">
+              <span class="nav-icon" aria-hidden="true"></span><span>Baixar agente da empresa</span>
+            </button>
+          }
           @if (perfil() === 'AdministradorSaas') {
             <button type="button" class="nav-dashboard" [class.active]="paginaAtiva() === 'saas-dashboard'" (click)="navegar('saas-dashboard')">
               <span class="nav-icon" aria-hidden="true"></span><span>Dashboard SaaS</span>
@@ -101,7 +106,6 @@
                 </button>
                 <div class="nav-children" [class.open]="cadastroAberto()">
                   <button type="button" [class.active]="paginaAtiva() === 'cadastro-empresas'" (click)="navegar('cadastro-empresas')">Empresas</button>
-                  <button type="button" [class.active]="paginaAtiva() === 'cadastro-usuarios'" (click)="navegar('cadastro-usuarios')">Usuarios</button>
                   <button type="button" [class.active]="paginaAtiva() === 'cadastro-categorias'" (click)="navegar('cadastro-categorias')">Categorias</button>
                 </div>
               </div>

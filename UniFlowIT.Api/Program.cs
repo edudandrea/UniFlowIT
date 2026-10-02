@@ -77,6 +77,7 @@ app.Use(async (context, next) =>
         || context.Request.Path.StartsWithSegments("/api/auth/criar-administrador-saas")
         || context.Request.Path.StartsWithSegments("/api/agent/installer")
         || context.Request.Path.StartsWithSegments("/api/agent/download")
+        || context.Request.Path.Equals("/api/agent/cadastro-usuario")
         || context.Request.Path.StartsWithSegments("/api/equipamentos/publico"))
     {
         await next();
@@ -98,6 +99,7 @@ app.Use(async (context, next) =>
         .AnyAsync(user => user.Id == session.UserId
             && user.Email == session.Email
             && user.Role == session.Role
+            && user.EmpresaId == session.EmpresaId
             && user.Ativo
             && (user.Empresa == null || user.Empresa.Ativo && !user.Empresa.AcessoBloqueado));
 
@@ -168,6 +170,93 @@ app.MapPost("/api/auth/login", async (AppDbContext db, AuthTokenService tokenSer
     }
 
     return Results.Ok(CriarAuthResponse(usuario, tokenService));
+});
+
+app.MapPost("/api/agent/empresas/{empresaId:int}/instalador", async (int empresaId, AppDbContext db, HttpContext http, AuthTokenService tokens, IWebHostEnvironment env) =>
+{
+    var auth = Auth(http);
+    if (!AgentCompanyScope.CanDownload(auth, empresaId)) return Results.StatusCode(403);
+    var empresa = await db.Empresas.FindAsync(empresaId);
+    if (empresa is null || !empresa.Ativo || empresa.AcessoBloqueado)
+        return Results.BadRequest(new { message = "Empresa indisponivel para cadastro." });
+    if (FindAgentInstaller(env.ContentRootPath) is null || FindAgentPackage(env.ContentRootPath) is null)
+        return Results.Json(new { message = "Publique o instalador e o pacote do agente antes de gerar a instalacao." }, statusCode: 503);
+    var actor = await db.Users.FindAsync(auth.UserId);
+    var enrollmentToken = tokens.CreateEnrollment(actor!, empresaId, empresa.EmpresaContratanteId ?? empresa.Id);
+    var apiBase = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}/api";
+    // Quote literals for PowerShell; the enrollment credential grants only one common-user registration.
+    var apiLiteral = apiBase.Replace("'", "''");
+    var script = $$"""
+    $ErrorActionPreference = 'Stop'
+    $apiBase = '{{apiLiteral}}'
+    $setupPath = Join-Path $env:TEMP ('UniFlowIT-Setup-' + [guid]::NewGuid() + '.exe')
+    Invoke-WebRequest -Uri "$apiBase/agent/installer/windows" -OutFile $setupPath
+    Start-Process -FilePath $setupPath -ArgumentList '--apiBase', $apiBase, '--empresaId', '{{empresaId}}', '--enrollmentToken', '{{enrollmentToken}}' -Wait
+    """;
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(script), "application/octet-stream", $"Instalar-UniFlowIT-Empresa-{empresaId}.ps1");
+});
+
+app.MapPost("/api/agent/cadastro-usuario", async (AppDbContext db, HttpContext http, AuthTokenService tokens, AgentUserRegistration request) =>
+{
+    var bearer = http.Request.Headers.Authorization.ToString();
+    if (!bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+        || !tokens.TryValidate(bearer[7..].Trim(), out var enrollment)
+        || enrollment.Role != "AgentEnrollment" || !enrollment.EmpresaId.HasValue)
+        return Results.Unauthorized();
+    var actor = await db.Users.Include(user => user.Empresa).FirstOrDefaultAsync(user => user.Id == enrollment.UserId);
+    if (actor is null || !actor.Ativo || actor.Email != enrollment.Email
+        || actor.Role != "Administrador" || actor.EmpresaId != enrollment.EmpresaId
+        || actor.Empresa is { Ativo: false } || actor.Empresa?.AcessoBloqueado == true)
+        return Results.StatusCode(403);
+    var empresa = await db.Empresas.FindAsync(enrollment.EmpresaId.Value);
+    if (empresa is null || !AgentCompanyScope.MatchesEnrollment(enrollment, empresa)) return Results.StatusCode(403);
+    var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(request.Nome) || request.Nome.Trim().Length > 160
+        || !EmailValido(email) || email.Length > 80
+        || string.IsNullOrWhiteSpace(request.Telefone) || request.Telefone.Trim().Length > 30
+        || !request.Telefone.Any(char.IsDigit)
+        || string.IsNullOrWhiteSpace(request.Ramal) || request.Ramal.Trim().Length > 20)
+        return Results.BadRequest(new { message = "Informe nome, e-mail, telefone de contato e ramal validos." });
+    if (!PasswordService.IsStrong(request.Senha))
+        return Results.BadRequest(new { message = "A senha deve ter no minimo 8 caracteres, letra maiuscula, numero e caractere especial." });
+    var tokenHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(bearer[7..].Trim())));
+    var existing = await db.Users.Include(user => user.Empresa).FirstOrDefaultAsync(user => user.AgentEnrollmentHash == tokenHash);
+    if (existing is not null)
+    {
+        if (!existing.Ativo || existing.Role != "Usuario" || existing.EmpresaId != enrollment.EmpresaId
+            || existing.Email != email || !PasswordService.Verify(request.Senha, existing.SenhaHash))
+            return Results.Conflict(new { message = "Este instalador ja foi utilizado. Solicite um novo instalador ao administrador." });
+        return Results.Ok(CriarAuthResponse(existing, tokens));
+    }
+    if (await db.Users.AnyAsync(user => user.Email.ToLower() == email || user.Login == email))
+        return Results.Conflict(new { message = "Ja existe um usuario com este e-mail. Utilize seu acesso existente ou contate o administrador." });
+    var usuario = new Users
+    {
+        EmpresaId = empresa.Id, Empresa = empresa, Nome = request.Nome.Trim(), Email = email, Login = email,
+        Telefone = request.Telefone.Trim(), Ramal = request.Ramal.Trim(),
+        SenhaHash = PasswordService.Hash(request.Senha), Role = "Usuario", Ativo = true, AgentEnrollmentHash = tokenHash
+    };
+    db.Users.Add(usuario);
+    try { await db.SaveChangesAsync(); }
+    catch (DbUpdateException error) when (error.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+    { return Results.Conflict(new { message = "Cadastro ja realizado. Confira o e-mail e tente novamente." }); }
+    return Results.Created($"/api/usuarios/{usuario.Id}", CriarAuthResponse(usuario, tokens));
+});
+
+app.MapPost("/api/agent/acesso-remoto", async (AppDbContext db, HttpContext http, AgentRemoteAccessRequest request) =>
+{
+    var auth = Auth(http);
+    if (!AgentCompanyScope.CanRequestRemote(auth, request.EmpresaId) || string.IsNullOrWhiteSpace(request.RustDeskId))
+        return Results.StatusCode(403);
+    var empresa = await db.Empresas.FindAsync(auth.EmpresaId!.Value);
+    if (empresa is null) return Results.StatusCode(403);
+    var contratanteId = empresa.EmpresaContratanteId ?? empresa.Id;
+    var equipment = await db.InventarioEquipamentos.AsNoTracking().FirstOrDefaultAsync(item =>
+        item.EmpresaId == contratanteId
+        && (item.UnidadeEmpresaId == empresa.Id || item.UnidadeEmpresaId == null && item.EmpresaId == empresa.Id)
+        && item.RustDeskId == request.RustDeskId);
+    return equipment is null ? Results.StatusCode(403)
+        : Results.Ok(new { equipment.RustDeskId, password = equipment.RustDeskPassword });
 });
 
 app.MapGet("/api/empresas", async (AppDbContext db, HttpContext http, int? contratanteId, bool somenteContratantes = false) =>
@@ -364,6 +453,8 @@ app.MapGet("/api/usuarios", async (AppDbContext db, HttpContext http, int? empre
             EmpresaNome = user.Empresa != null ? user.Empresa.Nome : "SaaS",
             Nome = user.Nome,
             Email = user.Email,
+            Telefone = user.Telefone,
+            Ramal = user.Ramal,
             Role = user.Role,
             Ativo = user.Ativo
         })
@@ -1525,21 +1616,28 @@ app.MapPost("/api/agent/equipamento", async (AppDbContext db, HttpContext http, 
     }
 
     var empresaContratanteId = empresaUsuario.EmpresaContratanteId ?? empresaUsuario.Id;
-    var unidadeEmpresaId = request.EmpresaId.HasValue && empresasPermitidas.Contains(request.EmpresaId.Value)
-        ? request.EmpresaId.Value
-        : auth.EmpresaId.Value;
+    if (request.EmpresaId.HasValue && request.EmpresaId != auth.EmpresaId)
+        return Results.StatusCode(403);
+    var unidadeEmpresaId = auth.EmpresaId.Value;
     var unidadeEmpresa = await db.Empresas.FirstOrDefaultAsync(item => item.Id == unidadeEmpresaId);
     var equipamento = request.EquipamentoId.HasValue
         ? await db.InventarioEquipamentos.FirstOrDefaultAsync(item =>
             item.Id == request.EquipamentoId.Value
-            && item.EmpresaId.HasValue
-            && empresasPermitidas.Contains(item.EmpresaId.Value))
+            && item.EmpresaId == empresaContratanteId
+            && item.UnidadeEmpresaId == unidadeEmpresaId
+            && (item.AgentId == agentId || item.AgentId == ""))
         : null;
 
+    if (request.EquipamentoId.HasValue && equipamento is null)
+        return Results.StatusCode(403);
+    if (await db.InventarioEquipamentos.AnyAsync(item => item.AgentId == agentId
+        && (item.EmpresaId != empresaContratanteId || item.UnidadeEmpresaId != unidadeEmpresaId)))
+        return Results.StatusCode(403);
+
     equipamento ??= await db.InventarioEquipamentos.FirstOrDefaultAsync(item =>
-        item.EmpresaId.HasValue
-        && empresasPermitidas.Contains(item.EmpresaId.Value)
-        && (item.AgentId == agentId || item.Patrimonio == patrimonio || item.Hostname == hostname));
+        item.EmpresaId == empresaContratanteId
+        && item.UnidadeEmpresaId == unidadeEmpresaId
+        && (item.AgentId == agentId || item.AgentId == "" && (item.Patrimonio == patrimonio || item.Hostname == hostname)));
     var created = equipamento is null;
 
     if (equipamento is null)

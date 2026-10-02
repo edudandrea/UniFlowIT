@@ -5,7 +5,7 @@ using UniFlowIT.Api.Models;
 
 namespace UniFlowIT.Api.Services
 {
-    public sealed record AuthSession(int UserId, int? EmpresaId, string Nome, string Email, string Role, long ExpiresAt);
+    public sealed record AuthSession(int UserId, int? EmpresaId, string Nome, string Email, string Role, long ExpiresAt, int? EmpresaContratanteId = null);
 
     public sealed class AuthTokenService(IConfiguration configuration, IWebHostEnvironment environment)
     {
@@ -27,6 +27,14 @@ namespace UniFlowIT.Api.Services
             var payload = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(session, JsonOptions));
             var signature = Sign(payload);
             return $"{payload}.{signature}";
+        }
+
+        public string CreateEnrollment(Users actor, int empresaId, int empresaContratanteId)
+        {
+            var session = new AuthSession(actor.Id, empresaId, Guid.NewGuid().ToString("N"), actor.Email, "AgentEnrollment",
+                DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeSeconds(), empresaContratanteId);
+            var payload = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(session, JsonOptions));
+            return $"{payload}.{Sign(payload)}";
         }
 
         public bool TryValidate(string? token, out AuthSession session)

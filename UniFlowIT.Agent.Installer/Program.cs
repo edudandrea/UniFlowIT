@@ -13,6 +13,7 @@ var apiBase = GetArgument(args, "--apiBase")
     ?? Environment.GetEnvironmentVariable("UNIFLOWIT_API_BASE")
     ?? "http://localhost:5151/api";
 var token = GetArgument(args, "--token") ?? string.Empty;
+var enrollmentToken = GetArgument(args, "--enrollmentToken") ?? string.Empty;
 var empresaId = GetArgument(args, "--empresaId") ?? string.Empty;
 var usuarioId = GetArgument(args, "--usuarioId") ?? string.Empty;
 var usuarioNome = GetArgument(args, "--usuarioNome") ?? string.Empty;
@@ -24,12 +25,14 @@ var logPath = Path.Combine(installDir, "install.log");
 
 try
 {
-    await InstallAsync(apiBase.TrimEnd('/'), token, empresaId, usuarioId, usuarioNome, installDir, logPath);
+    await InstallAsync(apiBase.TrimEnd('/'), token, enrollmentToken, empresaId, usuarioId, usuarioNome, installDir, logPath);
     ShowInstallerDialog(
         success: true,
         title: "Instalacao concluida",
         message: "UniFlowIT Agent instalado com sucesso.",
-        details: "A instalacao foi concluida e o equipamento sera sincronizado automaticamente.");
+        details: string.IsNullOrWhiteSpace(enrollmentToken)
+            ? "A instalacao foi concluida e o equipamento sera sincronizado automaticamente."
+            : "Preencha o cadastro aberto pelo agente. Seu e-mail e senha serao usados para acessar os chamados.");
 }
 catch (Exception error)
 {
@@ -41,7 +44,7 @@ catch (Exception error)
         details: $"Detalhe: {error.Message}\nLog: {logPath}");
 }
 
-static async Task InstallAsync(string apiBase, string token, string empresaId, string usuarioId, string usuarioNome, string installDir, string logPath)
+static async Task InstallAsync(string apiBase, string token, string enrollmentToken, string empresaId, string usuarioId, string usuarioNome, string installDir, string logPath)
 {
     var zipPath = Path.Combine(Path.GetTempPath(), "UniFlowIT.Agent.zip");
     var downloadUrl = $"{apiBase}/agent/download/windows";
@@ -79,7 +82,7 @@ static async Task InstallAsync(string apiBase, string token, string empresaId, s
     var uninstallScript = Path.Combine(installDir, "uninstall-agent.ps1");
     var rustDeskPassword = GenerateRustDeskPassword();
     await File.WriteAllTextAsync(uninstallScript, CreateUninstallScript(installDir));
-    await WriteAgentConfigAsync(installDir, apiBase, token, empresaId, usuarioId, usuarioNome, rustDeskPassword);
+    await WriteAgentConfigAsync(installDir, apiBase, token, enrollmentToken, empresaId, usuarioId, usuarioNome, rustDeskPassword);
 
     RegisterStartup(installedExe);
     RegisterProtocol(installedExe);
@@ -90,9 +93,9 @@ static async Task InstallAsync(string apiBase, string token, string empresaId, s
     Log(logPath, "Instalacao concluida com sucesso.");
 }
 
-static async Task WriteAgentConfigAsync(string installDir, string apiBase, string token, string empresaId, string usuarioId, string usuarioNome, string rustDeskPassword)
+static async Task WriteAgentConfigAsync(string installDir, string apiBase, string token, string enrollmentToken, string empresaId, string usuarioId, string usuarioNome, string rustDeskPassword)
 {
-    if (string.IsNullOrWhiteSpace(token))
+    if (string.IsNullOrWhiteSpace(token) && string.IsNullOrWhiteSpace(enrollmentToken))
     {
         return;
     }
@@ -103,6 +106,7 @@ static async Task WriteAgentConfigAsync(string installDir, string apiBase, strin
         agentId = Guid.NewGuid().ToString("N"),
         apiUrl = apiBase,
         token,
+        enrollmentToken,
         empresaId = int.TryParse(empresaId, out var empresa) ? empresa : (int?)null,
         usuarioId = int.TryParse(usuarioId, out var usuario) ? usuario : (int?)null,
         usuarioNome,
